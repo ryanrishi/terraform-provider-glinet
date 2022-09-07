@@ -3,11 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
-
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/ryanrishi/glinet-client-go"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -19,9 +19,7 @@ type scaffoldingProvider struct {
 	// client can contain the upstream provider SDK or HTTP client used to
 	// communicate with the upstream service. Resource and DataSource
 	// implementations can then make calls using this client.
-	//
-	// TODO: If appropriate, implement upstream provider SDK or HTTP client.
-	// client vendorsdk.ExampleClient
+	client *glinet.APIClient
 
 	// configured is set to true at the end of the Configure method.
 	// This can be used in Resource and DataSource implementations to verify
