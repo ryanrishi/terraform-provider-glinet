@@ -13,6 +13,7 @@ import (
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
+	"glinet":      providerserver.NewProtocol6WithError(New("Test")()),
 }
 
 func testAccPreCheck(t *testing.T) {

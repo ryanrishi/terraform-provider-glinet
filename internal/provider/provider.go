@@ -64,6 +64,7 @@ func (p *scaffoldingProvider) GetResources(ctx context.Context) (map[string]prov
 func (p *scaffoldingProvider) GetDataSources(ctx context.Context) (map[string]provider.DataSourceType, diag.Diagnostics) {
 	return map[string]provider.DataSourceType{
 		"scaffolding_example": exampleDataSourceType{},
+		"glinet_router_hello": routerHelloDataSourceType{},
 	}, nil
 }
 

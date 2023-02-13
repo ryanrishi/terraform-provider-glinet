@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -95,4 +96,27 @@ func (d routerHelloDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
+	var api = d.provider.client.RouterApi
+
+	hello, _, err := api.GetRouterHelloExecute(api.GetRouterHello(ctx))
+
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read hello, got error: %s", err))
+		return
+	}
+
+	data := routerHelloDataSourceData{
+		Init:       types.Bool{hello.},
+		Configured: types.Bool{},
+		Connected:  types.Bool{},
+		Version:    types.Bool{},
+		Model:      types.String{},
+		Mac:        types.String{},
+		Type:       types.String{},
+		Code:       types.Int64{},
+	}
+	data.Code = types.Int64{Value: int64(hello.GetCode())}
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
 }
