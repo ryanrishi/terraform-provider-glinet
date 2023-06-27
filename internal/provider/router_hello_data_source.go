@@ -39,39 +39,47 @@ func (d *RouterHelloDataSource) Metadata(ctx context.Context, req datasource.Met
 
 func (d *RouterHelloDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Check router is connected and configured. No login permission required.",
+		Description: "Check router is connected and configured. No login permission required.",
 
 		Attributes: map[string]schema.Attribute{
 			"init": schema.BoolAttribute {
-				MarkdownDescription: "Identifies whether file system initialization complete.",
+				Description: "Identifies whether file system initialization complete.",
+				Computed: true,
 			},
 
 			"configured": schema.BoolAttribute {
-				MarkdownDescription: "Identifies whether the admin password is set.",
+				Description: "Identifies whether the admin password is set.",
+				Computed: true,
 			},
 
 			"connected": schema.BoolAttribute {
-				MarkdownDescription: "Router connection status.",
+				Description: "Router connection status.",
+				Computed: true,
 			},
 
 			"version": schema.StringAttribute{
-				MarkdownDescription: "Current firmware version.",
+				Description: "Current firmware version.",
+				Computed: true,
 			},
 
 			"model": schema.StringAttribute {
-				MarkdownDescription: "Device model.",
+				Description: "Device model.",
+				Computed: true,
 			},
 
 			"mac": schema.StringAttribute {
-				MarkdownDescription: "Device mac.",
+				Description: "Device mac.",
+				Computed: true,
 			},
 
 			"type": schema.StringAttribute {
-				MarkdownDescription: "Whether the device is in mesh mode.",
+				Description: "Whether the device is in mesh mode.",
+				Computed: true,
 			},
 
 			"code": schema.Int64Attribute {
-				MarkdownDescription: "return code.",
+				Description: "return code.",
+				Computed: true,
 			},
 		},
 	}

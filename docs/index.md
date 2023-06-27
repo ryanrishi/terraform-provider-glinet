@@ -13,7 +13,7 @@ description: |-
 ## Example Usage
 
 ```terraform
-provider "scaffolding" {
+provider "glinet" {
   # example configuration here
 }
 ```
@@ -23,4 +23,4 @@ provider "scaffolding" {
 
 ### Optional
 
-- `example` (String) Example provider attribute
+- `endpoint` (String) Example provider attribute

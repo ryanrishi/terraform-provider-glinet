@@ -1,3 +1,2 @@
-data "scaffolding_example" "example" {
-  configurable_attribute = "some-value"
+data "glinet_router_hello" "hello" {
 }

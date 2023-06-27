@@ -1,3 +1,3 @@
-provider "scaffolding" {
+provider "glinet" {
   # example configuration here
 }
