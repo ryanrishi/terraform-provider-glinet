@@ -17,6 +17,16 @@ var _ provider.Provider = &ScaffoldingProvider{}
 
 // ScaffoldingProvider defines the provider implementation.
 type ScaffoldingProvider struct {
+	// client can contain the upstream provider SDK or HTTP client used to
+	// communicate with the upstream service. Resource and DataSource
+	// implementations can then make calls using this client.
+	client *glinet.APIClient
+
+	// configured is set to true at the end of the Configure method.
+	// This can be used in Resource and DataSource implementations to verify
+	// that the provider was previously configured.
+	configured bool
+
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
@@ -64,14 +74,14 @@ func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.Config
 
 func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		// NewExampleResource,
 	}
 }
 
 func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
-		RouterHelloDataSource,
+		// NewExampleDataSource,
+		NewRouterHelloDataSource,
 	}
 }
 

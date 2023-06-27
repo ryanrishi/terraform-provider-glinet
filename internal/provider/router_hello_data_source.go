@@ -4,74 +4,25 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/provider"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/ryanrishi/glinet-client-go"
 )
 
-var _ provider.DataSourceType = routerHelloDataSourceType{}
-var _ datasource.DataSource = routerHelloDataSource{}
+// Ensure provider defined types fully satisfy framework interfaces.
+var _ datasource.DataSource = &RouterHelloDataSource{}
 
-type routerHelloDataSourceType struct{}
-
-func (t routerHelloDataSourceType) NewDataSource(ctx context.Context, p provider.Provider) (datasource.DataSource, diag.Diagnostics) {
-	provider, diags := convertProviderType(p)
-
-	return routerHelloDataSource{
-		provider: provider,
-	}, diags
+func NewRouterHelloDataSource() datasource.DataSource {
+	return &RouterHelloDataSource{}
 }
 
-func (t routerHelloDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		MarkdownDescription: "Check router is connected and configured. No login permission required.",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"init": {
-				MarkdownDescription: "Identifies whether file system initialization complete.",
-				Type:                types.BoolType,
-			},
-
-			"configured": {
-				MarkdownDescription: "Identifies whether the admin password is set.",
-				Type:                types.BoolType,
-			},
-
-			"connected": {
-				MarkdownDescription: "Router connection status.",
-				Type:                types.BoolType,
-			},
-
-			"version": {
-				MarkdownDescription: "Current firmware version.",
-				Type:                types.BoolType,
-			},
-
-			"model": {
-				MarkdownDescription: "Device model.",
-				Type:                types.StringType,
-			},
-
-			"mac": {
-				MarkdownDescription: "Device mac.",
-				Type:                types.StringType,
-			},
-
-			"type": {
-				MarkdownDescription: "Whether the device is in mesh mode.",
-				Type:                types.StringType,
-			},
-
-			"code": {
-				MarkdownDescription: "return code.",
-				Type:                types.Int64Type,
-			},
-		},
-	}, nil
+// RouterHellpDataSource defines the data source implementation.
+type RouterHelloDataSource struct {
+	client *glinet.APIClient
 }
 
-type routerHelloDataSourceData struct {
+type RouterHelloDataSourceModel struct {
 	Init       types.Bool   `tfsdk:"init"`
 	Configured types.Bool   `tfsdk:"configured"`
 	Connected  types.Bool   `tfsdk:"connected"`
@@ -82,21 +33,81 @@ type routerHelloDataSourceData struct {
 	Code       types.Int64  `tfsdk:"code"`
 }
 
-type routerHelloDataSource struct {
-	provider scaffoldingProvider
+func (d *RouterHelloDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_example"
 }
 
-func (d routerHelloDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data routerHelloDataSourceData
+func (d *RouterHelloDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Check router is connected and configured. No login permission required.",
 
-	diags := req.Config.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+		Attributes: map[string]schema.Attribute{
+			"init": schema.BoolAttribute {
+				MarkdownDescription: "Identifies whether file system initialization complete.",
+			},
+
+			"configured": schema.BoolAttribute {
+				MarkdownDescription: "Identifies whether the admin password is set.",
+			},
+
+			"connected": schema.BoolAttribute {
+				MarkdownDescription: "Router connection status.",
+			},
+
+			"version": schema.StringAttribute{
+				MarkdownDescription: "Current firmware version.",
+			},
+
+			"model": schema.StringAttribute {
+				MarkdownDescription: "Device model.",
+			},
+
+			"mac": schema.StringAttribute {
+				MarkdownDescription: "Device mac.",
+			},
+
+			"type": schema.StringAttribute {
+				MarkdownDescription: "Whether the device is in mesh mode.",
+			},
+
+			"code": schema.Int64Attribute {
+				MarkdownDescription: "return code.",
+			},
+		},
+	}
+}
+
+func (d *RouterHelloDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*glinet.APIClient)
+
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+
+		return
+	}
+
+	d.client = client
+}
+
+func (d *RouterHelloDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data RouterHelloDataSourceModel
+
+	// Read Terraform configuration data into the model
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var api = d.provider.client.RouterApi
+	var api = d.client.RouterApi
 
 	hello, _, err := api.GetRouterHelloExecute(api.GetRouterHello(ctx))
 
@@ -105,8 +116,8 @@ func (d routerHelloDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
-	data := routerHelloDataSourceData{
-		Init:       types.Bool{hello.},
+	data = RouterHelloDataSourceModel{
+		Init:       types.Bool{},
 		Configured: types.Bool{},
 		Connected:  types.Bool{},
 		Version:    types.Bool{},
@@ -115,8 +126,12 @@ func (d routerHelloDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		Type:       types.String{},
 		Code:       types.Int64{},
 	}
-	data.Code = types.Int64{Value: int64(hello.GetCode())}
+	data.Code = types.Int64Value(int64(hello.GetCode()))
 
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	// Write logs using the tflog package
+	// Documentation: https://terraform.io/plugin/log
+	tflog.Trace(ctx, "read a data source")
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
