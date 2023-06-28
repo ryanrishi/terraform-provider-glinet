@@ -23,7 +23,7 @@ func NewSystemTimezoneConfigDataSource() datasource.DataSource {
 type systemTimezoneConfigModel struct {
 	Zonename            types.String `tfsdk:"zonename"`
 	TZOffset            types.String `tfsdk:"tzoffset"`
-	AutoTimezoneEnabled types.Bool   `tfsdk:"autotimezone_enabled"`
+	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
 	Localtime           types.Int64  `tfsdk:"localtime"`
 	Timezone            types.String `tfsdk:"timezone"`
 }
