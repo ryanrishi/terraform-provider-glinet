@@ -1,3 +1,4 @@
-provider "scaffolding" {
-  # example configuration here
+provider "glinet" {
+  username = "username"
+  password = "password"
 }
