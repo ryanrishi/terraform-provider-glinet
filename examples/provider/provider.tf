@@ -1,3 +1,4 @@
 provider "glinet" {
-  # example configuration here
+  username = "username"
+  password = "password"
 }

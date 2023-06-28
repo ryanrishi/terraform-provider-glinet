@@ -14,7 +14,8 @@ Interact with GL.iNet.
 
 ```terraform
 provider "glinet" {
-  # example configuration here
+  username = "username"
+  password = "password"
 }
 ```
 
