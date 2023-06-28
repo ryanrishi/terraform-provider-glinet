@@ -159,6 +159,8 @@ github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627222434-94bcf54cfaeb h1:9h
 github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627222434-94bcf54cfaeb/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
 github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627234401-41b4190a1c10 h1:a1Xn1U0xQQqln9HGB62cHIx4LdN6cVqOF/iq1WuzZHk=
 github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627234401-41b4190a1c10/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
+github.com/ryanrishi/glinet-client-go v0.0.4 h1:bj6IjD301G0FLVQpA12baZD8jaPp5l7DYtxRjJDEjMU=
+github.com/ryanrishi/glinet-client-go v0.0.4/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
 github.com/shopspring/decimal v1.2.0/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
