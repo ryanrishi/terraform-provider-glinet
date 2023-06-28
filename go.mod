@@ -8,10 +8,11 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.16.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.3.0
-	github.com/ryanrishi/glinet-client-go v0.0.2
+	github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627234401-41b4190a1c10
 )
 
 require (
+	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/rpc v1.2.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-checkpoint v0.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -65,7 +67,6 @@ require (
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
-	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
