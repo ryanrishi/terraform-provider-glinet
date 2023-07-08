@@ -75,8 +75,13 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+      - name: Start mock server
+        run: docker compose up -d
       - env:
           TF_ACC: "1"
           TF_LOG: "info"
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
+      - name: Stop mock server
+        if: always()
+        run: docker compose down
