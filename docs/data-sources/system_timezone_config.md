@@ -18,6 +18,7 @@ Get the time zone information of the device.
 ### Read-Only
 
 - `auto_timezone_enabled` (Boolean) Whether the device is enabled for automatic time zone.
+- `id` (String) The ID of this resource.
 - `localtime` (Number) The timestamp of the device (Unit: Seconds).
 - `timezone` (String) Time zone of the device.
 - `tzoffset` (String) System time-zone offset.

@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/rpc",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "method": "call",
+          "params": [
+            "AlVv2SolJU3jezHDpreZ5KDm8102f09q",
+            "system",
+            "get_timezone_config"
+          ]
+        },
+        "ignoreArrayOrder": true,
+        "ignoreExtraElements": true
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "system_timezone_config.json"
+  }
+}

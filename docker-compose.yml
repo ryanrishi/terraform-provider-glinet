@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  wiremock:
+    image: wiremock/wiremock:2.32.0
+    container_name: terraform-provider-glinet_wiremock
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./docker/wiremock/stubs:/home/wiremock"
+    command:
+      - "--verbose"

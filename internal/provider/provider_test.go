@@ -12,9 +12,9 @@ const (
 	// such as updating the Makefile and running the testing through that tool.
 	providerConfig = `
 provider "glinet" {
-	host			= "localhost"
+	host        = "localhost:8080"
 	username	= "test"
-	password	= "test"
+	password	= "password"
 }
 `
 )

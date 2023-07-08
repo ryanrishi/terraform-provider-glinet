@@ -12,16 +12,20 @@ func TestAccSystemTimezoneConfigDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: providerConfig + testAccSystemTimezoneConfingDataSourceConfig(0),
+				Config: providerConfig + testAccSystemTimezoneConfigDataSourceConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "code", "0"),
+					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "zonename", "Asia/Shanghai"),
+					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "tzoffset", "+0800"),
+					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "auto_timezone_enabled", "true"),
+					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "localtime", "1643200134"),
+					resource.TestCheckResourceAttr("data.glinet_system_timezone_config.config", "timezone", "CST-8"),
 				),
 			},
 		},
 	})
 }
 
-func testAccSystemTimezoneConfingDataSourceConfig(code int) string {
+func testAccSystemTimezoneConfigDataSourceConfig() string {
 	return `
 data "glinet_system_timezone_config" "config" {}
 `

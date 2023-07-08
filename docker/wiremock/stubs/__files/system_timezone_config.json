@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "zonename": "Asia/Shanghai",
+    "tzoffset": "+0800",
+    "autotimezone_enabled": true,
+    "localtime": 1643200134,
+    "timezone": "CST-8"
+  }
+}
