@@ -10,4 +10,3 @@ services:
       - "./docker/wiremock/stubs:/home/wiremock"
     command:
       - "--verbose"
-
