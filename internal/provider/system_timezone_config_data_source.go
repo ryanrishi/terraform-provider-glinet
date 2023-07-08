@@ -21,6 +21,7 @@ func NewSystemTimezoneConfigDataSource() datasource.DataSource {
 }
 
 type systemTimezoneConfigModel struct {
+	Id                  types.String `tfsdk:"id"`
 	Zonename            types.String `tfsdk:"zonename"`
 	TZOffset            types.String `tfsdk:"tzoffset"`
 	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
@@ -41,6 +42,9 @@ func (d *systemTimezoneConfigDataSource) Schema(_ context.Context, _ datasource.
 	resp.Schema = schema.Schema{
 		Description: "Get the time zone information of the device.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
 			"zonename": schema.StringAttribute{
 				Description: "Time zone name of the device (It will return null when use UTC).",
 				Computed:    true,
@@ -102,6 +106,7 @@ func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasourc
 	}
 
 	state = systemTimezoneConfigModel{
+		Id:                  types.StringValue(config.Timezone),
 		Zonename:            types.StringValue(config.Zonename),
 		TZOffset:            types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),
@@ -114,5 +119,4 @@ func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasourc
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 }
