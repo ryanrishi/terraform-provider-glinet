@@ -153,12 +153,6 @@ github.com/posener/complete v1.2.3/go.mod h1:WZIdtGGp+qx0sLrYKtIRAruyNpv6hFCicSg
 github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
 github.com/russross/blackfriday v1.6.0 h1:KqfZb0pUVN2lYqZUYRddxF4OR8ZMURnJIG5Y3VRLtww=
 github.com/russross/blackfriday v1.6.0/go.mod h1:ti0ldHuxg49ri4ksnFxlkCfN+hvslNlmVHqNRXXJNAY=
-github.com/ryanrishi/glinet-client-go v0.0.3 h1:GpCyBvGYEbmh7mo1pp6kzhJVTypfxtitQXEiUXlnGMc=
-github.com/ryanrishi/glinet-client-go v0.0.3/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
-github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627222434-94bcf54cfaeb h1:9hmzyU46y3Ql0cLOk3qOhn0AjTc/Y5IJuluNIN4JvAc=
-github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627222434-94bcf54cfaeb/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
-github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627234401-41b4190a1c10 h1:a1Xn1U0xQQqln9HGB62cHIx4LdN6cVqOF/iq1WuzZHk=
-github.com/ryanrishi/glinet-client-go v0.0.4-0.20230627234401-41b4190a1c10/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
 github.com/ryanrishi/glinet-client-go v0.0.4 h1:bj6IjD301G0FLVQpA12baZD8jaPp5l7DYtxRjJDEjMU=
 github.com/ryanrishi/glinet-client-go v0.0.4/go.mod h1:RC9zaq3XrH+3176qHS1zoYfWyHrJYAREd8/8WzONCMY=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=

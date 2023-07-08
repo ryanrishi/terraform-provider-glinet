@@ -1,0 +1,9 @@
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "result": {
+    "alg": 1,
+    "salt": "shGzEq91",
+    "nonce": "SGgyhFWf3lFrIpX2BFImBjE1gv2AKPC2"
+  }
+}
