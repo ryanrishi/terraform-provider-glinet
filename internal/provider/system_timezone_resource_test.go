@@ -82,6 +82,7 @@ func timezoneTestRouter(t *testing.T) (string, *glinet.Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	start := time.Now()
 
 	t.Cleanup(func() {
 		ctx := context.Background()
@@ -100,8 +101,10 @@ func timezoneTestRouter(t *testing.T) (string, *glinet.Client) {
 		if restored.Zonename != initial.Zonename || restored.Timezone != initial.Timezone {
 			t.Errorf("restored time zone is %q %q, want %q %q", restored.Zonename, restored.Timezone, initial.Zonename, initial.Timezone)
 		}
-		if drift := time.Since(time.Unix(int64(restored.Timestamp), 0)).Abs(); drift > 10*time.Second {
-			t.Errorf("router clock differs from local clock by %s", drift)
+		routerElapsed := time.Duration(restored.Timestamp-initial.Timestamp) * time.Second
+		localElapsed := time.Since(start)
+		if drift := (routerElapsed - localElapsed).Abs(); drift > 10*time.Second {
+			t.Errorf("router clock moved %s while local clock moved %s", routerElapsed, localElapsed)
 		}
 	})
 
