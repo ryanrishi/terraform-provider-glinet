@@ -114,6 +114,7 @@ One PR in this repository, after the `v0.1.0` tag.
    - Tests use `resource.UnitTest` with `ProtoV6ProviderFactories` and a `glinettest` server.
    - The same test steps run on the real router when `TF_ACC=1` and `GLINET_HOST` are set.
    - Use `statecheck` and `knownvalue` for assertions.
+   - Cover provider configuration errors (no password, login failure) and an API error on a data source read, each through Terraform with `ExpectError`.
 6. Update `README.md` and `CLAUDE.md` to the new commands and test method.
 
 Not in scope: provider functions, ephemeral resources, actions, list resources.
