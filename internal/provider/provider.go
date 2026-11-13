@@ -14,21 +14,17 @@ import (
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-// Ensure GLiNetProvider satisfies various provider interfaces.
+const (
+	defaultHost     = "http://192.168.8.1"
+	defaultUsername = "root"
+)
+
 var _ provider.Provider = &GLiNetProvider{}
 
-// GLiNetProvider defines the provider implementation.
 type GLiNetProvider struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
 	version string
-
-	// clientFactory is used to create clients, can be overridden for testing
-	clientFactory func(host, username string, password []byte) interface{}
 }
 
-// GLiNetProviderModel describes the provider data model.
 type GLiNetProviderModel struct {
 	Host     types.String `tfsdk:"host"`
 	Username types.String `tfsdk:"username"`
@@ -42,19 +38,19 @@ func (p *GLiNetProvider) Metadata(ctx context.Context, req provider.MetadataRequ
 
 func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Interact with GL.iNet.",
+		Description: "Interact with GL.iNet routers that run v4 firmware.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Description: "URI for GL.iNet API. May also be provided via GLINET_HOST environment variable.",
+				Description: "URI for GL.iNet API. May also be provided via GLINET_HOST environment variable. Defaults to `" + defaultHost + "`.",
 				Optional:    true,
 			},
 			"username": schema.StringAttribute{
-				Description: "Username for GL.iNet API. May also be provided via GLINET_USERNAME environment variable.",
-				Required:    true,
+				Description: "Username for GL.iNet API. May also be provided via GLINET_USERNAME environment variable. Defaults to `" + defaultUsername + "`.",
+				Optional:    true,
 			},
 			"password": schema.StringAttribute{
 				Description: "Password for GL.iNet API. May also be provided via GLINET_PASSWORD environment variable.",
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 			},
 		},
@@ -62,128 +58,73 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 }
 
 func (p *GLiNetProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	tflog.Info(ctx, "Configuring GL.iNet client")
-
-	// Retrieve provider data from configuration
 	var config GLiNetProviderModel
-	diags := req.Config.Get(ctx, &config)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// If practitioner provided a configuration value for any of the
-	// attributes, it must be a known value.
-
-	if config.Host.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("host"),
-			"Unknown GL.iNet API Host",
-			"The provider cannot create the GL.iNet API client as there is an unknown configuration value for the GL.iNet API host. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the GLINET_HOST environment variable.",
-		)
-	}
-
-	if config.Username.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("username"),
-			"Unknown GL.iNet API Username",
-			"The provider cannot create the GL.iNet API client as there is an unknown configuration value for the GL.iNet API username. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the GLINET_USERNAME environment variable.",
-		)
-	}
-
-	if config.Password.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("password"),
-			"Unknown GL.iNet API Password",
-			"The provider cannot create the GL.iNet API client as there is an unknown configuration value for the GL.iNet API password. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the GLINET_PASSWORD environment variable.",
-		)
-	}
-
+	checkKnown(resp, config.Host, "host", "GLINET_HOST")
+	checkKnown(resp, config.Username, "username", "GLINET_USERNAME")
+	checkKnown(resp, config.Password, "password", "GLINET_PASSWORD")
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Default values to environment variables, but override
-	// with Terraform configuration value if set.
-
-	host := os.Getenv("GLINET_HOST")
-	username := os.Getenv("GLINET_USERNAME")
-	password := os.Getenv("GLINET_PASSWORD")
-
-	if !config.Host.IsNull() {
-		host = config.Host.ValueString()
-	}
-
-	if !config.Username.IsNull() {
-		username = config.Username.ValueString()
-	}
-
-	if !config.Password.IsNull() {
-		password = config.Password.ValueString()
-	}
-
-	// If any of the expected configurations are missing, return
-	// errors with provider-specific guidance.
-
-	if host == "" {
-		host = "http://192.168.8.1"
-	}
-
-	if username == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("username"),
-			"Missing GL.iNet API Username",
-			"The provider cannot create the GL.iNet API client as there is a missing or empty value for the GL.iNet API username. "+
-				"Set the username value in the configuration or use the GLINET_USERNAME environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
-	}
+	host := valueOrEnv(config.Host, "GLINET_HOST", defaultHost)
+	username := valueOrEnv(config.Username, "GLINET_USERNAME", defaultUsername)
+	password := valueOrEnv(config.Password, "GLINET_PASSWORD", "")
 
 	if password == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("password"),
 			"Missing GL.iNet API Password",
-			"The provider cannot create the GL.iNet API client as there is a missing or empty value for the GL.iNet API password. "+
-				"Set the password value in the configuration or use the GLINET_PASSWORD environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+			"The provider cannot create the GL.iNet API client because the password is missing or empty. "+
+				"Set the password value in the configuration or use the GLINET_PASSWORD environment variable.",
 		)
-	}
-
-	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	ctx = tflog.SetField(ctx, "glinet_host", host)
 	ctx = tflog.SetField(ctx, "glinet_username", username)
-	ctx = tflog.SetField(ctx, "glinet_password", password)
-	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "glinet_password")
-
 	tflog.Debug(ctx, "Creating GL.iNet client")
 
-	// Create a new GL.iNet client using the configuration values
-	var client interface{}
-	if p.clientFactory != nil {
-		client = p.clientFactory(host, username, []byte(password))
-	} else {
-		realClient := glinet.NewClientWithHost(host, username, []byte(password))
-		client = &ClientWrapper{realClient}
-	}
-
-	var data GLiNetProviderModel
-
-	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-
-	if resp.Diagnostics.HasError() {
+	client, err := glinet.NewClientWithHost(host, username, []byte(password))
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create GL.iNet API Client",
+			"The provider cannot log in to the GL.iNet API at "+host+": "+err.Error(),
+		)
 		return
 	}
 
 	resp.DataSourceData = client
 	resp.ResourceData = client
 
-	tflog.Info(ctx, "Configured GL.iNet client", map[string]any{"success": true})
+	tflog.Info(ctx, "Configured GL.iNet client")
+}
+
+func checkKnown(resp *provider.ConfigureResponse, value types.String, attribute, envVar string) {
+	if !value.IsUnknown() {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		path.Root(attribute),
+		"Unknown GL.iNet API "+attribute,
+		"The provider cannot create the GL.iNet API client because the "+attribute+" value is unknown. "+
+			"Either target apply the source of the value first, set the value statically in the configuration, or use the "+envVar+" environment variable.",
+	)
+}
+
+func valueOrEnv(value types.String, envVar, fallback string) string {
+	if v := value.ValueString(); v != "" {
+		return v
+	}
+	if env := os.Getenv(envVar); env != "" {
+		return env
+	}
+	return fallback
 }
 
 func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -200,16 +141,6 @@ func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &GLiNetProvider{
 			version: version,
-		}
-	}
-}
-
-// NewWithClientFactory creates a provider with a custom client factory for testing
-func NewWithClientFactory(version string, clientFactory func(host, username string, password []byte) interface{}) func() provider.Provider {
-	return func() provider.Provider {
-		return &GLiNetProvider{
-			version:       version,
-			clientFactory: clientFactory,
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/ryanrishi/glinet-client-go"
 )
 
 var (
@@ -14,7 +15,6 @@ var (
 	_ datasource.DataSourceWithConfigure = &systemTimezoneConfigDataSource{}
 )
 
-// NewSystemTimezoneConfigDataSource is a helper function to simplify the provider implementation.
 func NewSystemTimezoneConfigDataSource() datasource.DataSource {
 	return &systemTimezoneConfigDataSource{}
 }
@@ -29,14 +29,13 @@ type systemTimezoneConfigModel struct {
 }
 
 type systemTimezoneConfigDataSource struct {
-	client GLiNetClient
+	client *glinet.Client
 }
 
 func (d *systemTimezoneConfigDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_system_timezone_config"
 }
 
-// Schema defines the schema for the datasource.
 func (d *systemTimezoneConfigDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Get the time zone information of the device.",
@@ -73,12 +72,11 @@ func (d *systemTimezoneConfigDataSource) Configure(_ context.Context, req dataso
 		return
 	}
 
-	client, ok := req.ProviderData.(GLiNetClient)
-
+	client, ok := req.ProviderData.(*glinet.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected GLiNetClient, got: %T. Please report this issue to the provider developers.",
+			fmt.Sprintf("Expected *glinet.Client, got: %T. Please report this issue to the provider developers.",
 				req.ProviderData),
 		)
 
@@ -88,23 +86,14 @@ func (d *systemTimezoneConfigDataSource) Configure(_ context.Context, req dataso
 	d.client = client
 }
 
-// Read reads a Linux Bridge interface.
 func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	// Get current state
-	var state systemTimezoneConfigModel
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	config, err := d.client.System().GetTimezoneConfig()
-
+	config, err := d.client.System.GetTimezoneConfig(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read System Timezone Config", err.Error())
 		return
 	}
 
-	state = systemTimezoneConfigModel{
+	state := systemTimezoneConfigModel{
 		Id:                  types.StringValue(config.Timezone),
 		Zonename:            types.StringValue(config.Zonename),
 		TZOffset:            types.StringValue(config.TZOffset),
@@ -113,9 +102,5 @@ func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasourc
 		Timezone:            types.StringValue(config.Timezone),
 	}
 
-	diags := resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

@@ -55,7 +55,7 @@ Not verified: all write methods, and the item fields of lists that were empty on
 
 ## Phase 0: Cleanup
 
-Status: client repository done. Provider repository open.
+Status: done for the two repositories.
 
 Client (done):
 - Old generated code is on the local branch `wip-2025-07-generated` (not pushed). `main` is clean.
@@ -93,6 +93,8 @@ Deferred: `alg` 5 and 6 and `hash_method`. The owner's router does not use them.
 Done: `go build`, `go vet`, `go test` pass; the login and one read call pass on the real router; the owner tags `v0.1.0`.
 
 ## Phase 3: Provider modernization
+
+Status: done on the local branch `modernize` (not pushed). `make lint`, `make generate` (no diff) and `make test` pass locally on Terraform 1.16, 1.17 and OpenTofu 1.13. Open: `make testacc` on the real router (the router was not connected), CI run on GitHub, PR, merge.
 
 One PR in this repository, after the `v0.1.0` tag.
 
