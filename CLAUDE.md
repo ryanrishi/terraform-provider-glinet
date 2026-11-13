@@ -4,107 +4,53 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Terraform provider for managing GL.iNet routers running v4 firmware. The provider allows Terraform to interact with GL.iNet router APIs for configuration management.
+This is a Terraform provider for GL.iNet routers that run v4 firmware. It is published at `registry.terraform.io/ryanrishi/glinet`. `PLAN.md` has the work plan.
 
 ## Development Commands
 
-### Building
 ```bash
-go install
+make build      # go build
+make install    # go install
+make fmt        # gofmt
+make lint       # golangci-lint v2 (.golangci.yml)
+make generate   # terraform fmt on examples/ and tfplugindocs into docs/ (runs in tools/)
+make test       # tests on the fake router, no TF_ACC needed
+make testacc    # TF_ACC=1; with GLINET_HOST set, the data source tests read the real router
 ```
 
-### Testing
-```bash
-# Run acceptance tests (creates real resources)
-make testacc
+Go version: `.tool-versions` and `go.mod`. `make generate` and the tests need `terraform` (or `tofu`) on `PATH`.
 
-# Run with specific test arguments
-TF_ACC=1 go test ./... -v $(TESTARGS) -timeout 120m
-```
-
-### Documentation
-```bash
-# Generate or update documentation
-go generate
-```
-
-### Dependencies
-```bash
-# Add new dependency
-go get github.com/author/dependency
-go mod tidy
-```
+Add a dependency with `go get github.com/author/dependency` and `go mod tidy`. Documentation tools are in the separate module `tools/`.
 
 ## Architecture
 
-### Provider Structure
-- **Provider**: `internal/provider/provider.go` - Main provider implementation using Terraform Plugin Framework
-- **Configuration**: Provider accepts `host`, `username`, and `password` parameters
-- **Environment Variables**: `GLINET_HOST`, `GLINET_USERNAME`, `GLINET_PASSWORD`
-- **Default Host**: `http://192.168.8.1` when not specified
+- `main.go` serves the provider with `providerserver.Serve`.
+- `internal/provider/provider.go`: provider schema and `Configure`.
+  - `host` (default `http://192.168.8.1`), `username` (default `root`), `password` (sensitive). Each one can come from `GLINET_HOST`, `GLINET_USERNAME`, `GLINET_PASSWORD`.
+  - `Configure` calls `glinet.NewClientWithHost`, which logs in. A login error becomes a diagnostic.
+  - Data sources and resources get the `*glinet.Client` from `ProviderData`.
+- Client: `github.com/ryanrishi/glinet-client-go`. Service methods take a `context.Context`. `Client.Call(ctx, module, method, params, result)` calls methods that have no typed method. Router errors are `*glinet.RPCError`. The client logs in again one time on `-32000`.
+- Data sources: `glinet_system_timezone_config` (`system_timezone_config_data_source.go`).
+- Resources: none yet.
 
-### Client Integration
-- Uses `github.com/ryanrishi/glinet-client-go` for API communication
-- Client is configured in the provider's Configure method and passed to data sources/resources
+## Adding Data Sources and Resources
 
-### Current Implementation
-- **Data Sources**: `system_timezone_config_data_source.go`
-- **Resources**: none registered yet
-
-### Testing Infrastructure
-- Uses Terraform Plugin Testing framework
-- Pure Go mocking with `testify/mock` — see Testing Architecture below
-
-### File Structure
-```
-internal/provider/           # Provider implementation
-├── provider.go             # Main provider logic
-├── *_data_source.go        # Data source implementations
-├── *_resource.go           # Resource implementations (future)
-└── *_test.go              # Tests
-
-examples/                   # Example Terraform configurations
-docs/                      # Generated documentation
-tools/tools.go             # Development tools
-```
-
-## Development Notes
-
-### Adding New Data Sources/Resources
-1. Create new file in `internal/provider/`
-2. Implement the respective interface (datasource.DataSource or resource.Resource)
-3. Register in provider.go DataSources() or Resources() method
-4. Add tests and documentation
-
-### Testing Environment
-- Acceptance tests require `TF_ACC=1` environment variable
-- Tests create real resources and may incur costs
-- Unit tests use the `testify/mock` doubles, so they need no router and no `TF_ACC`
+1. Create `internal/provider/<name>_data_source.go` or `<name>_resource.go`.
+2. Register it in `DataSources()` or `Resources()` in `provider.go`.
+3. Add an example in `examples/data-sources/glinet_<name>/data-source.tf` or `examples/resources/glinet_<name>/resource.tf`.
+4. Add tests (see below) and run `make generate`.
 
 ## Testing Architecture
 
-### Pure Go Mocking with testify/mock
-The provider uses a flexible mocking approach where:
-- Tests provide their own data (no hardcoded values in mocks)
-- Call verification ensures mocks are used correctly
-- Scales perfectly for future services (AdGuard, VPN, etc.)
+Tests run Terraform with the provider in the test process:
 
-```go
-// Example test pattern
-mockSystemService := NewMockSystemService()
-mockClient := NewMockGLiNetClient()
+- `resource.UnitTest` with `ProtoV6ProviderFactories` (`testProtoV6ProviderFactories` in `provider_test.go`). No `TF_ACC` needed.
+- The provider connects to a fake router from `github.com/ryanrishi/glinet-client-go/glinettest`: `srv := glinettest.NewServer(t)`, then `fakeRouterConfig(srv)` gives the provider block.
+  - `srv.System`, `srv.AdGuardHome`: module state in memory, which tests can set.
+  - `srv.Handle(module, method, m)`: replace a method, for example to return a `glinettest.Error`.
+  - `srv.ExpireSessions()`: the next call gets `-32000`.
+- Assertions use `ConfigStateChecks` with `statecheck` and `knownvalue`. Error paths use `ExpectError`.
+- `realRouter()` is true when `TF_ACC=1` and `GLINET_HOST` are set. Then read tests use `provider "glinet" {}` (credentials from the environment) and check only types and empty values. Error tests always use the fake router.
+- With OpenTofu: set `TF_ACC_TERRAFORM_PATH`, `TF_ACC_PROVIDER_HOST=registry.opentofu.org`, `TF_ACC_PROVIDER_NAMESPACE=hashicorp`.
 
-// Test configures exactly what it needs
-mockSystemService.On("GetTimezoneConfig").Return(testData, nil)
-mockClient.On("System").Return(mockSystemService)
-
-// Verify calls were made as expected
-mockSystemService.AssertExpectations(t)
-mockClient.AssertExpectations(t)
-```
-
-### Test Coverage
-- **Provider tests**: Schema, metadata, configuration, constructor functions
-- **Data source tests**: Read operations, error handling, schema validation
-- **Interface tests**: Mock implementations, wrapper compliance
-- **Business logic tests**: Different configs, error scenarios, call verification
+CI (`.github/workflows/test.yml`): build and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags.
