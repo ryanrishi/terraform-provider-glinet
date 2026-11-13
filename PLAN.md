@@ -125,7 +125,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resource 1 (`glinet_system_timezone`) is on the local branch `system-timezone`, resource 2 (`glinet_lan_static_lease`) on the local branch `lan-static-lease` (not pushed). They use client `v0.2.0`.
+Status: resources 1 (`glinet_system_timezone`) and 2 (`glinet_lan_static_lease`) are done. They use client `v0.2.0`.
 
 One item at a time. For each item:
 
