@@ -113,6 +113,7 @@ func (r *lanStaticLeaseResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, plan.MAC.ValueString(), &resp.State, &resp.Diagnostics)
 }
 

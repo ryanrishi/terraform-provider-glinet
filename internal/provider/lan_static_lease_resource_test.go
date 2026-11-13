@@ -359,6 +359,42 @@ func TestLANStaticLeaseResourceReadError(t *testing.T) {
 	})
 }
 
+func TestLANStaticLeaseResourceReadErrorAfterCreate(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	failed := false
+	srv.Handle("lan", "get_static_bind_list", func(json.RawMessage) (any, error) {
+		binds := srv.LAN.StaticBinds()
+		if len(binds) > 0 && !failed {
+			failed = true
+			return nil, glinettest.ErrMethodNotFound
+		}
+		return map[string]any{"static_bind_list": binds}, nil
+	})
+	config := fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, "")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile(`(?s)Unable to Read LAN Static Lease.*Method not found`),
+			},
+			{
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(leaseAddress, plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectLease("mac", knownvalue.StringExact(leaseMAC)),
+					expectLease("ip", knownvalue.StringExact(leaseIP)),
+				},
+			},
+		},
+	})
+}
+
 func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
 	srv := glinettest.NewServer(t)
 
