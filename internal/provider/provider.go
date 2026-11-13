@@ -118,8 +118,8 @@ func checkKnown(resp *provider.ConfigureResponse, value types.String, attribute,
 }
 
 func valueOrEnv(value types.String, envVar, fallback string) string {
-	if !value.IsNull() {
-		return value.ValueString()
+	if v := value.ValueString(); v != "" {
+		return v
 	}
 	if env := os.Getenv(envVar); env != "" {
 		return env

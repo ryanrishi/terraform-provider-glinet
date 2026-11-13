@@ -7,8 +7,11 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/ryanrishi/glinet-client-go/glinettest"
 )
 
@@ -71,4 +74,74 @@ provider "glinet" {
 			},
 		},
 	})
+}
+
+func readsTimezoneConfig(config string) resource.TestCase {
+	return resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config + timezoneConfigDataSourceConfig,
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectTimezoneConfig("id", knownvalue.NotNull()),
+				},
+			},
+		},
+	}
+}
+
+func TestProviderConfigFromEnvironment(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	t.Setenv("GLINET_HOST", srv.URL)
+	t.Setenv("GLINET_USERNAME", srv.Username)
+	t.Setenv("GLINET_PASSWORD", srv.Password)
+
+	resource.UnitTest(t, readsTimezoneConfig(`provider "glinet" {}`))
+}
+
+func TestProviderConfigOverridesEnvironment(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	t.Setenv("GLINET_HOST", "http://127.0.0.1:1")
+	t.Setenv("GLINET_USERNAME", "not-"+srv.Username)
+	t.Setenv("GLINET_PASSWORD", "not-"+srv.Password)
+
+	resource.UnitTest(t, readsTimezoneConfig(fakeRouterConfig(srv)))
+}
+
+func TestProviderDefaultUsername(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	srv.Username = defaultUsername
+	t.Setenv("GLINET_USERNAME", "")
+
+	resource.UnitTest(t, readsTimezoneConfig(fmt.Sprintf(`
+provider "glinet" {
+  host     = %q
+  password = %q
+}
+`, srv.URL, srv.Password)))
+}
+
+func TestValueOrEnv(t *testing.T) {
+	const envVar = "GLINET_TEST_VALUE"
+
+	tests := []struct {
+		name  string
+		value types.String
+		env   string
+		want  string
+	}{
+		{"config value", types.StringValue("config"), "env", "config"},
+		{"empty config value", types.StringValue(""), "env", "env"},
+		{"environment", types.StringNull(), "env", "env"},
+		{"fallback", types.StringNull(), "", "fallback"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envVar, tt.env)
+			if got := valueOrEnv(tt.value, envVar, "fallback"); got != tt.want {
+				t.Errorf("valueOrEnv() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
