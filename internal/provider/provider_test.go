@@ -28,7 +28,7 @@ var (
 			// Return a configured mock for acceptance tests
 			mockSystemService := NewMockSystemService()
 			mockClient := NewMockGLiNetClient()
-			
+
 			// Configure default acceptance test expectations
 			mockSystemService.On("GetTimezoneConfig").Return(&glinet.GetSystemTimezoneConfigResponse{
 				Zonename:            "Asia/Shanghai",
@@ -37,7 +37,7 @@ var (
 				Localtime:           1643200134,
 				Timezone:            "CST-8",
 			}, nil)
-			
+
 			mockClient.On("System").Return(mockSystemService)
 			return mockClient
 		})()),

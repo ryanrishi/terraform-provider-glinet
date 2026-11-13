@@ -13,12 +13,12 @@ import (
 
 func TestSystemTimezoneConfigDataSource_Read(t *testing.T) {
 	tests := []struct {
-		name           string
-		mockResponse   *glinet.GetSystemTimezoneConfigResponse
-		mockError      error
-		expectedState  systemTimezoneConfigModel
-		expectedError  bool
-		errorContains  string
+		name          string
+		mockResponse  *glinet.GetSystemTimezoneConfigResponse
+		mockError     error
+		expectedState systemTimezoneConfigModel
+		expectedError bool
+		errorContains string
 	}{
 		{
 			name: "successful read",
@@ -77,19 +77,19 @@ func TestSystemTimezoneConfigDataSource_Read(t *testing.T) {
 			// Create mock services
 			mockSystemService := NewMockSystemService()
 			mockClient := NewMockGLiNetClient()
-			
+
 			// Configure expectations - tests provide all values
 			if tt.expectedError {
 				mockSystemService.On("GetTimezoneConfig").Return((*glinet.GetSystemTimezoneConfigResponse)(nil), tt.mockError)
 			} else {
 				mockSystemService.On("GetTimezoneConfig").Return(tt.mockResponse, nil)
 			}
-			
+
 			mockClient.On("System").Return(mockSystemService)
 
 			// Test the business logic
 			config, err := mockClient.System().GetTimezoneConfig()
-			
+
 			// Check for expected errors
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -123,7 +123,7 @@ func TestSystemTimezoneConfigDataSource_Read(t *testing.T) {
 			assert.Equal(t, tt.expectedState.AutoTimezoneEnabled, state.AutoTimezoneEnabled)
 			assert.Equal(t, tt.expectedState.Localtime, state.Localtime)
 			assert.Equal(t, tt.expectedState.Timezone, state.Timezone)
-			
+
 			// Verify all expected calls were made
 			mockSystemService.AssertExpectations(t)
 			mockClient.AssertExpectations(t)
@@ -133,11 +133,11 @@ func TestSystemTimezoneConfigDataSource_Read(t *testing.T) {
 
 func TestSystemTimezoneConfigDataSource_Configure(t *testing.T) {
 	tests := []struct {
-		name             string
-		providerData     interface{}
-		expectedError    bool
-		errorContains    string
-		expectedClient   GLiNetClient
+		name           string
+		providerData   interface{}
+		expectedError  bool
+		errorContains  string
+		expectedClient GLiNetClient
 	}{
 		{
 			name:           "successful configure with mock client",
@@ -207,15 +207,15 @@ func TestSystemTimezoneConfigDataSource_Configure(t *testing.T) {
 
 func TestSystemTimezoneConfigDataSource_Schema(t *testing.T) {
 	dataSource := &systemTimezoneConfigDataSource{}
-	
+
 	req := datasource.SchemaRequest{}
 	resp := &datasource.SchemaResponse{}
-	
+
 	dataSource.Schema(context.Background(), req, resp)
-	
+
 	// Verify schema is not nil
 	assert.NotNil(t, resp.Schema)
-	
+
 	// Verify required attributes exist
 	attrs := resp.Schema.Attributes
 	assert.Contains(t, attrs, "id")
@@ -224,7 +224,7 @@ func TestSystemTimezoneConfigDataSource_Schema(t *testing.T) {
 	assert.Contains(t, attrs, "auto_timezone_enabled")
 	assert.Contains(t, attrs, "localtime")
 	assert.Contains(t, attrs, "timezone")
-	
+
 	// Verify all attributes are computed
 	assert.True(t, attrs["id"].IsComputed())
 	assert.True(t, attrs["zonename"].IsComputed())
@@ -236,13 +236,13 @@ func TestSystemTimezoneConfigDataSource_Schema(t *testing.T) {
 
 func TestSystemTimezoneConfigDataSource_Metadata(t *testing.T) {
 	dataSource := &systemTimezoneConfigDataSource{}
-	
+
 	req := datasource.MetadataRequest{
 		ProviderTypeName: "glinet",
 	}
 	resp := &datasource.MetadataResponse{}
-	
+
 	dataSource.Metadata(context.Background(), req, resp)
-	
+
 	assert.Equal(t, "glinet_system_timezone_config", resp.TypeName)
 }

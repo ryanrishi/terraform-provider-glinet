@@ -23,7 +23,7 @@ type GLiNetProvider struct {
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
-	
+
 	// clientFactory is used to create clients, can be overridden for testing
 	clientFactory func(host, username string, password []byte) interface{}
 }
