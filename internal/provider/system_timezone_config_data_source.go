@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/ryanrishi/glinet-client-go"
 )
 
 var (
@@ -30,7 +29,7 @@ type systemTimezoneConfigModel struct {
 }
 
 type systemTimezoneConfigDataSource struct {
-	client *glinet.Client
+	client GLiNetClient
 }
 
 func (d *systemTimezoneConfigDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -74,12 +73,12 @@ func (d *systemTimezoneConfigDataSource) Configure(_ context.Context, req dataso
 		return
 	}
 
-	client, ok := req.ProviderData.(*glinet.Client)
+	client, ok := req.ProviderData.(GLiNetClient)
 
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *glinet.Client, got: %T. Please report this issue to the provider developers.",
+			fmt.Sprintf("Expected GLiNetClient, got: %T. Please report this issue to the provider developers.",
 				req.ProviderData),
 		)
 
@@ -98,7 +97,7 @@ func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasourc
 		return
 	}
 
-	config, err := d.client.System.GetTimezoneConfig()
+	config, err := d.client.System().GetTimezoneConfig()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read System Timezone Config", err.Error())

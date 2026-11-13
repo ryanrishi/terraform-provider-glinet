@@ -23,6 +23,9 @@ type GLiNetProvider struct {
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
+
+	// clientFactory is used to create clients, can be overridden for testing
+	clientFactory func(host, username string, password []byte) interface{}
 }
 
 // GLiNetProviderModel describes the provider data model.
@@ -161,7 +164,13 @@ func (p *GLiNetProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	tflog.Debug(ctx, "Creating GL.iNet client")
 
 	// Create a new GL.iNet client using the configuration values
-	client := glinet.NewClientWithHost(host, username, []byte(password))
+	var client interface{}
+	if p.clientFactory != nil {
+		client = p.clientFactory(host, username, []byte(password))
+	} else {
+		realClient := glinet.NewClientWithHost(host, username, []byte(password))
+		client = &ClientWrapper{realClient}
+	}
 
 	var data GLiNetProviderModel
 
@@ -191,6 +200,16 @@ func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &GLiNetProvider{
 			version: version,
+		}
+	}
+}
+
+// NewWithClientFactory creates a provider with a custom client factory for testing
+func NewWithClientFactory(version string, clientFactory func(host, username string, password []byte) interface{}) func() provider.Provider {
+	return func() provider.Provider {
+		return &GLiNetProvider{
+			version:       version,
+			clientFactory: clientFactory,
 		}
 	}
 }
