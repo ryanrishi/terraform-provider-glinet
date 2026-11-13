@@ -125,6 +125,8 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
+Status: resource 1 (`glinet_system_timezone`) is on the local branch `system-timezone` (not pushed). It uses client `v0.2.0`.
+
 One item at a time. For each item:
 
 | Step | Repository | Content |
