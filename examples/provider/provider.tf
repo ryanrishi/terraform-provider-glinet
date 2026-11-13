@@ -1,4 +1,5 @@
 provider "glinet" {
-  username = "username"
+  host     = "http://192.168.8.1"
+  username = "root"
   password = "password"
 }
