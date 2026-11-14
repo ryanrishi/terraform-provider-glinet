@@ -29,12 +29,12 @@ type systemStatusModel struct {
 	GuestNetmask    string                     `tfsdk:"guest_netmask"`
 	Uptime          float64                    `tfsdk:"uptime"`
 	LoadAverage     []float64                  `tfsdk:"load_average"`
-	MemoryTotal     int                        `tfsdk:"memory_total"`
-	MemoryFree      int                        `tfsdk:"memory_free"`
-	MemoryBuffCache int                        `tfsdk:"memory_buff_cache"`
-	FlashTotal      int                        `tfsdk:"flash_total"`
-	FlashFree       int                        `tfsdk:"flash_free"`
-	FlashApp        int                        `tfsdk:"flash_app"`
+	MemoryTotal     int64                      `tfsdk:"memory_total"`
+	MemoryFree      int64                      `tfsdk:"memory_free"`
+	MemoryBuffCache int64                      `tfsdk:"memory_buff_cache"`
+	FlashTotal      int64                      `tfsdk:"flash_total"`
+	FlashFree       int64                      `tfsdk:"flash_free"`
+	FlashApp        int64                      `tfsdk:"flash_app"`
 	CPUTemperature  types.Int64                `tfsdk:"cpu_temperature"`
 	DDNSEnabled     bool                       `tfsdk:"ddns_enabled"`
 	IPv6Enabled     bool                       `tfsdk:"ipv6_enabled"`
