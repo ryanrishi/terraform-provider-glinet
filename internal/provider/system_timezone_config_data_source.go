@@ -82,7 +82,7 @@ func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasourc
 		Zonename:            types.StringValue(config.Zonename),
 		TZOffset:            types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),
-		Localtime:           types.Int64Value(int64(config.Localtime)),
+		Localtime:           types.Int64Value(config.Localtime),
 		Timezone:            types.StringValue(config.Timezone),
 	}
 
