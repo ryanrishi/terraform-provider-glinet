@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`) and 13 (`glinet_led_schedule`). The provider uses client `v0.5.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`) and 14 (`glinet_reboot_schedule`). The provider uses client `v0.5.0`.
 
 One item at a time. For each item:
 
@@ -173,6 +173,7 @@ The client session can be one or two items ahead of the provider session.
 | 11 | `glinet_wireguard_client_config` | `wg-client.get_config_list`, `add_config`, `set_config`, `remove_config` | CRUD in a group | Works on 4.7.0. Not expected to work on 4.9.0 (`vpn-client`). |
 | 12 | `glinet_led` | `led.get_config`, `set_config` | singleton | Import ID `led`. |
 | 13 | `glinet_led_schedule` | `timer.get_led`, `set_led` | singleton | Times `HH:MM`, days a set of 0 (Sunday) to 6. The router keeps times and days only from an enabled write, so a disabled apply writes the schedule enabled and then disables it. Import ID `led_schedule`. |
+| 14 | `glinet_reboot_schedule` | `timer.get_reboot`, `set_reboot` | singleton | A disabled apply writes only `enable: false`; the router keeps its time and days, and the state keeps the configured ones while the router reports the schedule as disabled. The enabled write is not verified on the router; real-router tests send only `enable: false` through a guard proxy. Import ID `reboot_schedule`. |
 
 ### Data sources
 
@@ -187,7 +188,7 @@ The existing `glinet_system_timezone_config` data source stays.
 
 ### Deferred
 
-OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, schedules.
+OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, Wi-Fi schedule.
 
 ## Conventions for resources
 
