@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -133,4 +135,9 @@ func expectJSONEqual(t *testing.T, got json.RawMessage, want string) {
 	if g, w := canonicalJSON(t, string(got)), canonicalJSON(t, want); g != w {
 		t.Errorf("router result is %s, want %s", g, w)
 	}
+}
+
+// wrapped returns a pattern for the text s in an error message, which Terraform can wrap at each space.
+func wrapped(s string) string {
+	return strings.ReplaceAll(regexp.QuoteMeta(s), " ", `\s+`)
 }
