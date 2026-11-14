@@ -150,6 +150,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewClientBlockResource,
 		NewDDNSResource,
 		NewTailscaleResource,
+		NewZeroTierResource,
 	}
 }
 
