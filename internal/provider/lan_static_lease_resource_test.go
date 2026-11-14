@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
@@ -407,6 +408,54 @@ func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
 				ImportState:   true,
 				ImportStateId: leaseMAC,
 				ExpectError:   regexp.MustCompile(`Cannot import non-existent remote object`),
+			},
+		},
+	})
+}
+
+// TestLANStaticLeaseResourceParallelSameIP creates two leases with the same IP address in one apply.
+// The router would remove the first lease when it adds the second one.
+func TestLANStaticLeaseResourceParallelSameIP(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	srv.Handle("lan", "get_static_bind_list", func(json.RawMessage) (any, error) {
+		res := map[string]any{"static_bind_list": srv.LAN.StaticBinds()}
+		time.Sleep(20 * time.Millisecond)
+		return res, nil
+	})
+	first := glinettest.StaticBind{MAC: leaseMAC, IP: leaseIP}
+	second := glinettest.StaticBind{MAC: otherMAC, IP: leaseIP}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy: func(*terraform.State) error {
+			if got := srv.LAN.StaticBinds(); len(got) != 0 {
+				return fmt.Errorf("router static leases are %v, want none", got)
+			}
+			return nil
+		},
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + fmt.Sprintf(`
+resource "glinet_lan_static_lease" "first" {
+  mac = %q
+  ip  = %q
+}
+
+resource "glinet_lan_static_lease" "second" {
+  mac = %q
+  ip  = %q
+}
+`, first.MAC, first.IP, second.MAC, second.IP),
+				ExpectError: regexp.MustCompile(`IP Address Already Has a LAN Static Lease`),
+			},
+			{
+				PreConfig: func() {
+					got := srv.LAN.StaticBinds()
+					if len(got) != 1 || (got[0] != first && got[0] != second) {
+						t.Errorf("static leases are %v, want %v or %v", got, first, second)
+					}
+				},
+				Config: fakeRouterConfig(srv),
 			},
 		},
 	})

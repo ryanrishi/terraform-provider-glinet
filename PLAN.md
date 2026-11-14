@@ -44,7 +44,15 @@ The dependency goes in one direction. Each item is client work first, then provi
 - `wg-server.get_status` nests the server fields in `server{}`.
 - `network.get_dhcp_leases`, `network.routes`, `network.routes6` do not exist on 4.7.0.
 
-Not verified: all write methods, and the item fields of lists that were empty on the router (port forwards, firewall rules, static leases, WireGuard server peers).
+Firewall port forwards (write test, client `v0.3.0`):
+- Item fields: `id`, `name`, `proto`, `src`, `src_dport`, `dest`, `dest_ip`, `dest_port` are strings; `enabled` is a JSON bool. Ports can be a range such as `"50004-50005"`. `proto` is `tcp`, `udp` or `tcp udp`. A field with no value has no key.
+- The ID is the position of the section in the firewall configuration (`cfg` + hex index + `3837`). When a forward is removed, each later forward gets a new ID. Add appends at the end. Set keeps the position and the ID.
+- The router does not check values and accepts duplicates.
+- `set_port_forward` with an unknown ID returns success and changes nothing. Set without `name` removes the name.
+- `remove_port_forward` returns HTTP 500 (not a JSON-RPC error) for an unknown ID and for a forward with no `dest_port`.
+- Add without `enabled` gives `true`.
+
+Not verified: write methods other than `system.set_timezone_config`, the `lan` static bind methods and the port forward methods; the item fields of lists that were empty on the router (firewall rules, WireGuard server peers).
 
 ## Test router
 
@@ -125,7 +133,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 (`glinet_system_timezone`) and 2 (`glinet_lan_static_lease`) are done. They use client `v0.2.0`.
+Status: resources 1 (`glinet_system_timezone`) and 2 (`glinet_lan_static_lease`) are done. Resource 3 (`glinet_firewall_port_forward`) is done on the branch `firewall-port-forward` (not merged). The provider uses client `v0.3.0`.
 
 One item at a time. For each item:
 
@@ -143,7 +151,7 @@ The client session can be one or two items ahead of the provider session.
 |---|---|---|---|---|
 | 1 | `glinet_system_timezone` | `system.get_timezone_config`, `set_timezone_config` | singleton | Proves the singleton pattern. |
 | 2 | `glinet_lan_static_lease` | `lan.get_static_bind_list`, `add_static_bind`, `set_static_bind`, `remove_static_bind` | CRUD, ID is the MAC | Proves the CRUD pattern. |
-| 3 | `glinet_firewall_port_forward` | `firewall.*_port_forward*` | CRUD, ID from the router | |
+| 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `external_zone` + `protocol` + `external_port` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Attribute names follow the labels of the web UI, except `name` (Description in the UI). Import ID `<external_zone>/<protocol>/<external_port>`, with `tcp+udp` for `tcp udp`. |
 | 4 | `glinet_firewall_rule` | `firewall.*_rule*` | CRUD, ID from the router | |
 | 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | |
 | 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. |

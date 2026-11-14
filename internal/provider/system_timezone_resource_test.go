@@ -34,46 +34,11 @@ func expectTimezone(attribute string, value knownvalue.Check) statecheck.StateCh
 	return statecheck.ExpectKnownValue(timezoneAddress, tfjsonpath.New(attribute), value)
 }
 
-// tzOffsets are the offsets that routerLikeTimezoneSet gives for each POSIX TZ string.
-var tzOffsets = map[string]string{
-	"UTC0":                   "+0000",
-	"EST5EDT,M3.2.0,M11.1.0": "-0500",
-	"JST-9":                  "+0900",
-	"IST-5:30":               "+0530",
-}
-
-// routerLikeTimezoneSet makes set_timezone_config of srv also change tzoffset, as the router does.
-// The test fails if the provider sends localtime, because the router then changes its clock.
-func routerLikeTimezoneSet(t *testing.T, srv *glinettest.Server) {
-	srv.Handle("system", "set_timezone_config", func(params json.RawMessage) (any, error) {
-		var p struct {
-			Zonename  string `json:"zonename"`
-			Timezone  string `json:"timezone"`
-			Localtime *int64 `json:"localtime"`
-		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, glinettest.ErrInvalidParams
-		}
-		if p.Localtime != nil {
-			t.Errorf("set_timezone_config got localtime %d", *p.Localtime)
-		}
-
-		c := srv.System.TimezoneConfig()
-		c.Zonename = p.Zonename
-		c.Timezone = p.Timezone
-		c.TZOffset = tzOffsets[p.Timezone]
-		srv.System.SetTimezoneConfig(c)
-
-		return json.RawMessage(`[]`), nil
-	})
-}
-
 // timezoneTestRouter returns the provider block and a client for the router of the test.
 // On the real router, the time zone configuration goes back to its initial value when the test ends.
 func timezoneTestRouter(t *testing.T) (string, *glinet.Client) {
 	if !realRouter() {
 		srv := glinettest.NewServer(t)
-		routerLikeTimezoneSet(t, srv)
 		return fakeRouterConfig(srv), testClient(t, srv.URL, srv.Username, srv.Password)
 	}
 
@@ -177,7 +142,6 @@ func TestSystemTimezoneResource(t *testing.T) {
 
 func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
 	srv := glinettest.NewServer(t)
-	routerLikeTimezoneSet(t, srv)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -199,7 +163,6 @@ func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
 
 func TestSystemTimezoneResourceDrift(t *testing.T) {
 	srv := glinettest.NewServer(t)
-	routerLikeTimezoneSet(t, srv)
 	config := fakeRouterConfig(srv) + timezoneConfig("Asia/Tokyo", "JST-9")
 
 	resource.UnitTest(t, resource.TestCase{
@@ -233,22 +196,31 @@ func TestSystemTimezoneResourceDrift(t *testing.T) {
 	})
 }
 
+// TestSystemTimezoneResourceTimestampUnchanged proves that create and update do not send localtime,
+// because the fake router, like the router, sets its clock from localtime.
 func TestSystemTimezoneResourceTimestampUnchanged(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	before := srv.System.TimezoneConfig().Timestamp
+	expectTimestampUnchanged := func(*terraform.State) error {
+		if after := srv.System.TimezoneConfig().Timestamp; after != before {
+			return fmt.Errorf("router timestamp changed from %d to %d", before, after)
+		}
+		return nil
+	}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: fakeRouterConfig(srv) + timezoneConfig("Asia/Tokyo", "JST-9"),
+				Check:  expectTimestampUnchanged,
+			},
+			{
+				Config: fakeRouterConfig(srv) + timezoneConfig("Asia/Kolkata", "IST-5:30"),
+				Check:  expectTimestampUnchanged,
 			},
 		},
 	})
-
-	if after := srv.System.TimezoneConfig().Timestamp; after != before {
-		t.Errorf("router timestamp changed from %d to %d", before, after)
-	}
 }
 
 func TestSystemTimezoneResourceImportInvalidID(t *testing.T) {

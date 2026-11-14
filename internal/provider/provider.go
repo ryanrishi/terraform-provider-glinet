@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -21,6 +22,12 @@ const (
 )
 
 var _ provider.Provider = &GLiNetProvider{}
+
+// routerWrites serializes the sequences of resources that read the router, check or find, then write.
+// Terraform runs resource operations in parallel, and a write by one operation can make the read of another one stale.
+// One lock for all routers is enough: two provider configurations for the same router get separate clients,
+// and the writes are few and short.
+var routerWrites sync.Mutex
 
 type GLiNetProvider struct {
 	version string
@@ -132,6 +139,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewSystemTimezoneResource,
 		NewLANStaticLeaseResource,
+		NewFirewallPortForwardResource,
 	}
 }
 

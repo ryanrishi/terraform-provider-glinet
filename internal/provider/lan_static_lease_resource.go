@@ -87,6 +87,9 @@ func (r *lanStaticLeaseResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	routerWrites.Lock()
+	defer routerWrites.Unlock()
+
 	binds, err := r.client.LAN.ListStaticBinds(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read LAN Static Leases", err.Error())
@@ -143,6 +146,9 @@ func (r *lanStaticLeaseResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	routerWrites.Lock()
+	defer routerWrites.Unlock()
 
 	binds, err := r.client.LAN.ListStaticBinds(ctx)
 	if err != nil {
