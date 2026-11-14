@@ -104,6 +104,7 @@ func ddnsTestRouter(t *testing.T) (string, *glinet.Client) {
 
 // TestDDNSResource enables DDNS and destroys the resource, which disables DDNS. It also runs on the real router.
 func TestDDNSResource(t *testing.T) {
+	parallel(t)
 	provider, client := ddnsTestRouter(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -126,6 +127,7 @@ func TestDDNSResource(t *testing.T) {
 }
 
 func TestDDNSResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	deviceID := srv.DDNS.Config().DeviceID
@@ -156,6 +158,7 @@ func TestDDNSResourceUpdate(t *testing.T) {
 }
 
 func TestDDNSResourceDestroyDisabled(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 
@@ -172,6 +175,7 @@ func TestDDNSResourceDestroyDisabled(t *testing.T) {
 }
 
 func TestDDNSResourceImport(t *testing.T) {
+	parallel(t)
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("enabled %t", enabled), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -200,6 +204,7 @@ func TestDDNSResourceImport(t *testing.T) {
 }
 
 func TestDDNSResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -217,6 +222,7 @@ func TestDDNSResourceImportInvalidID(t *testing.T) {
 }
 
 func TestDDNSResourceDrift(t *testing.T) {
+	parallel(t)
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("enabled %t", enabled), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -243,6 +249,7 @@ func TestDDNSResourceDrift(t *testing.T) {
 }
 
 func TestDDNSResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.DDNS.Config()
 
@@ -271,6 +278,7 @@ resource "glinet_ddns" "test" {
 }
 
 func TestDDNSResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	t.Run("get after set", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		failFirstCall(srv, "ddns", "get_config")
@@ -389,6 +397,7 @@ func TestDDNSResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowDDNS(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

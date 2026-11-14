@@ -132,6 +132,7 @@ func zeroTierTestRouter(t *testing.T) (string, *glinet.Client) {
 // TestZeroTierResource enables ZeroTier with the made-up network ID testNetworkID and no access, and destroys
 // the resource, which disables ZeroTier. It also runs on the real router.
 func TestZeroTierResource(t *testing.T) {
+	parallel(t)
 	provider, client := zeroTierTestRouter(t)
 	enabled := zeroTier{enabled: true, networkID: testNetworkID}
 
@@ -157,6 +158,7 @@ func TestZeroTierResource(t *testing.T) {
 // TestZeroTierResourceUpdate changes each attribute. While ZeroTier is disabled, the router keeps the values of
 // the last enabled write, and the state keeps the configured ones.
 func TestZeroTierResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	steps := []struct {
@@ -198,6 +200,7 @@ func TestZeroTierResourceUpdate(t *testing.T) {
 // TestZeroTierResourceDisabledCreate creates a disabled resource on a router that has another network ID.
 // The router keeps its ID and access until ZeroTier is enabled.
 func TestZeroTierResourceDisabledCreate(t *testing.T) {
+	parallel(t)
 	for _, routerEnabled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("router enabled %t", routerEnabled), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -233,6 +236,7 @@ func TestZeroTierResourceDisabledCreate(t *testing.T) {
 }
 
 func TestZeroTierResourceImport(t *testing.T) {
+	parallel(t)
 	for _, existing := range []zeroTier{
 		{enabled: true, networkID: testNetworkID, lan: true},
 		{enabled: false, networkID: testNetworkID, wan: true},
@@ -266,6 +270,7 @@ func TestZeroTierResourceImport(t *testing.T) {
 // TestZeroTierResourceImportNoNetworkID imports from a router that never had a network ID.
 // The next apply writes the configured values to the state, and the router keeps no ID while ZeroTier is disabled.
 func TestZeroTierResourceImportNoNetworkID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	c := zeroTier{networkID: testNetworkID}
@@ -296,6 +301,7 @@ func TestZeroTierResourceImportNoNetworkID(t *testing.T) {
 }
 
 func TestZeroTierResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -313,6 +319,7 @@ func TestZeroTierResourceImportInvalidID(t *testing.T) {
 }
 
 func TestZeroTierResourceDrift(t *testing.T) {
+	parallel(t)
 	enabled := zeroTier{enabled: true, networkID: testNetworkID, lan: true}
 	disabled := zeroTier{networkID: testNetworkID, lan: true}
 
@@ -357,6 +364,7 @@ func TestZeroTierResourceDrift(t *testing.T) {
 // TestZeroTierResourceDisabledDriftNotCompared changes the stored values of a router with ZeroTier disabled.
 // The provider does not compare them while ZeroTier is disabled, and writes the configured ones at the next enable.
 func TestZeroTierResourceDisabledDriftNotCompared(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	disabled := zeroTier{networkID: testNetworkID}
@@ -385,6 +393,7 @@ func TestZeroTierResourceDisabledDriftNotCompared(t *testing.T) {
 }
 
 func TestZeroTierResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.ZeroTier.Config()
 
@@ -426,6 +435,7 @@ func TestZeroTierResourceInvalidConfig(t *testing.T) {
 }
 
 func TestZeroTierResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	c := zeroTier{enabled: true, networkID: testNetworkID, lan: true}
 
 	t.Run("get after set", func(t *testing.T) {
@@ -525,6 +535,7 @@ func TestZeroTierResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowZeroTierTestNetwork(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

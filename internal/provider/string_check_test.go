@@ -11,6 +11,7 @@ import (
 )
 
 func TestStringCheckSensitive(t *testing.T) {
+	parallel(t)
 	for _, sensitive := range []bool{false, true} {
 		check := stringCheck{description: "must be valid", valid: func(string) bool { return false }, sensitive: sensitive}
 		resp := &validator.StringResponse{}
@@ -30,6 +31,7 @@ func TestStringCheckSensitive(t *testing.T) {
 }
 
 func TestValidWifiKeyRejectsDEL(t *testing.T) {
+	parallel(t)
 	if validWifiKey("passwor\x7f") {
 		t.Error("a key with the DEL character is accepted")
 	}
@@ -39,6 +41,7 @@ func TestValidWifiKeyRejectsDEL(t *testing.T) {
 }
 
 func TestLeaseSecondsOverflow(t *testing.T) {
+	parallel(t)
 	for _, s := range []string{"307445734561825863m", "9223372036854775807h"} {
 		if _, ok := leaseSeconds(s); ok {
 			t.Errorf("leaseSeconds(%q) is accepted", s)

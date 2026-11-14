@@ -173,6 +173,7 @@ var (
 // TestLANConfigResource takes over the guest network and changes each attribute. Each step checks which of
 // the two writes are sent, with which params.
 func TestLANConfigResource(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
 
@@ -255,6 +256,7 @@ func TestLANConfigResource(t *testing.T) {
 
 // TestLANConfigResourceLeaseTime compares lease times by duration.
 func TestLANConfigResourceLeaseTime(t *testing.T) {
+	parallel(t)
 	t.Run("12h configured, 720m returned", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		calls := recordCalls(t, srv, "lan", "set_config")
@@ -344,6 +346,7 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 
 // TestLANConfigResourceBothNetworks applies the lan and the guest network in one apply.
 func TestLANConfigResourceBothNetworks(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
 	guest := guestDHCP
@@ -370,6 +373,7 @@ func TestLANConfigResourceBothNetworks(t *testing.T) {
 // TestLANConfigResourceLANAddressChange changes the address of the lan network. On a real router, the provider
 // then loses its connection; the fake router stays at its URL, so the test proves only the calls.
 func TestLANConfigResourceLANAddressChange(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
 	moved := lanDefault
@@ -397,6 +401,7 @@ func TestLANConfigResourceLANAddressChange(t *testing.T) {
 
 // TestLANConfigResourceLPR sends back the lpr values of the router in a DHCP write.
 func TestLANConfigResourceLPR(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	setLANItem(t, srv, "lan", map[string]any{"lpr": []string{"lpr-1"}})
 	calls := recordCalls(t, srv, "lan", "set_config")
@@ -414,6 +419,7 @@ func TestLANConfigResourceLPR(t *testing.T) {
 }
 
 func TestLANConfigResourceImport(t *testing.T) {
+	parallel(t)
 	for _, c := range []lanConfig{lanDefault, guestDisabled} {
 		t.Run(c.iface, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -443,6 +449,7 @@ func TestLANConfigResourceImport(t *testing.T) {
 }
 
 func TestLANConfigResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	for _, id := range []string{"wan", "LAN", "guest5g"} {
@@ -475,6 +482,7 @@ func mustJSON(t *testing.T, v any) string {
 }
 
 func TestLANConfigResourceUnknownInterface(t *testing.T) {
+	parallel(t)
 	t.Run("import", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		withoutGuest(t, srv)
@@ -532,6 +540,7 @@ func TestLANConfigResourceUnknownInterface(t *testing.T) {
 }
 
 func TestLANConfigResourceDrift(t *testing.T) {
+	parallel(t)
 	withDNS := guestDHCP
 	withDNS.gateway, withDNS.dns = "192.168.9.2", []string{"1.1.1.1"}
 
@@ -614,6 +623,7 @@ func dhcpCall(c lanConfig) []string {
 
 // TestLANConfigResourceDestroy destroys the resource, which leaves the router unchanged.
 func TestLANConfigResourceDestroy(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
 	applied := saveRouterJSON(srv.LAN.ConfigList)
@@ -631,6 +641,7 @@ func TestLANConfigResourceDestroy(t *testing.T) {
 }
 
 func TestLANConfigResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.LAN.ConfigList()
 	calls := recordCalls(t, srv, "lan", "set_config")
@@ -708,6 +719,7 @@ func TestLANConfigResourceInvalidConfig(t *testing.T) {
 
 // TestLANConfigResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
 func TestLANConfigResourceUnknownValues(t *testing.T) {
+	parallel(t)
 	const resourceBlock = `
 resource "glinet_lan_config" "test" {
   interface    = "guest"
@@ -791,6 +803,7 @@ variable "start" { default = null }
 }
 
 func TestLANConfigResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	config := guestDHCP.config()
 
 	t.Run("get after set", func(t *testing.T) {

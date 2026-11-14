@@ -107,6 +107,7 @@ func expectRouterLease(client *glinet.Client, mac string, want *glinet.StaticBin
 }
 
 func TestLANStaticLeaseResource(t *testing.T) {
+	parallel(t)
 	provider, client := leaseTestRouter(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -162,6 +163,7 @@ func TestLANStaticLeaseResource(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, "test-lease")
 
@@ -209,6 +211,7 @@ func TestLANStaticLeaseResourceDrift(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceDeleteKeepsOtherLeases(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	other := glinettest.StaticBind{MAC: otherMAC, IP: otherIP, Name: "other"}
 	srv.LAN.SetStaticBinds([]glinettest.StaticBind{other})
@@ -228,6 +231,7 @@ func TestLANStaticLeaseResourceDeleteKeepsOtherLeases(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceMACExists(t *testing.T) {
+	parallel(t)
 	for _, mac := range []string{"02:00:00:00:00:0a", "02:00:00:00:00:0A"} {
 		t.Run(mac, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -252,6 +256,7 @@ func TestLANStaticLeaseResourceMACExists(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceCreateIPInUse(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	existing := []glinettest.StaticBind{{MAC: otherMAC, IP: leaseIP}}
 	srv.LAN.SetStaticBinds(existing)
@@ -272,6 +277,7 @@ func TestLANStaticLeaseResourceCreateIPInUse(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceUpdateIPInUse(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	other := glinettest.StaticBind{MAC: otherMAC, IP: otherIP}
 
@@ -297,6 +303,7 @@ func TestLANStaticLeaseResourceUpdateIPInUse(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	tests := []struct {
@@ -330,6 +337,7 @@ resource "glinet_lan_static_lease" "test" {
 }
 
 func TestLANStaticLeaseResourceRouterError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -344,6 +352,7 @@ func TestLANStaticLeaseResourceRouterError(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceReadError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("lan", "get_static_bind_list", func(json.RawMessage) (any, error) {
 		return nil, glinettest.ErrMethodNotFound
@@ -361,6 +370,7 @@ func TestLANStaticLeaseResourceReadError(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceReadErrorAfterCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	failed := false
 	srv.Handle("lan", "get_static_bind_list", func(json.RawMessage) (any, error) {
@@ -397,6 +407,7 @@ func TestLANStaticLeaseResourceReadErrorAfterCreate(t *testing.T) {
 }
 
 func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -416,6 +427,7 @@ func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
 // TestLANStaticLeaseResourceParallelSameIP creates two leases with the same IP address in one apply.
 // The router would remove the first lease when it adds the second one.
 func TestLANStaticLeaseResourceParallelSameIP(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("lan", "get_static_bind_list", func(json.RawMessage) (any, error) {
 		res := map[string]any{"static_bind_list": srv.LAN.StaticBinds()}

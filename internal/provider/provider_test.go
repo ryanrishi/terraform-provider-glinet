@@ -37,6 +37,14 @@ func realRouter() bool {
 	return os.Getenv(resource.EnvTfAcc) != "" && os.Getenv("GLINET_HOST") != ""
 }
 
+// parallel runs t in parallel with the other parallel tests on fake routers.
+// On the real router each test runs alone, because the tests change one device.
+func parallel(t *testing.T) {
+	if !realRouter() {
+		t.Parallel()
+	}
+}
+
 func providerConfig(host, username, password string) string {
 	return fmt.Sprintf(`
 provider "glinet" {
@@ -234,6 +242,7 @@ data "glinet_system_timezone_config" "test" {}
 `
 
 func TestProviderWrongPassword(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -353,6 +362,7 @@ func TestGuardedRealRouter(t *testing.T) {
 }
 
 func TestCheckRequest(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		body  string
 		allow bool

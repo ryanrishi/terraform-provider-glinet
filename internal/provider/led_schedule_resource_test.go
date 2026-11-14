@@ -150,6 +150,7 @@ func ledScheduleTestRouter(t *testing.T) (string, *glinet.Client) {
 }
 
 func TestLEDScheduleResource(t *testing.T) {
+	parallel(t)
 	provider, client := ledScheduleTestRouter(t)
 	enabled := ledSchedule{enabled: true, on: "08:30", off: "21:15", days: []int{1, 3, 5}}
 	disabled := ledSchedule{enabled: false, on: "06:45", off: "23:00", days: []int{0, 6}}
@@ -184,6 +185,7 @@ func TestLEDScheduleResource(t *testing.T) {
 }
 
 func TestLEDScheduleResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 
@@ -224,6 +226,7 @@ func TestLEDScheduleResourceUpdate(t *testing.T) {
 // TestLEDScheduleResourceDisabledCreate creates a disabled schedule with other values than the router has.
 // The router then has the configured values, so the next plan is empty.
 func TestLEDScheduleResourceDisabledCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	s := ledSchedule{enabled: false, on: "09:10", off: "20:40", days: []int{2, 4}}
@@ -266,6 +269,7 @@ func TestLEDScheduleResourceDisabledCreate(t *testing.T) {
 }
 
 func TestLEDScheduleResourceSortedDays(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	s := ledSchedule{enabled: true, on: "07:00", off: "22:00", days: []int{6, 0, 3}}
 
@@ -281,6 +285,7 @@ func TestLEDScheduleResourceSortedDays(t *testing.T) {
 }
 
 func TestLEDScheduleResourceImport(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name   string
 		router glinet.LEDSchedule
@@ -332,6 +337,7 @@ func TestLEDScheduleResourceImport(t *testing.T) {
 }
 
 func TestLEDScheduleResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -349,6 +355,7 @@ func TestLEDScheduleResourceImportInvalidID(t *testing.T) {
 }
 
 func TestLEDScheduleResourceDrift(t *testing.T) {
+	parallel(t)
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("enabled %t", enabled), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -397,6 +404,7 @@ func TestLEDScheduleResourceDrift(t *testing.T) {
 }
 
 func TestLEDScheduleResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Timer.LEDSchedule()
 
@@ -437,6 +445,7 @@ func TestLEDScheduleResourceInvalidConfig(t *testing.T) {
 }
 
 func TestLEDScheduleResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	s := ledSchedule{enabled: false, on: "08:00", off: "21:00", days: []int{1}}
 
 	t.Run("get after set", func(t *testing.T) {

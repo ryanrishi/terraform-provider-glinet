@@ -123,6 +123,7 @@ func rebootScheduleTestRouter(t *testing.T) (string, *glinet.Client, glinet.Rebo
 
 // TestRebootScheduleResource uses only disabled schedules, because it also runs on the real router.
 func TestRebootScheduleResource(t *testing.T) {
+	parallel(t)
 	provider, client, initial := rebootScheduleTestRouter(t)
 	other := rebootSchedule{enabled: false, time: "04:30", days: []int{2, 5}}
 	current := rebootSchedule{enabled: false, time: joinClock(initial.Hour, initial.Min), days: initial.Week}
@@ -157,6 +158,7 @@ func TestRebootScheduleResource(t *testing.T) {
 }
 
 func TestRebootScheduleResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	enabled := rebootSchedule{enabled: true, time: "02:15", days: []int{0, 3}}
@@ -201,6 +203,7 @@ func TestRebootScheduleResourceUpdate(t *testing.T) {
 }
 
 func TestRebootScheduleResourceWrites(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	var (
 		mu     sync.Mutex
@@ -234,6 +237,7 @@ func TestRebootScheduleResourceWrites(t *testing.T) {
 }
 
 func TestRebootScheduleResourceImport(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name   string
 		router glinet.RebootSchedule
@@ -290,6 +294,7 @@ func TestRebootScheduleResourceImport(t *testing.T) {
 // TestRebootScheduleResourceImportDisabledOtherValues imports a disabled schedule with other times and days than the
 // configuration. The update keeps the schedule disabled and stores the configured values in the state.
 func TestRebootScheduleResourceImportDisabledOtherValues(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	router := glinet.RebootSchedule(srv.Timer.RebootSchedule())
 	want := rebootSchedule{enabled: false, time: "23:30", days: []int{5}}
@@ -320,6 +325,7 @@ func TestRebootScheduleResourceImportDisabledOtherValues(t *testing.T) {
 }
 
 func TestRebootScheduleResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -337,6 +343,7 @@ func TestRebootScheduleResourceImportInvalidID(t *testing.T) {
 }
 
 func TestRebootScheduleResourceDrift(t *testing.T) {
+	parallel(t)
 	t.Run("enabled", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		client := testClient(t, srv.URL, srv.Username, srv.Password)
@@ -411,6 +418,7 @@ func TestRebootScheduleResourceDrift(t *testing.T) {
 }
 
 func TestRebootScheduleResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Timer.RebootSchedule()
 
@@ -447,6 +455,7 @@ func TestRebootScheduleResourceInvalidConfig(t *testing.T) {
 }
 
 func TestRebootScheduleResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	s := rebootSchedule{enabled: true, time: "04:00", days: []int{1}}
 
 	t.Run("get after set", func(t *testing.T) {
@@ -532,6 +541,7 @@ func TestRebootScheduleResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowRebootScheduleDisabled(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

@@ -136,6 +136,7 @@ func tailscaleTestRouter(t *testing.T) (string, *glinet.Client, glinet.Tailscale
 // TestTailscaleResource enables Tailscale with no access and destroys the resource, which disables Tailscale.
 // It also runs on the real router.
 func TestTailscaleResource(t *testing.T) {
+	parallel(t)
 	provider, client, initial := tailscaleTestRouter(t)
 	enabled := tailscale{enabled: true}
 
@@ -159,6 +160,7 @@ func TestTailscaleResource(t *testing.T) {
 }
 
 func TestTailscaleResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	configs := []tailscale{
@@ -200,6 +202,7 @@ func TestTailscaleResourceUpdate(t *testing.T) {
 
 // TestTailscaleResourceExplicitDefaults configures lan_enabled and wan_enabled = false, which equals the defaults.
 func TestTailscaleResourceExplicitDefaults(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	config := fakeRouterConfig(srv) + `
@@ -227,6 +230,7 @@ resource "glinet_tailscale" "test" {
 }
 
 func TestTailscaleResourceImport(t *testing.T) {
+	parallel(t)
 	for _, existing := range []tailscale{
 		{},
 		{enabled: true, lan: true, exitNode: exitNodeIP},
@@ -259,6 +263,7 @@ func TestTailscaleResourceImport(t *testing.T) {
 }
 
 func TestTailscaleResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -276,6 +281,7 @@ func TestTailscaleResourceImportInvalidID(t *testing.T) {
 }
 
 func TestTailscaleResourceDrift(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name         string
 		want, router tailscale
@@ -318,6 +324,7 @@ func TestTailscaleResourceDrift(t *testing.T) {
 // TestTailscaleResourceDisabledWithNullVariable uses a variable for exit_node_ip. Terraform validates the
 // configuration before it knows the value of the variable.
 func TestTailscaleResourceDisabledWithNullVariable(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 
@@ -345,6 +352,7 @@ resource "glinet_tailscale" "test" {
 
 // TestTailscaleResourceLANIPChanged changes the LAN subnet of the router, which changes lan_ip without a plan.
 func TestTailscaleResourceLANIPChanged(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	c := tailscale{enabled: true}
 	config := fakeRouterConfig(srv) + c.config()
@@ -368,6 +376,7 @@ func TestTailscaleResourceLANIPChanged(t *testing.T) {
 }
 
 func TestTailscaleResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Tailscale.Config()
 
@@ -415,6 +424,7 @@ func TestTailscaleResourceInvalidConfig(t *testing.T) {
 }
 
 func TestTailscaleResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	c := tailscale{enabled: true, lan: true}
 
 	t.Run("get after set", func(t *testing.T) {
@@ -513,6 +523,7 @@ func TestTailscaleResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowTailscaleWithoutAccess(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

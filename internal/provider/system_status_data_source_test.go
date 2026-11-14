@@ -17,6 +17,7 @@ data "glinet_system_status" "test" {}
 )
 
 func TestSystemStatusDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+systemStatusDataSourceConfig, expectAttributes(systemStatusAddress, realRouterSystemStatusChecks()))
 		return
@@ -125,6 +126,7 @@ func TestSystemStatusDataSource(t *testing.T) {
 }
 
 func TestSystemStatusDataSourceAbsentFields(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.System.SetStatus(json.RawMessage(`{"network": [], "system": {"lan_ip": "192.168.8.1"}}`))
 
@@ -141,6 +143,7 @@ func TestSystemStatusDataSourceAbsentFields(t *testing.T) {
 }
 
 func TestSystemStatusDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), systemStatusDataSourceConfig, "system", "get_status", "Unable to Read System Status")
 }
 

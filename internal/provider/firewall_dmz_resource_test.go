@@ -115,6 +115,7 @@ func dmzTestRouter(t *testing.T) (string, *glinet.Client) {
 }
 
 func TestFirewallDMZResource(t *testing.T) {
+	parallel(t)
 	provider, client := dmzTestRouter(t)
 	enabled := glinet.DMZ{Enabled: true, DestIP: dmzIP}
 	disabled := glinet.DMZ{Enabled: false, DestIP: dmzIP}
@@ -145,6 +146,7 @@ func TestFirewallDMZResource(t *testing.T) {
 }
 
 func TestFirewallDMZResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	var steps []resource.TestStep
@@ -174,6 +176,7 @@ func TestFirewallDMZResourceUpdate(t *testing.T) {
 }
 
 func TestFirewallDMZResourceImport(t *testing.T) {
+	parallel(t)
 	for _, existing := range []glinettest.DMZ{
 		{Enabled: true, DestIP: dmzIP},
 		{Enabled: false, DestIP: dmzIP},
@@ -208,6 +211,7 @@ func TestFirewallDMZResourceImport(t *testing.T) {
 }
 
 func TestFirewallDMZResourceImportNoHost(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name  string
 		setup func(*glinettest.Server)
@@ -244,6 +248,7 @@ func TestFirewallDMZResourceImportNoHost(t *testing.T) {
 }
 
 func TestFirewallDMZResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: dmzIP})
 
@@ -262,6 +267,7 @@ func TestFirewallDMZResourceImportInvalidID(t *testing.T) {
 }
 
 func TestFirewallDMZResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	want := glinettest.DMZ{Enabled: true, DestIP: dmzIP}
 	config := fakeRouterConfig(srv) + dmzConfig(dmzIP, true)
@@ -296,6 +302,7 @@ func TestFirewallDMZResourceDrift(t *testing.T) {
 }
 
 func TestFirewallDMZResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	for _, ip := range []string{"", "192.168.8.256", "192.168.8", "fd00::1", "host", " 192.168.8.250"} {
@@ -318,6 +325,7 @@ func TestFirewallDMZResourceInvalidConfig(t *testing.T) {
 }
 
 func TestFirewallDMZResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	t.Run("get after create", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		failed := false
@@ -437,6 +445,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 // A DMZ section on the router before an added port forward makes the ID that add_port_forward returns
 // differ from the ID of the port forward in the list.
 func TestFirewallDMZResourceWithPortForwards(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	existing := forward("tcp", "50101", "8080", "existing")
 	srv.Firewall.SetPortForwards(fakes(existing))

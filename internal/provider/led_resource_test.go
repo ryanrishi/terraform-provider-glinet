@@ -81,6 +81,7 @@ func ledTestRouter(t *testing.T) (string, *glinet.Client, bool) {
 }
 
 func TestLEDResource(t *testing.T) {
+	parallel(t)
 	provider, client, initial := ledTestRouter(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -109,6 +110,7 @@ func TestLEDResource(t *testing.T) {
 }
 
 func TestLEDResourceImport(t *testing.T) {
+	parallel(t)
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("enabled %t", enabled), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -137,6 +139,7 @@ func TestLEDResourceImport(t *testing.T) {
 }
 
 func TestLEDResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -154,6 +157,7 @@ func TestLEDResourceImportInvalidID(t *testing.T) {
 }
 
 func TestLEDResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + ledConfig(true)
 
@@ -175,6 +179,7 @@ func TestLEDResourceDrift(t *testing.T) {
 }
 
 func TestLEDResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -189,6 +194,7 @@ func TestLEDResourceInvalidConfig(t *testing.T) {
 }
 
 func TestLEDResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	t.Run("get after set", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		failFirstCall(srv, "led", "get_config")
