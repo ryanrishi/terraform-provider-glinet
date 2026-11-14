@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 (`glinet_system_timezone`), 2 (`glinet_lan_static_lease`) and 3 (`glinet_firewall_port_forward`) are done. Resource 5 (`glinet_firewall_dmz`) is done on the branch `firewall-dmz` (not merged). Resource 4 (`glinet_firewall_rule`) is done on the branch `firewall-rule` (not merged), which is based on `firewall-dmz`. The provider uses client `v0.4.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resource 12 (`glinet_led`). The provider uses client `v0.5.0`.
 
 One item at a time. For each item:
 
@@ -171,6 +171,7 @@ The client session can be one or two items ahead of the provider session.
 | 9 | `glinet_lan_config` | `lan.get_config_list`, `set_config` | singleton for each interface (`lan`, `guest`) | Can cut router access. |
 | 10 | `glinet_wireguard_server_peer` | `wg-server.get_peer_list`, `add_peer`, `set_peer`, `remove_peer` | CRUD | Needs the WireGuard server to be initialized. |
 | 11 | `glinet_wireguard_client_config` | `wg-client.get_config_list`, `add_config`, `set_config`, `remove_config` | CRUD in a group | Works on 4.7.0. Not expected to work on 4.9.0 (`vpn-client`). |
+| 12 | `glinet_led` | `led.get_config`, `set_config` | singleton | Import ID `led`. |
 
 ### Data sources
 
@@ -185,7 +186,7 @@ The existing `glinet_system_timezone_config` data source stays.
 
 ### Deferred
 
-OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, LED, schedules.
+OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, schedules.
 
 ## Conventions for resources
 

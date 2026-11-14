@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -11,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/ryanrishi/glinet-client-go/glinettest"
 )
@@ -37,6 +40,40 @@ provider "glinet" {
 
 func fakeRouterConfig(srv *glinettest.Server) string {
 	return providerConfig(srv.URL, srv.Username, srv.Password)
+}
+
+func expectResourceAction(address string, action plancheck.ResourceActionType) resource.ConfigPlanChecks {
+	return resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			plancheck.ExpectResourceAction(address, action),
+		},
+	}
+}
+
+var expectEmptyPlan = resource.ConfigPlanChecks{
+	PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+}
+
+// failRouterMethod returns a function that makes each call of module.method on srv return "Method not found".
+func failRouterMethod(srv *glinettest.Server, module, method string) func() {
+	return func() {
+		srv.Handle(module, method, func(json.RawMessage) (any, error) {
+			return nil, glinettest.ErrMethodNotFound
+		})
+	}
+}
+
+// failFirstCall makes the first call of module.method on srv return "Method not found".
+// The later calls go to the method that served it before.
+func failFirstCall(srv *glinettest.Server, module, method string) {
+	next := srv.Handler(module, method)
+	var failed atomic.Bool
+	srv.Handle(module, method, func(params json.RawMessage) (any, error) {
+		if !failed.Swap(true) {
+			return nil, glinettest.ErrMethodNotFound
+		}
+		return next(params)
+	})
 }
 
 const timezoneConfigDataSourceConfig = `
