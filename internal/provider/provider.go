@@ -132,6 +132,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewSystemTimezoneResource,
 		NewLANStaticLeaseResource,
+		NewFirewallPortForwardResource,
 	}
 }
 

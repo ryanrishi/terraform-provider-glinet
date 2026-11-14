@@ -29,6 +29,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 
 | Type | Name | Documentation |
 |---|---|---|
+| Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
