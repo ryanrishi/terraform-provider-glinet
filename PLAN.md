@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`), 6 (`glinet_dns`) and 7 (`glinet_adguardhome`). The provider uses client `v0.6.0`.
+Status: resources 1 to 7 and 12 to 14 are done. On the branch `client-block` (not merged): resource 15 (`glinet_client_block`). The provider uses client `v0.7.0`. Resource 16 is not planned for now.
 
 One item at a time. For each item:
 
@@ -174,10 +174,12 @@ The client session can be one or two items ahead of the provider session.
 | 12 | `glinet_led` | `led.get_config`, `set_config` | singleton | Import ID `led`. |
 | 13 | `glinet_led_schedule` | `timer.get_led`, `set_led` | singleton | Times `HH:MM`, days a set of 0 (Sunday) to 6. The router keeps times and days only from an enabled write, so a disabled apply writes the schedule enabled and then disables it. Import ID `led_schedule`. |
 | 14 | `glinet_reboot_schedule` | `timer.get_reboot`, `set_reboot` | singleton | A disabled apply writes only `enable: false`; the router keeps its time and days, and the state keeps the configured ones while the router reports the schedule as disabled. The enabled write is not verified on the router; real-router tests send only `enable: false` through a guard proxy. Import ID `reboot_schedule`. |
+| 15 | `glinet_client_block` | `black_white_list.get_config`, `set_single_mac` | CRUD, ID is the MAC | One resource blocks one MAC address in the one block list of the router. `mac` is lower case in the configuration; the provider writes upper case (as the web UI) and matches entries without letter case, because the router compares with letter case. Create fails when the MAC is in the list in any letter case; destroy removes it in each letter case. The resource does not manage the mode: create and destroy fail when the router is not in mode `black` (writes in mode `white` were not tested and could change the mode); refresh then keeps the state with a warning. Not verified: that the router blocks the traffic. `clients.block_client` is not used (it applies late and not reliably). Import ID is the MAC in either letter case. |
+| 16 | `glinet_dns_hosts` | `dns.get_host`, `set_host` | singleton | Not planned for now: in the write test, the router did not use a new hosts file within 5 minutes. |
 
 ### Data sources
 
-Status: on the branch `data-sources` (not merged), the items marked done.
+Status: done.
 
 | # | Name | API | Status | Notes |
 |---|---|---|---|---|
