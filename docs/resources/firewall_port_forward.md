@@ -3,12 +3,12 @@
 page_title: "glinet_firewall_port_forward Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
+  Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.
 ---
 
 # glinet_firewall_port_forward (Resource)
 
-Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
+Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.
 
 ## Example Usage
 

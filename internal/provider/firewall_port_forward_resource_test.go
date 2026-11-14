@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -732,6 +735,106 @@ func TestFirewallPortForwardResourceReadErrorAfterCreate(t *testing.T) {
 				ConfigPlanChecks:  expectAction(plancheck.ResourceActionDestroyBeforeCreate),
 				ConfigStateChecks: expectForwardState(want),
 				Check:             expectFakeForwards(srv, want),
+			},
+		},
+	})
+}
+
+// slowPortForwardList makes get_port_forward_list of srv answer after a delay with the port forwards from before the delay,
+// so that the operations of parallel resources overlap.
+func slowPortForwardList(srv *glinettest.Server) {
+	srv.Handle("firewall", "get_port_forward_list", func(json.RawMessage) (any, error) {
+		res := portForwardList(srv.Firewall.PortForwards())
+		time.Sleep(20 * time.Millisecond)
+		return res, nil
+	})
+}
+
+// expectFakeForwardSet checks that the port forwards of srv are want, in any order. The external ports must be different.
+func expectFakeForwardSet(srv *glinettest.Server, want ...glinet.PortForward) resource.TestCheckFunc {
+	byExternalPort := func(a, b glinettest.PortForward) int { return strings.Compare(a.SrcDport, b.SrcDport) }
+	return func(*terraform.State) error {
+		got := srv.Firewall.PortForwards()
+		w := fakes(want...)
+		slices.SortFunc(got, byExternalPort)
+		slices.SortFunc(w, byExternalPort)
+		if !slices.Equal(got, w) {
+			return fmt.Errorf("router port forwards are %v, want %v", got, w)
+		}
+		return nil
+	}
+}
+
+// TestFirewallPortForwardResourceParallel creates, updates and deletes many port forwards in parallel.
+// The router IDs are positions in the list, so a delete between the list and the write of another resource moves its port forward.
+func TestFirewallPortForwardResourceParallel(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	slowPortForwardList(srv)
+
+	var all []glinet.PortForward
+	for i := range 12 {
+		all = append(all, forward("tcp", strconv.Itoa(50001+i), "8080", fmt.Sprintf("f%d", i)))
+	}
+	config := func(forwards map[int]glinet.PortForward) string {
+		res := fakeRouterConfig(srv)
+		for i, f := range forwards {
+			res += forwardResource(fmt.Sprintf("f%d", i), f)
+		}
+		return res
+	}
+
+	created := map[int]glinet.PortForward{}
+	changed := map[int]glinet.PortForward{}
+	for i, f := range all {
+		created[i] = f
+		if i%3 == 0 {
+			continue
+		}
+		if i%2 == 1 {
+			f.DestPort = "9090"
+		}
+		changed[i] = f
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeForwards(srv),
+		Steps: []resource.TestStep{
+			{
+				Config: config(created),
+				Check:  expectFakeForwardSet(srv, all...),
+			},
+			{
+				Config: config(changed),
+				Check:  expectFakeForwardSet(srv, slices.Collect(maps.Values(changed))...),
+			},
+		},
+	})
+}
+
+// TestFirewallPortForwardResourceParallelOverlap creates two port forwards that overlap in one apply.
+func TestFirewallPortForwardResourceParallelOverlap(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	slowPortForwardList(srv)
+	single := forward("tcp", "50001", "8080", "single")
+	ranged := forward("tcp", "50001-50002", "8080", "range")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeForwards(srv),
+		Steps: []resource.TestStep{
+			{
+				Config:      fakeRouterConfig(srv) + forwardResource("single", single) + forwardResource("range", ranged),
+				ExpectError: regexp.MustCompile(`Firewall Port Forward Overlaps`),
+			},
+			{
+				PreConfig: func() {
+					got := srv.Firewall.PortForwards()
+					if len(got) != 1 || (got[0] != fake(single) && got[0] != fake(ranged)) {
+						t.Errorf("port forwards are %v, want %v or %v", got, fake(single), fake(ranged))
+					}
+				},
+				Config: fakeRouterConfig(srv),
 			},
 		},
 	})

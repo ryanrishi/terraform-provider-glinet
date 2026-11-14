@@ -168,7 +168,7 @@ func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.Schem
 			"The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, " +
 			"a common protocol and a common external port. " +
 			"When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. " +
-			"The check and the write are separate calls, so a change on the router between them is not detected.",
+			"The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
 			"protocol": schema.StringAttribute{
 				Description: "Protocol: `tcp`, `udp` or `tcp udp` (`proto` in the router API). Changing it replaces the port forward.",
@@ -245,6 +245,9 @@ func (r *firewallPortForwardResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	routerWrites.Lock()
+	defer routerWrites.Unlock()
+
 	forwards, err := r.client.Firewall.ListPortForwards(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Firewall Port Forwards", err.Error())
@@ -305,6 +308,9 @@ func (r *firewallPortForwardResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
+	routerWrites.Lock()
+	defer routerWrites.Unlock()
+
 	id := plan.identity()
 	forward, err := r.find(ctx, id, &resp.Diagnostics)
 	if err != nil {
@@ -331,6 +337,9 @@ func (r *firewallPortForwardResource) Delete(ctx context.Context, req resource.D
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	routerWrites.Lock()
+	defer routerWrites.Unlock()
 
 	forward, err := r.find(ctx, state.identity(), &resp.Diagnostics)
 	if err != nil {
