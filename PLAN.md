@@ -186,7 +186,7 @@ Status: on the branch `data-sources` (not merged), the items marked done.
 | 3 | `glinet_clients` | `clients.get_list` | done | No traffic counters and rates (`rx`, `tx`, `total_*`, `last_*`): they change at each read and their direction and the `*_init` values are not documented. No filter arguments. |
 | 4 | `glinet_firewall_zones` | `firewall.get_zone_list` | done | |
 | 5 | `glinet_wan_status` | `cable.get_status`, `network.check_wan_cable`, `lan.get_wan_info` | done | Combines `cable.get_status`, `network.check_wan_cable`, `lan.get_wan_info`; each failing call has its own error summary. `secondwan` of `cable.get_status` is left out. |
-| 6 | `glinet_arp_entries` | `network.get_arp_list` | | |
+| 6 | `glinet_arp_entries` | `network.get_arp_list` | done | |
 | 7 | `glinet_wifi_status` | `wifi.get_status` | | |
 
 The existing `glinet_system_timezone_config` data source stays.
