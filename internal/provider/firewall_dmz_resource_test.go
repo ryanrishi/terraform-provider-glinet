@@ -318,16 +318,29 @@ func TestFirewallDMZResourceInvalidConfig(t *testing.T) {
 }
 
 func TestFirewallDMZResourceRouterErrors(t *testing.T) {
-	t.Run("get", func(t *testing.T) {
+	t.Run("get after create", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
-		failMethod(srv, "get_dmz")()
+		failed := false
+		srv.Handle("firewall", "get_dmz", func(json.RawMessage) (any, error) {
+			if !failed {
+				failed = true
+				return nil, glinettest.ErrMethodNotFound
+			}
+			return srv.Firewall.DMZ(), nil
+		})
 
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+			CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
 			Steps: []resource.TestStep{
 				{
 					Config:      fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
 					ExpectError: regexp.MustCompile(`(?s)Unable to Read Firewall DMZ.*Method not found`),
+				},
+				{
+					Config:            fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
+					ConfigPlanChecks:  expectDMZAction(plancheck.ResourceActionDestroyBeforeCreate),
+					ConfigStateChecks: expectDMZState(glinet.DMZ{Enabled: true, DestIP: dmzIP}),
 				},
 			},
 		})

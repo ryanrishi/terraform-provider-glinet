@@ -151,6 +151,12 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		return
 	}
 
+	model.ID = types.StringValue(firewallDMZID)
+	diags.Append(state.Set(ctx, &model)...)
+	if diags.HasError() {
+		return
+	}
+
 	dmz, err := r.client.Firewall.GetDMZ(ctx)
 	if err != nil {
 		diags.AddError("Unable to Read Firewall DMZ", err.Error())
