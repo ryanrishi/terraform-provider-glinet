@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 (`glinet_system_timezone`), 2 (`glinet_lan_static_lease`) and 3 (`glinet_firewall_port_forward`) are done. Resource 5 (`glinet_firewall_dmz`) is done on the branch `firewall-dmz` (not merged). Resource 4 (`glinet_firewall_rule`) is done on the branch `firewall-rule` (not merged), which is based on `firewall-dmz`. The provider uses client `v0.4.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`), 6 (`glinet_dns`) and 7 (`glinet_adguardhome`). The provider uses client `v0.5.0`.
 
 One item at a time. For each item:
 
@@ -165,12 +165,15 @@ The client session can be one or two items ahead of the provider session.
 | 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `external_zone` + `protocol` + `external_port` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Attribute names follow the labels of the web UI, except `name` (Description in the UI). Import ID `<external_zone>/<protocol>/<external_port>`, with `tcp+udp` for `tcp udp`. |
 | 4 | `glinet_firewall_rule` | `firewall.get_rule_list`, `add_rule`, `set_rule`, `remove_rule` | CRUD, identity is the match fields `source_zone`, `source_ip`, `source_mac`, `source_port`, `protocol`, `destination_zone`, `destination_ip`, `destination_port` | A match field with no value is part of the identity, and a change to a match field replaces the rule. `action` (`target`), `name` and `enabled` are updated in place. The router ID is not in the state; the resource finds its rule by identity before each read, update and delete. Create fails only when a rule has exactly the same identity (no overlap analysis). With duplicates, the resource uses the first rule and shows a warning. Import ID is the name of the rule: no rule or more than one rule with the name is an error, and a rule with no name cannot be imported. Required: `source_zone`, `action`. `protocol` allows `tcp`, `udp`, `tcp udp` (verified) and `icmp`, `all` (OpenWrt values, not tested on the router). Delete of a rule with no destination port first disables it and sets the destination port `65535`, because the router cannot remove it. |
 | 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | Destroy disables the DMZ and removes the DMZ host (exception to the singleton destroy convention). When the router has no DMZ host, read removes the resource from the state. Attribute `internal_ip` (`dest_ip` in the API). Import ID `dmz`. |
-| 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. |
-| 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | |
+| 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. `force_dns`, `rebind_protection`, `override_vpn` are required, because the router writes a missing one as `false`. `mode` allows only `auto` and is not written when it is not set. `servers` is computed runtime data. Import ID `dns`. |
+| 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | `enabled` and `dns_enabled` are required and always written. No wait after the write. Import ID `adguardhome`. |
 | 8 | `glinet_wifi_iface` | `wifi.get_config`, `set_config` | update-only, import by `iface_name` | The key is sensitive. Can cut Wi-Fi access. |
 | 9 | `glinet_lan_config` | `lan.get_config_list`, `set_config` | singleton for each interface (`lan`, `guest`) | Can cut router access. |
 | 10 | `glinet_wireguard_server_peer` | `wg-server.get_peer_list`, `add_peer`, `set_peer`, `remove_peer` | CRUD | Needs the WireGuard server to be initialized. |
 | 11 | `glinet_wireguard_client_config` | `wg-client.get_config_list`, `add_config`, `set_config`, `remove_config` | CRUD in a group | Works on 4.7.0. Not expected to work on 4.9.0 (`vpn-client`). |
+| 12 | `glinet_led` | `led.get_config`, `set_config` | singleton | Import ID `led`. |
+| 13 | `glinet_led_schedule` | `timer.get_led`, `set_led` | singleton | Times `HH:MM`, days a set of 0 (Sunday) to 6. The router keeps times and days only from an enabled write, so a disabled apply writes the schedule enabled and then disables it. Import ID `led_schedule`. |
+| 14 | `glinet_reboot_schedule` | `timer.get_reboot`, `set_reboot` | singleton | A disabled apply writes only `enable: false`; the router keeps its time and days, and the state keeps the configured ones while the router reports the schedule as disabled. The enabled write is not verified on the router; real-router tests send only `enable: false` through a guard proxy. Import ID `reboot_schedule`. |
 
 ### Data sources
 
@@ -185,7 +188,7 @@ The existing `glinet_system_timezone_config` data source stays.
 
 ### Deferred
 
-OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, LED, schedules.
+OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, Wi-Fi schedule.
 
 ## Conventions for resources
 
