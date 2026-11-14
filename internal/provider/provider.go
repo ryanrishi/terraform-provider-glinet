@@ -141,6 +141,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewLANStaticLeaseResource,
 		NewFirewallPortForwardResource,
 		NewFirewallDMZResource,
+		NewFirewallRuleResource,
 	}
 }
 
