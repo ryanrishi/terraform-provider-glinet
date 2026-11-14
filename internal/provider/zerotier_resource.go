@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -78,7 +77,7 @@ func (r *zeroTierResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:  true,
 				Sensitive: true,
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(zeroTierNetworkID, "must be 16 hexadecimal digits in lower case"),
+					stringCheck{description: "must be 16 hexadecimal digits in lower case", valid: zeroTierNetworkID.MatchString, sensitive: true},
 				},
 			},
 			"lan_enabled": schema.BoolAttribute{

@@ -33,7 +33,7 @@ var (
 	wifiEncryptions = []string{"none", "psk2", "psk-mixed", "sae", "sae-mixed"}
 
 	// The Wi-Fi key rules of the web UI: 8-63 printable ASCII characters or 64 hex digits.
-	asciiWifiKey = regexp.MustCompile(`^[\x20-\x7F]{8,63}$`)
+	asciiWifiKey = regexp.MustCompile(`^[\x20-\x7E]{8,63}$`)
 	hexWifiKey   = regexp.MustCompile(`^[0-9A-Fa-f]{64}$`)
 )
 
@@ -102,7 +102,7 @@ func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Optional:  true,
 				Sensitive: true,
 				Validators: []validator.String{
-					stringCheck{description: "must be 8 to 63 printable ASCII characters or 64 hex digits", valid: validWifiKey},
+					stringCheck{description: "must be 8 to 63 printable ASCII characters or 64 hex digits", valid: validWifiKey, sensitive: true},
 				},
 			},
 			"encryption": schema.StringAttribute{

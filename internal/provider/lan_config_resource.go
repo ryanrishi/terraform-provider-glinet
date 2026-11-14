@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -72,13 +73,17 @@ func leaseSeconds(s string) (int64, bool) {
 	if err != nil {
 		return 0, false
 	}
+	unit := int64(1)
 	switch m[2] {
 	case "h":
-		return n * 3600, true
+		unit = 3600
 	case "m":
-		return n * 60, true
+		unit = 60
 	}
-	return n, true
+	if n > math.MaxInt64/unit {
+		return 0, false
+	}
+	return n * unit, true
 }
 
 // sameLeaseTime reports whether a and b are the same duration, such as "12h" and "720m".
