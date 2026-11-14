@@ -54,10 +54,11 @@ TF_ACC_TERRAFORM_PATH=$(which tofu) TF_ACC_PROVIDER_HOST=registry.opentofu.org T
 
 ### Tests on a real router
 
-When `TF_ACC=1` and `GLINET_HOST` are set, the data source tests read the router at `GLINET_HOST` instead of the fake router.
+When `TF_ACC=1` and `GLINET_HOST` are set, the main test of each data source and resource uses the router at `GLINET_HOST` instead of the fake router.
 The provider gets the credentials from `GLINET_USERNAME` and `GLINET_PASSWORD`.
-Because the values on a router are not fixed, these tests check only the types and that the values are not empty.
-The tests for errors always use the fake router.
+Because the values on a router are not fixed, the data source test checks only the types and that the values are not empty.
+The resource tests change the router and put back the initial values when they end.
+The other tests, for example the tests for errors and drift, always use the fake router.
 
 ```shell
 GLINET_HOST=http://192.168.8.1 GLINET_USERNAME=root GLINET_PASSWORD=... make testacc
