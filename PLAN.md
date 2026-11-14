@@ -52,7 +52,12 @@ Firewall port forwards (write test, client `v0.3.0`):
 - `remove_port_forward` returns HTTP 500 (not a JSON-RPC error) for an unknown ID and for a forward with no `dest_port`.
 - Add without `enabled` gives `true`.
 
-Not verified: write methods other than `system.set_timezone_config`, the `lan` static bind methods and the port forward methods; the item fields of lists that were empty on the router (firewall rules, WireGuard server peers).
+Firewall DMZ (write test, client `v0.4.0`):
+- `get_dmz` returns `{"enabled":false}` before the first `set_dmz`, and `{"enabled", "dest_ip"?, "priority":false}` after it. The provider ignores `priority`.
+- `set_dmz {enabled?, dest_ip?}`: without `enabled` the router enables the DMZ. Without `dest_ip` the router removes the DMZ host. `{enabled:false, dest_ip:X}` keeps the host in a disabled DMZ. The router does not check `dest_ip`.
+- The first `set_dmz` adds a firewall section that stays. After it, the ID that `add_port_forward` returns can be one more than the ID in the list. DMZ writes hold the `routerWrites` lock.
+
+Not verified: write methods other than `system.set_timezone_config`, the `lan` static bind methods, the port forward methods and the DMZ methods; the item fields of lists that were empty on the router (firewall rules, WireGuard server peers).
 
 ## Test router
 
@@ -133,7 +138,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 (`glinet_system_timezone`) and 2 (`glinet_lan_static_lease`) are done. Resource 3 (`glinet_firewall_port_forward`) is done on the branch `firewall-port-forward` (not merged). The provider uses client `v0.3.0`.
+Status: resources 1 (`glinet_system_timezone`), 2 (`glinet_lan_static_lease`) and 3 (`glinet_firewall_port_forward`) are done. Resource 5 (`glinet_firewall_dmz`) is done on the branch `firewall-dmz` (not merged). The provider uses client `v0.4.0`.
 
 One item at a time. For each item:
 
@@ -153,7 +158,7 @@ The client session can be one or two items ahead of the provider session.
 | 2 | `glinet_lan_static_lease` | `lan.get_static_bind_list`, `add_static_bind`, `set_static_bind`, `remove_static_bind` | CRUD, ID is the MAC | Proves the CRUD pattern. |
 | 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `external_zone` + `protocol` + `external_port` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Attribute names follow the labels of the web UI, except `name` (Description in the UI). Import ID `<external_zone>/<protocol>/<external_port>`, with `tcp+udp` for `tcp udp`. |
 | 4 | `glinet_firewall_rule` | `firewall.*_rule*` | CRUD, ID from the router | |
-| 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | |
+| 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | Destroy disables the DMZ and removes the DMZ host (exception to the singleton destroy convention). When the router has no DMZ host, read removes the resource from the state. Attribute `internal_ip` (`dest_ip` in the API). Import ID `dmz`. |
 | 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. |
 | 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | |
 | 8 | `glinet_wifi_iface` | `wifi.get_config`, `set_config` | update-only, import by `iface_name` | The key is sensitive. Can cut Wi-Fi access. |
@@ -182,7 +187,7 @@ OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale,
 - Secrets (Wi-Fi key, private key, preshared key) are `Sensitive`.
 - API numbers that mean true or false (0 or 1) are `Bool` in the schema.
 - A resource does not start, stop, or restart services unless the API does it as part of the write.
-- Singleton destroy removes the resource from state and does not change the router.
+- Singleton destroy removes the resource from state and does not change the router. Exception: `glinet_firewall_dmz` destroy disables the DMZ, because a DMZ that stays enabled exposes a host.
 
 ## Decisions (owner, 2026-11-12)
 
