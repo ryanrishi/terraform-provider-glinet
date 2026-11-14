@@ -610,28 +610,17 @@ func TestFirewallPortForwardFindDuplicateWarning(t *testing.T) {
 	}
 }
 
-// portForwardList returns the get_port_forward_list result of the fake router for forwards.
-func portForwardList(forwards []glinettest.PortForward) any {
-	res := make([]map[string]any, len(forwards))
-	for i, f := range forwards {
-		res[i] = map[string]any{
-			"id": glinettest.PortForwardID(i), "name": f.Name, "proto": f.Proto, "src": f.Src, "src_dport": f.SrcDport,
-			"dest": f.Dest, "dest_ip": f.DestIP, "dest_port": f.DestPort, "enabled": f.Enabled,
-		}
-	}
-	return map[string]any{"res": res}
-}
-
 func TestFirewallPortForwardResourceDeleteAlreadyGone(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	removeAfterNextList := false
-	srv.Handle("firewall", "get_port_forward_list", func(json.RawMessage) (any, error) {
-		forwards := srv.Firewall.PortForwards()
+	list := srv.Handler("firewall", "get_port_forward_list")
+	srv.Handle("firewall", "get_port_forward_list", func(params json.RawMessage) (any, error) {
+		res, err := list(params)
 		if removeAfterNextList {
 			removeAfterNextList = false
 			srv.Firewall.SetPortForwards(nil)
 		}
-		return portForwardList(forwards), nil
+		return res, err
 	})
 	srv.Handle("firewall", "remove_port_forward", func(json.RawMessage) (any, error) {
 		t.Error("remove_port_forward called")
@@ -712,12 +701,13 @@ func TestFirewallPortForwardResourceInvalidConfig(t *testing.T) {
 func TestFirewallPortForwardResourceReadErrorAfterCreate(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	failed := false
-	srv.Handle("firewall", "get_port_forward_list", func(json.RawMessage) (any, error) {
+	list := srv.Handler("firewall", "get_port_forward_list")
+	srv.Handle("firewall", "get_port_forward_list", func(params json.RawMessage) (any, error) {
 		if len(srv.Firewall.PortForwards()) > 0 && !failed {
 			failed = true
 			return nil, glinettest.ErrMethodNotFound
 		}
-		return portForwardList(srv.Firewall.PortForwards()), nil
+		return list(params)
 	})
 	want := forward("tcp", "50001", "8080", "")
 	config := fakeRouterConfig(srv) + forwardConfig(want)
@@ -740,14 +730,17 @@ func TestFirewallPortForwardResourceReadErrorAfterCreate(t *testing.T) {
 	})
 }
 
-// slowPortForwardList makes get_port_forward_list of srv answer after a delay with the port forwards from before the delay,
+// slowLists makes each of the firewall list methods of srv answer after a delay with the list from before the delay,
 // so that the operations of parallel resources overlap.
-func slowPortForwardList(srv *glinettest.Server) {
-	srv.Handle("firewall", "get_port_forward_list", func(json.RawMessage) (any, error) {
-		res := portForwardList(srv.Firewall.PortForwards())
-		time.Sleep(20 * time.Millisecond)
-		return res, nil
-	})
+func slowLists(srv *glinettest.Server, methods ...string) {
+	for _, method := range methods {
+		list := srv.Handler("firewall", method)
+		srv.Handle("firewall", method, func(params json.RawMessage) (any, error) {
+			res, err := list(params)
+			time.Sleep(20 * time.Millisecond)
+			return res, err
+		})
+	}
 }
 
 // expectFakeForwardSet checks that the port forwards of srv are want, in any order. The external ports must be different.
@@ -769,7 +762,7 @@ func expectFakeForwardSet(srv *glinettest.Server, want ...glinet.PortForward) re
 // The router IDs are positions in the list, so a delete between the list and the write of another resource moves its port forward.
 func TestFirewallPortForwardResourceParallel(t *testing.T) {
 	srv := glinettest.NewServer(t)
-	slowPortForwardList(srv)
+	slowLists(srv, "get_port_forward_list")
 
 	var all []glinet.PortForward
 	for i := range 12 {
@@ -815,7 +808,7 @@ func TestFirewallPortForwardResourceParallel(t *testing.T) {
 // TestFirewallPortForwardResourceParallelOverlap creates two port forwards that overlap in one apply.
 func TestFirewallPortForwardResourceParallelOverlap(t *testing.T) {
 	srv := glinettest.NewServer(t)
-	slowPortForwardList(srv)
+	slowLists(srv, "get_port_forward_list")
 	single := forward("tcp", "50001", "8080", "single")
 	ranged := forward("tcp", "50001-50002", "8080", "range")
 

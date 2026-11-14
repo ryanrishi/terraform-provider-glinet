@@ -1,13 +1,9 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"regexp"
 	"slices"
@@ -15,7 +11,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
@@ -796,43 +791,6 @@ func TestFirewallRuleResourceNoDestinationPortSetError(t *testing.T) {
 	})
 }
 
-// failingProxy returns the provider block for a proxy to srv. When fail returns true for the method of a call,
-// the proxy answers with HTTP status 503 and does not send the call to srv.
-func failingProxy(t *testing.T, srv *glinettest.Server, fail func(method string) bool) string {
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-
-		var call struct {
-			Params []json.RawMessage `json:"params"`
-		}
-		var method string
-		if json.Unmarshal(body, &call) == nil && len(call.Params) > 2 {
-			_ = json.Unmarshal(call.Params[2], &method)
-		}
-		if fail(method) {
-			http.Error(w, "injected failure", http.StatusServiceUnavailable)
-			return
-		}
-
-		resp, err := http.Post(srv.URL+r.URL.RequestURI(), r.Header.Get("Content-Type"), bytes.NewReader(body))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-		w.WriteHeader(resp.StatusCode)
-		_, _ = io.Copy(w, resp.Body)
-	}))
-	t.Cleanup(proxy.Close)
-
-	return providerConfig(proxy.URL, srv.Username, srv.Password)
-}
-
 // TestFirewallRuleResourceNoDestinationPortRemoveError makes the remove that follows the write of the destination
 // port fail one time. The next destroy finds the rule by the identity of the state, unless the restore failed too.
 func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
@@ -849,10 +807,10 @@ func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 		left        glinet.Rule
 	}{
 		{"restore", false,
-			`(?s)disabled\s+it\s+and\s+set\s+its\s+destination\s+port\s+to\s+65535.*restored\s+the\s+original\s+values,\s+and\s+the\s+rule\s+is\s+unchanged\s+on\s+the\s+router.*503`,
+			`(?s)disabled\s+it\s+and\s+set\s+its\s+destination\s+port\s+to\s+65535.*restored\s+the\s+original\s+values,\s+and\s+the\s+rule\s+is\s+unchanged\s+on\s+the\s+router.*500`,
 			created},
 		{"restore fails", true,
-			`(?s)the\s+restore\s+of\s+the\s+original\s+values\s+also\s+failed,\s+so\s+the\s+router\s+can\s+have\s+the\s+rule\s+"no\s+port"\s+\(action\s+DROP,\s+enabled\s+false,.*destination\s+port\s+65535\).*Remove\s+it\s+on\s+the\s+router.*503`,
+			`(?s)the\s+restore\s+of\s+the\s+original\s+values\s+also\s+failed,\s+so\s+the\s+router\s+can\s+have\s+the\s+rule\s+"no\s+port"\s+\(action\s+DROP,\s+enabled\s+false,.*destination\s+port\s+65535\).*Remove\s+it\s+on\s+the\s+router.*500`,
 			removable},
 	}
 
@@ -861,18 +819,22 @@ func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 			srv := glinettest.NewServer(t)
 			srv.Firewall.SetRules(fakeRules(before))
 			var failRemove, failSet atomic.Bool
-			provider := failingProxy(t, srv, func(method string) bool {
-				switch method {
-				case "remove_rule":
-					if failRemove.Swap(false) {
-						failSet.Store(tt.failRestore)
-						return true
-					}
-				case "set_rule":
-					return failSet.Swap(false)
+			remove := srv.Handler("firewall", "remove_rule")
+			srv.Handle("firewall", "remove_rule", func(params json.RawMessage) (any, error) {
+				if failRemove.Swap(false) {
+					failSet.Store(tt.failRestore)
+					return nil, glinettest.ErrInternalServerError
 				}
-				return false
+				return remove(params)
 			})
+			set := srv.Handler("firewall", "set_rule")
+			srv.Handle("firewall", "set_rule", func(params json.RawMessage) (any, error) {
+				if failSet.Swap(false) {
+					return nil, glinettest.ErrInternalServerError
+				}
+				return set(params)
+			})
+			provider := fakeRouterConfig(srv)
 
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -905,29 +867,17 @@ func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 	}
 }
 
-// ruleList returns the get_rule_list result of a fake router that has only the rules rules.
-func ruleList(rules []glinettest.Rule) any {
-	res := make([]map[string]any, len(rules))
-	for i, r := range rules {
-		data, _ := json.Marshal(r)
-		var item map[string]any
-		_ = json.Unmarshal(data, &item)
-		item["id"] = glinettest.RuleID(i)
-		res[i] = item
-	}
-	return map[string]any{"res": res}
-}
-
 func TestFirewallRuleResourceDeleteAlreadyGone(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	removeAfterNextList := false
-	srv.Handle("firewall", "get_rule_list", func(json.RawMessage) (any, error) {
-		rules := srv.Firewall.Rules()
+	list := srv.Handler("firewall", "get_rule_list")
+	srv.Handle("firewall", "get_rule_list", func(params json.RawMessage) (any, error) {
+		res, err := list(params)
 		if removeAfterNextList {
 			removeAfterNextList = false
 			srv.Firewall.SetRules(nil)
 		}
-		return ruleList(rules), nil
+		return res, err
 	})
 	for _, method := range []string{"set_rule", "remove_rule"} {
 		srv.Handle("firewall", method, func(json.RawMessage) (any, error) {
@@ -1013,12 +963,13 @@ func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
 func TestFirewallRuleResourceReadErrorAfterCreate(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	failed := false
-	srv.Handle("firewall", "get_rule_list", func(json.RawMessage) (any, error) {
+	list := srv.Handler("firewall", "get_rule_list")
+	srv.Handle("firewall", "get_rule_list", func(params json.RawMessage) (any, error) {
 		if len(srv.Firewall.Rules()) > 0 && !failed {
 			failed = true
 			return nil, glinettest.ErrMethodNotFound
 		}
-		return ruleList(srv.Firewall.Rules()), nil
+		return list(params)
 	})
 	want := testRule("50001", "ACCEPT", "")
 	config := fakeRouterConfig(srv) + ruleConfig(want)
@@ -1141,39 +1092,6 @@ func TestFirewallRuleResourceRouterErrors(t *testing.T) {
 	})
 }
 
-// slowListsProxy returns the provider block for a proxy to srv that sends the response of each list method
-// after a delay, so that the operations of parallel resources overlap and act on lists that are no longer current.
-func slowListsProxy(t *testing.T, srv *glinettest.Server) string {
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		resp, err := http.Post(srv.URL+r.URL.RequestURI(), r.Header.Get("Content-Type"), bytes.NewReader(body))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-		res, err := io.ReadAll(resp.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-
-		if bytes.Contains(body, []byte(`_list"`)) {
-			time.Sleep(20 * time.Millisecond)
-		}
-		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-		w.WriteHeader(resp.StatusCode)
-		_, _ = w.Write(res)
-	}))
-	t.Cleanup(proxy.Close)
-
-	return providerConfig(proxy.URL, srv.Username, srv.Password)
-}
-
 // expectFakeRuleSet checks that the rules of srv are want, in any order. The names must be different.
 func expectFakeRuleSet(srv *glinettest.Server, want ...glinet.Rule) resource.TestCheckFunc {
 	byName := func(a, b glinettest.Rule) int { return strings.Compare(a.Name, b.Name) }
@@ -1194,7 +1112,8 @@ func expectFakeRuleSet(srv *glinettest.Server, want ...glinet.Rule) resource.Tes
 // write of another resource moves its rule. Some rules have no destination port and need two writes to be removed.
 func TestFirewallRuleResourceParallel(t *testing.T) {
 	srv := glinettest.NewServer(t)
-	provider := slowListsProxy(t, srv)
+	slowLists(srv, "get_rule_list", "get_port_forward_list")
+	provider := fakeRouterConfig(srv)
 	existingRule := testRule("50100", "ACCEPT", "existing")
 	existingForward := forward("tcp", "50200", "8080", "existing")
 	srv.Firewall.SetRules(fakeRules(existingRule))
