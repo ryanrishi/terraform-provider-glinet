@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -730,44 +731,136 @@ func TestFirewallRuleResourceNoDestinationPort(t *testing.T) {
 	})
 }
 
-func TestFirewallRuleResourceNoDestinationPortDeleteErrors(t *testing.T) {
+func TestFirewallRuleResourceNoDestinationPortSetError(t *testing.T) {
+	srv := glinettest.NewServer(t)
 	created := glinet.Rule{Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + ruleConfig(created),
+			},
+			{
+				PreConfig:   failMethod(srv, "set_rule"),
+				Config:      fakeRouterConfig(srv),
+				ExpectError: regexp.MustCompile(`(?s)the write of\s+the\s+destination\s+port\s+65535.*may\s+be\s+unchanged,\s+or\s+disabled\s+with\s+the\s+destination\s+port\s+65535.*Method not found`),
+			},
+			{
+				PreConfig: func() {
+					if got := srv.Firewall.Rules(); !slices.Equal(got, fakeRules(created)) {
+						t.Errorf("rules after the failed delete are %v, want %v", got, fakeRules(created))
+					}
+					srv.Firewall.SetRules(nil)
+				},
+				Config: fakeRouterConfig(srv),
+			},
+		},
+	})
+}
+
+// failingProxy returns the provider block for a proxy to srv. When fail returns true for the method of a call,
+// the proxy answers with HTTP status 503 and does not send the call to srv.
+func failingProxy(t *testing.T, srv *glinettest.Server, fail func(method string) bool) string {
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+
+		var call struct {
+			Params []json.RawMessage `json:"params"`
+		}
+		var method string
+		if json.Unmarshal(body, &call) == nil && len(call.Params) > 2 {
+			_ = json.Unmarshal(call.Params[2], &method)
+		}
+		if fail(method) {
+			http.Error(w, "injected failure", http.StatusServiceUnavailable)
+			return
+		}
+
+		resp, err := http.Post(srv.URL+r.URL.RequestURI(), r.Header.Get("Content-Type"), bytes.NewReader(body))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+	}))
+	t.Cleanup(proxy.Close)
+
+	return providerConfig(proxy.URL, srv.Username, srv.Password)
+}
+
+// TestFirewallRuleResourceNoDestinationPortRemoveError makes the remove that follows the write of the destination
+// port fail one time. The next destroy finds the rule by the identity of the state, unless the restore failed too.
+func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
+	before := testRule("50101", "ACCEPT", "before")
+	created := glinet.Rule{Name: "no port", Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
 	removable := created
 	removable.DestPort = removablePort
 	removable.Enabled = false
 
 	tests := []struct {
-		method string
-		error  string
-		left   glinet.Rule
+		name        string
+		failRestore bool
+		error       string
+		left        glinet.Rule
 	}{
-		{"set_rule", `(?s)the write of\s+the\s+destination\s+port\s+65535.*may\s+be\s+unchanged,\s+or\s+disabled\s+with\s+the\s+destination\s+port\s+65535.*Method not found`, created},
-		{"remove_rule", `(?s)disabled\s+it\s+and\s+set\s+its\s+destination\s+port\s+to\s+65535.*can\s+still\s+have\s+the\s+rule\s+\(action\s+DROP,\s+enabled\s+false,.*destination\s+port\s+65535\).*Method\s+not\s+found`, removable},
+		{"restore", false,
+			`(?s)disabled\s+it\s+and\s+set\s+its\s+destination\s+port\s+to\s+65535.*restored\s+the\s+original\s+values,\s+and\s+the\s+rule\s+is\s+unchanged\s+on\s+the\s+router.*503`,
+			created},
+		{"restore fails", true,
+			`(?s)the\s+restore\s+of\s+the\s+original\s+values\s+also\s+failed,\s+so\s+the\s+router\s+can\s+have\s+the\s+rule\s+"no\s+port"\s+\(action\s+DROP,\s+enabled\s+false,.*destination\s+port\s+65535\).*Remove\s+it\s+on\s+the\s+router.*503`,
+			removable},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.method, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
+			srv.Firewall.SetRules(fakeRules(before))
+			var failRemove, failSet atomic.Bool
+			provider := failingProxy(t, srv, func(method string) bool {
+				switch method {
+				case "remove_rule":
+					if failRemove.Swap(false) {
+						failSet.Store(tt.failRestore)
+						return true
+					}
+				case "set_rule":
+					return failSet.Swap(false)
+				}
+				return false
+			})
 
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				CheckDestroy:             expectFakeRules(srv, before),
 				Steps: []resource.TestStep{
 					{
-						Config: fakeRouterConfig(srv) + ruleConfig(created),
+						Config: provider + ruleConfig(created),
+						Check:  expectFakeRules(srv, before, created),
 					},
 					{
-						PreConfig:   failMethod(srv, tt.method),
-						Config:      fakeRouterConfig(srv),
+						PreConfig:   func() { failRemove.Store(true) },
+						Config:      provider,
 						ExpectError: regexp.MustCompile(tt.error),
 					},
 					{
 						PreConfig: func() {
-							if got := srv.Firewall.Rules(); !slices.Equal(got, fakeRules(tt.left)) {
-								t.Errorf("rules after the failed delete are %v, want %v", got, fakeRules(tt.left))
+							if got := srv.Firewall.Rules(); !slices.Equal(got, fakeRules(before, tt.left)) {
+								t.Errorf("rules after the failed delete are %v, want %v", got, fakeRules(before, tt.left))
 							}
-							srv.Firewall.SetRules(nil)
+							if tt.failRestore {
+								srv.Firewall.SetRules(fakeRules(before))
+							}
 						},
-						Config: fakeRouterConfig(srv),
+						Config: provider,
+						Check:  expectFakeRules(srv, before),
 					},
 				},
 			})

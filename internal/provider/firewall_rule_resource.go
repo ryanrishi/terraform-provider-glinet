@@ -132,7 +132,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, " +
 			"so a replaced rule goes to the end of the list. Use `depends_on` to create rules in a given order.\n\n" +
 			"The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to " +
-			"`" + removablePort + "`, then removes it.\n\n" +
+			"`" + removablePort + "`, then removes it. When the remove fails, the provider writes the original values to the rule again.\n\n" +
 			"The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
 			"source_zone": sourceZone,
@@ -267,7 +267,8 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 
 // Delete removes the first rule with the identity of the state. The router cannot remove a rule with no
 // destination port, so Delete first disables such a rule and sets its destination port to removablePort.
-// The write keeps the position of the rule, so its ID stays valid for the remove.
+// The write keeps the position of the rule, so its ID stays valid for the remove. When the remove fails,
+// Delete writes the original values again, so that the identity of the state still finds the rule.
 func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state firewallRuleResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -305,10 +306,18 @@ func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 	if err := r.client.Firewall.RemoveRule(ctx, rule.ID); err != nil {
+		if restoreErr := r.client.Firewall.SetRule(ctx, *rule); restoreErr != nil {
+			resp.Diagnostics.AddError("Unable to Delete Firewall Rule",
+				fmt.Sprintf("The rule %s had no destination port, so the provider disabled it and set its destination port to %s before the remove. "+
+					"The remove failed, and the restore of the original values also failed, so the router can have the rule %s. "+
+					"Terraform cannot find this rule with the destination port %s. Remove it on the router. Remove error: %s. Restore error: %s",
+					describeRule(*rule), removablePort, describeRule(removable), removablePort, err, restoreErr))
+			return
+		}
 		resp.Diagnostics.AddError("Unable to Delete Firewall Rule",
 			fmt.Sprintf("The rule %s had no destination port, so the provider disabled it and set its destination port to %s before the remove. "+
-				"The remove failed, so the router can still have the rule %s. Remove it on the router. Error: %s",
-				describeRule(*rule), removablePort, describeRule(removable), err))
+				"The remove failed, so the provider restored the original values, and the rule is unchanged on the router. Error: %s",
+				describeRule(*rule), removablePort, err))
 	}
 }
 
