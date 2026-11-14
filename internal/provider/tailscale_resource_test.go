@@ -315,6 +315,34 @@ func TestTailscaleResourceDrift(t *testing.T) {
 	}
 }
 
+// TestTailscaleResourceDisabledWithNullVariable uses a variable for exit_node_ip. Terraform validates the
+// configuration before it knows the value of the variable.
+func TestTailscaleResourceDisabledWithNullVariable(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + `
+variable "exit_node_ip" {
+  type    = string
+  default = null
+}
+
+resource "glinet_tailscale" "test" {
+  enabled      = false
+  exit_node_ip = var.exit_node_ip
+}
+`,
+				ConfigStateChecks: expectTailscaleState(tailscale{}, fakeLANIP),
+				Check:             expectRouterTailscale(client, tailscale{}.router(fakeLANIP)),
+			},
+		},
+	})
+}
+
 // TestTailscaleResourceLANIPChanged changes the LAN subnet of the router, which changes lan_ip without a plan.
 func TestTailscaleResourceLANIPChanged(t *testing.T) {
 	srv := glinettest.NewServer(t)

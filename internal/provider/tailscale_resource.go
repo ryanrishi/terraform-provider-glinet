@@ -131,7 +131,7 @@ func (v tailscaleDisabledValidator) ValidateResource(ctx context.Context, req re
 	if config.WANEnabled.ValueBool() {
 		resp.Diagnostics.AddAttributeError(path.Root("wan_enabled"), "Invalid Tailscale Configuration", detail)
 	}
-	if !config.ExitNodeIP.IsNull() {
+	if !config.ExitNodeIP.IsNull() && !config.ExitNodeIP.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(path.Root("exit_node_ip"), "Invalid Tailscale Configuration", detail)
 	}
 }
