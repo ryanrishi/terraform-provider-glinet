@@ -33,8 +33,6 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
 
-The latest release, v0.0.4, has only the data source. The resources are on `main` and are not in a release yet.
-
 The provider is tested with a GL-AXT1800 on firmware 4.7.0. Other models and firmware versions can have different API methods.
 
 ## Requirements
