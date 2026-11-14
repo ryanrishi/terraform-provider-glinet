@@ -1,7 +1,6 @@
 # terraform-provider-glinet
 [![Tests](https://github.com/ryanrishi/terraform-provider-glinet/actions/workflows/test.yml/badge.svg)](https://github.com/ryanrishi/terraform-provider-glinet/actions/workflows/test.yml)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ryanrishi/terraform-provider-glinet)](https://github.com/ryanrishi/terraform-provider-glinet/releases/latest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ryanrishi/terraform-provider-glinet)](https://goreportcard.com/report/github.com/ryanrishi/terraform-provider-glinet)
 
 This provider lets Terraform manage [GL.iNet](https://www.gl-inet.com/) routers that run [v4 firmware](https://docs.gl-inet.com/router/en/4/).
 It uses the Go client [glinet-client-go](https://github.com/ryanrishi/glinet-client-go).
