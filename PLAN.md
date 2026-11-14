@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`), 6 (`glinet_dns`) and 7 (`glinet_adguardhome`). The provider uses client `v0.5.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`), 6 (`glinet_dns`) and 7 (`glinet_adguardhome`). The provider uses client `v0.6.0`.
 
 One item at a time. For each item:
 
