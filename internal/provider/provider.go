@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -128,13 +129,31 @@ func valueOrEnv(value types.String, envVar, fallback string) string {
 }
 
 func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewSystemTimezoneResource,
+	}
 }
 
 func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewSystemTimezoneConfigDataSource,
 	}
+}
+
+func resourceClient(req resource.ConfigureRequest, resp *resource.ConfigureResponse) *glinet.Client {
+	if req.ProviderData == nil {
+		return nil
+	}
+
+	client, ok := req.ProviderData.(*glinet.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *glinet.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+	}
+
+	return client
 }
 
 func New(version string) func() provider.Provider {

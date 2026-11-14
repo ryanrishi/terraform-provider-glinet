@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/hashicorp/terraform-plugin-log v0.11.0
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
-	github.com/ryanrishi/glinet-client-go v0.1.0
+	github.com/ryanrishi/glinet-client-go v0.2.0
 )
 
 require (

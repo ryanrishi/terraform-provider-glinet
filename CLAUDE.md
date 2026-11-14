@@ -31,7 +31,8 @@ Add a dependency with `go get github.com/author/dependency` and `go mod tidy`. D
   - Data sources and resources get the `*glinet.Client` from `ProviderData`.
 - Client: `github.com/ryanrishi/glinet-client-go`. Service methods take a `context.Context`. `Client.Call(ctx, module, method, params, result)` calls methods that have no typed method. Router errors are `*glinet.RPCError`. The client logs in again one time on `-32000`.
 - Data sources: `glinet_system_timezone_config` (`system_timezone_config_data_source.go`).
-- Resources: none yet.
+- Resources: `glinet_system_timezone` (`system_timezone_resource.go`, singleton).
+- `resourceClient` in `provider.go` gives a resource the client in `Configure`.
 
 ## Adding Data Sources and Resources
 
