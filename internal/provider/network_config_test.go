@@ -110,3 +110,11 @@ func (s *savedRouterJSON) expect(*terraform.State) error {
 	}
 	return nil
 }
+
+// expectJSONEqual reports an error when the JSON values got and want are not equal.
+func expectJSONEqual(t *testing.T, got json.RawMessage, want string) {
+	t.Helper()
+	if g, w := canonicalJSON(t, string(got)), canonicalJSON(t, want); g != w {
+		t.Errorf("router result is %s, want %s", g, w)
+	}
+}
