@@ -131,6 +131,7 @@ func valueOrEnv(value types.String, envVar, fallback string) string {
 func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewSystemTimezoneResource,
+		NewLANStaticLeaseResource,
 	}
 }
 

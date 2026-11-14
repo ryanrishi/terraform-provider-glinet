@@ -31,7 +31,7 @@ Add a dependency with `go get github.com/author/dependency` and `go mod tidy`. D
   - Data sources and resources get the `*glinet.Client` from `ProviderData`.
 - Client: `github.com/ryanrishi/glinet-client-go`. Service methods take a `context.Context`. `Client.Call(ctx, module, method, params, result)` calls methods that have no typed method. Router errors are `*glinet.RPCError`. The client logs in again one time on `-32000`.
 - Data sources: `glinet_system_timezone_config` (`system_timezone_config_data_source.go`).
-- Resources: `glinet_system_timezone` (`system_timezone_resource.go`, singleton).
+- Resources: `glinet_system_timezone` (`system_timezone_resource.go`, singleton), `glinet_lan_static_lease` (`lan_static_lease_resource.go`, ID is the MAC).
 - `resourceClient` in `provider.go` gives a resource the client in `Configure`.
 
 ## Adding Data Sources and Resources
@@ -47,7 +47,7 @@ Tests run Terraform with the provider in the test process:
 
 - `resource.UnitTest` with `ProtoV6ProviderFactories` (`testProtoV6ProviderFactories` in `provider_test.go`). No `TF_ACC` needed.
 - The provider connects to a fake router from `github.com/ryanrishi/glinet-client-go/glinettest`: `srv := glinettest.NewServer(t)`, then `fakeRouterConfig(srv)` gives the provider block.
-  - `srv.System`, `srv.AdGuardHome`: module state in memory, which tests can set.
+  - `srv.System`, `srv.AdGuardHome`, `srv.LAN`: module state in memory, which tests can set.
   - `srv.Handle(module, method, m)`: replace a method, for example to return a `glinettest.Error`.
   - `srv.ExpireSessions()`: the next call gets `-32000`.
 - Assertions use `ConfigStateChecks` with `statecheck` and `knownvalue`. Error paths use `ExpectError`.
