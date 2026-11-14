@@ -173,6 +173,26 @@ var (
 	})
 )
 
+// orNull accepts null and each value that check accepts.
+func orNull(check knownvalue.Check) knownvalue.Check {
+	return orNullCheck{check}
+}
+
+type orNullCheck struct {
+	check knownvalue.Check
+}
+
+func (c orNullCheck) CheckValue(v any) error {
+	if v == nil {
+		return nil
+	}
+	return c.check.CheckValue(v)
+}
+
+func (c orNullCheck) String() string {
+	return c.check.String() + " or null"
+}
+
 // expectAttributes checks the top-level attributes of the data source or resource at address.
 func expectAttributes(address string, checks map[string]knownvalue.Check) []statecheck.StateCheck {
 	var stateChecks []statecheck.StateCheck

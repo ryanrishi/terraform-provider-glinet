@@ -155,6 +155,7 @@ func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewSystemTimezoneConfigDataSource,
 		NewSystemInfoDataSource,
 		NewSystemStatusDataSource,
+		NewClientsDataSource,
 	}
 }
 

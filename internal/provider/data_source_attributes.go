@@ -37,3 +37,11 @@ func channelOrNull(channel int) types.Int64 {
 	}
 	return types.Int64Value(int64(channel))
 }
+
+// stringOrNull returns null for the empty string, which the client gives for a field that the router leaves out.
+func stringOrNull(s string) types.String {
+	if s == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
+}

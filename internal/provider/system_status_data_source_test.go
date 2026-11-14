@@ -145,7 +145,6 @@ func TestSystemStatusDataSourceAPIError(t *testing.T) {
 }
 
 // realRouterSystemStatusChecks checks only types, that the values that each router has are not empty, and the shape of the lists.
-// The Wi-Fi channel is not checked, because the router can give none.
 func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 	return map[string]knownvalue.Check{
 		"lan_ip":        nonEmptyString,
@@ -165,6 +164,7 @@ func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 		"flash_total":       positiveInt64,
 		"flash_free":        anyInt64,
 		"flash_app":         anyInt64,
+		"cpu_temperature":   orNull(anyInt64),
 		"ddns_enabled":      anyBool,
 		"ipv6_enabled":      anyBool,
 		"nat_enabled":       anyBool,
@@ -182,12 +182,13 @@ func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 			}),
 		}),
 		"wifi_interfaces": knownvalue.ListPartial(map[int]knownvalue.Check{
-			0: knownvalue.ObjectPartial(map[string]knownvalue.Check{
-				"name":  nonEmptyString,
-				"band":  nonEmptyString,
-				"ssid":  anyString,
-				"up":    anyBool,
-				"guest": anyBool,
+			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
+				"name":    nonEmptyString,
+				"band":    nonEmptyString,
+				"ssid":    anyString,
+				"channel": orNull(anyInt64),
+				"up":      anyBool,
+				"guest":   anyBool,
 			}),
 		}),
 	}
