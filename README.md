@@ -7,9 +7,17 @@ It uses the Go client [glinet-client-go](https://github.com/ryanrishi/glinet-cli
 
 ## Using the provider
 
-The latest release and its documentation are in the [Terraform Registry](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs).
+The provider is in the [Terraform Registry](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs) and the [OpenTofu Registry](https://search.opentofu.org/provider/ryanrishi/glinet/latest) as `ryanrishi/glinet`.
 
 ```terraform
+terraform {
+  required_providers {
+    glinet = {
+      source = "ryanrishi/glinet"
+    }
+  }
+}
+
 provider "glinet" {
   host     = "http://192.168.8.1" # default
   username = "root"               # default
@@ -17,7 +25,17 @@ provider "glinet" {
 }
 ```
 
-The provider also reads `GLINET_HOST`, `GLINET_USERNAME` and `GLINET_PASSWORD`.
+If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
+
+| Type | Name | Documentation |
+|---|---|---|
+| Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
+| Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
+| Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
+
+The latest release, v0.0.4, has only the data source. The resources are on `main` and are not in a release yet.
+
+The provider is tested with a GL-AXT1800 on firmware 4.7.0. Other models and firmware versions can have different API methods.
 
 ## Requirements
 
