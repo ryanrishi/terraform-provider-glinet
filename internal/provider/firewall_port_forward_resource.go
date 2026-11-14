@@ -130,9 +130,11 @@ func validIPv4(s string) bool {
 }
 
 // stringCheck is a validator that fails when valid returns false for the value.
+// The error does not show the value when sensitive is true.
 type stringCheck struct {
 	description string
 	valid       func(string) bool
+	sensitive   bool
 }
 
 func (v stringCheck) Description(context.Context) string {
@@ -148,8 +150,11 @@ func (v stringCheck) ValidateString(ctx context.Context, req validator.StringReq
 		return
 	}
 
-	resp.Diagnostics.AddAttributeError(req.Path, "Invalid Attribute Value",
-		fmt.Sprintf("Attribute %s %s, got: %q", req.Path, v.Description(ctx), req.ConfigValue.ValueString()))
+	detail := fmt.Sprintf("Attribute %s %s", req.Path, v.Description(ctx))
+	if !v.sensitive {
+		detail += fmt.Sprintf(", got: %q", req.ConfigValue.ValueString())
+	}
+	resp.Diagnostics.AddAttributeError(req.Path, "Invalid Attribute Value", detail)
 }
 
 var portValidator = stringCheck{
