@@ -157,6 +157,7 @@ func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewSystemStatusDataSource,
 		NewClientsDataSource,
 		NewFirewallZonesDataSource,
+		NewWANStatusDataSource,
 	}
 }
 
