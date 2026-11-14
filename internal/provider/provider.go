@@ -145,6 +145,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewLEDResource,
 		NewLEDScheduleResource,
 		NewRebootScheduleResource,
+		NewDNSResource,
 	}
 }
 
