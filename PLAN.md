@@ -57,7 +57,13 @@ Firewall DMZ (write test, client `v0.4.0`):
 - `set_dmz {enabled?, dest_ip?}`: without `enabled` the router enables the DMZ. Without `dest_ip` the router removes the DMZ host. `{enabled:false, dest_ip:X}` keeps the host in a disabled DMZ. The router does not check `dest_ip`.
 - The first `set_dmz` adds a firewall section that stays. After it, the ID that `add_port_forward` returns can be one more than the ID in the list. DMZ writes hold the `routerWrites` lock.
 
-Not verified: write methods other than `system.set_timezone_config`, the `lan` static bind methods, the port forward methods and the DMZ methods; the item fields of lists that were empty on the router (firewall rules, WireGuard server peers).
+Firewall rules (write test, client `v0.4.0`):
+- Item fields: `id`, `name`, `src`, `src_ip`, `src_mac`, `src_port`, `proto`, `dest`, `dest_ip`, `dest_port`, `target` are strings; `enabled` is a JSON bool. A field with no value has no key. The router adds no default value except `enabled = true`.
+- Rules and port forwards share one index for their IDs, so a remove of a rule or a port forward changes the IDs of the rules after it. The methods do not check the section type of the ID.
+- The router does not check values and accepts duplicates. There is no method to move a rule. `set_rule` with an unknown ID changes nothing.
+- `remove_rule` returns HTTP 500 for an unknown ID and for a rule with no `dest_port`.
+
+Not verified: write methods other than `system.set_timezone_config`, the `lan` static bind methods, the port forward methods, the rule methods and the DMZ methods; the item fields of lists that were empty on the router (WireGuard server peers); the rule protocols `icmp` and `all`.
 
 ## Test router
 
@@ -138,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 (`glinet_system_timezone`), 2 (`glinet_lan_static_lease`) and 3 (`glinet_firewall_port_forward`) are done. Resource 5 (`glinet_firewall_dmz`) is done on the branch `firewall-dmz` (not merged). The provider uses client `v0.4.0`.
+Status: resources 1 (`glinet_system_timezone`), 2 (`glinet_lan_static_lease`) and 3 (`glinet_firewall_port_forward`) are done. Resource 5 (`glinet_firewall_dmz`) is done on the branch `firewall-dmz` (not merged). Resource 4 (`glinet_firewall_rule`) is done on the branch `firewall-rule` (not merged), which is based on `firewall-dmz`. The provider uses client `v0.4.0`.
 
 One item at a time. For each item:
 
@@ -157,7 +163,7 @@ The client session can be one or two items ahead of the provider session.
 | 1 | `glinet_system_timezone` | `system.get_timezone_config`, `set_timezone_config` | singleton | Proves the singleton pattern. |
 | 2 | `glinet_lan_static_lease` | `lan.get_static_bind_list`, `add_static_bind`, `set_static_bind`, `remove_static_bind` | CRUD, ID is the MAC | Proves the CRUD pattern. |
 | 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `external_zone` + `protocol` + `external_port` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Attribute names follow the labels of the web UI, except `name` (Description in the UI). Import ID `<external_zone>/<protocol>/<external_port>`, with `tcp+udp` for `tcp udp`. |
-| 4 | `glinet_firewall_rule` | `firewall.*_rule*` | CRUD, ID from the router | |
+| 4 | `glinet_firewall_rule` | `firewall.get_rule_list`, `add_rule`, `set_rule`, `remove_rule` | CRUD, identity is the match fields `source_zone`, `source_ip`, `source_mac`, `source_port`, `protocol`, `destination_zone`, `destination_ip`, `destination_port` | A match field with no value is part of the identity, and a change to a match field replaces the rule. `action` (`target`), `name` and `enabled` are updated in place. The router ID is not in the state; the resource finds its rule by identity before each read, update and delete. Create fails only when a rule has exactly the same identity (no overlap analysis). With duplicates, the resource uses the first rule and shows a warning. Import ID is the name of the rule: no rule or more than one rule with the name is an error, and a rule with no name cannot be imported. Required: `source_zone`, `action`. `protocol` allows `tcp`, `udp`, `tcp udp` (verified) and `icmp`, `all` (OpenWrt values, not tested on the router). Delete of a rule with no destination port first disables it and sets the destination port `65535`, because the router cannot remove it. |
 | 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | Destroy disables the DMZ and removes the DMZ host (exception to the singleton destroy convention). When the router has no DMZ host, read removes the resource from the state. Attribute `internal_ip` (`dest_ip` in the API). Import ID `dmz`. |
 | 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. |
 | 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | |
