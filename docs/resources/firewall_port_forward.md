@@ -3,34 +3,34 @@
 page_title: "glinet_firewall_port_forward Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a port forward of the firewall. The source zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same source zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
+  Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
 ---
 
 # glinet_firewall_port_forward (Resource)
 
-Manages a port forward of the firewall. The source zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same source zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
+Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The check and the write are separate calls, so a change on the router between them is not detected.
 
 ## Example Usage
 
 ```terraform
 resource "glinet_firewall_port_forward" "web" {
-  name      = "web"
-  src       = "wan"
-  proto     = "tcp"
-  src_dport = "8080"
-  dest      = "lan"
-  dest_ip   = "192.168.8.201"
-  dest_port = "80"
+  protocol      = "tcp"
+  external_zone = "wan"
+  external_port = "8080"
+  internal_zone = "lan"
+  internal_ip   = "192.168.8.201"
+  internal_port = "80"
+  name          = "web"
 }
 
 resource "glinet_firewall_port_forward" "game" {
-  src       = "wan"
-  proto     = "tcp udp"
-  src_dport = "27015-27030"
-  dest      = "lan"
-  dest_ip   = "192.168.8.202"
-  dest_port = "27015-27030"
-  enabled   = false
+  protocol      = "tcp udp"
+  external_zone = "wan"
+  external_port = "27015-27030"
+  internal_zone = "lan"
+  internal_ip   = "192.168.8.202"
+  internal_port = "27015-27030"
+  enabled       = false
 }
 ```
 
@@ -39,17 +39,17 @@ resource "glinet_firewall_port_forward" "game" {
 
 ### Required
 
-- `dest` (String) Firewall zone of the destination, for example `lan`.
-- `dest_ip` (String) IPv4 address of the destination.
-- `dest_port` (String) Port of the destination, or a range of ports such as `8000-8010`.
-- `proto` (String) Protocol: `tcp`, `udp` or `tcp udp`. Changing it replaces the port forward.
-- `src` (String) Firewall zone that the traffic comes from, for example `wan`. Changing it replaces the port forward.
-- `src_dport` (String) External port, or a range of ports such as `8000-8010`. Changing it replaces the port forward.
+- `external_port` (String) External port, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.
+- `external_zone` (String) Firewall zone that the traffic comes from, for example `wan` (`src` in the router API). Changing it replaces the port forward.
+- `internal_ip` (String) IPv4 address of the destination (`dest_ip` in the router API).
+- `internal_port` (String) Port of the destination, or a range of ports such as `8000-8010` (`dest_port` in the router API).
+- `internal_zone` (String) Firewall zone of the destination, for example `lan` (`dest` in the router API).
+- `protocol` (String) Protocol: `tcp`, `udp` or `tcp udp` (`proto` in the router API). Changing it replaces the port forward.
 
 ### Optional
 
-- `enabled` (Boolean) Whether the port forward is enabled. Defaults to `true`.
-- `name` (String) Name of the port forward.
+- `enabled` (Boolean) Whether the port forward is enabled (`enabled` in the router API). Defaults to `true`.
+- `name` (String) Name of the port forward, shown as Description in the web UI (`name` in the router API).
 
 ## Import
 
@@ -58,7 +58,7 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is <src>/<proto>/<src_dport>. Write the protocol "tcp udp" as tcp+udp.
+# The import ID is <external_zone>/<protocol>/<external_port>. Write the protocol "tcp udp" as tcp+udp.
 terraform import glinet_firewall_port_forward.web wan/tcp/8080
 terraform import glinet_firewall_port_forward.game wan/tcp+udp/27015-27030
 ```

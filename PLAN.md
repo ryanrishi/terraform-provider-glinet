@@ -151,7 +151,7 @@ The client session can be one or two items ahead of the provider session.
 |---|---|---|---|---|
 | 1 | `glinet_system_timezone` | `system.get_timezone_config`, `set_timezone_config` | singleton | Proves the singleton pattern. |
 | 2 | `glinet_lan_static_lease` | `lan.get_static_bind_list`, `add_static_bind`, `set_static_bind`, `remove_static_bind` | CRUD, ID is the MAC | Proves the CRUD pattern. |
-| 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `src` + `proto` + `src_dport` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Import ID `<src>/<proto>/<src_dport>`, with `tcp+udp` for `tcp udp`. |
+| 3 | `glinet_firewall_port_forward` | `firewall.get_port_forward_list`, `add_port_forward`, `set_port_forward`, `remove_port_forward` | CRUD, identity is `external_zone` + `protocol` + `external_port` | The router ID changes when an earlier forward is removed, so it is not in the state. The resource finds its forward by identity before each read, update and delete. Attribute names follow the labels of the web UI, except `name` (Description in the UI). Import ID `<external_zone>/<protocol>/<external_port>`, with `tcp+udp` for `tcp udp`. |
 | 4 | `glinet_firewall_rule` | `firewall.*_rule*` | CRUD, ID from the router | |
 | 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | |
 | 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. |

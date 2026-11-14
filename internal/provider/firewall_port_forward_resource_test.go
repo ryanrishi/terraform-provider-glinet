@@ -48,22 +48,22 @@ func forward(proto, srcDport, destPort, name string) glinet.PortForward {
 func forwardResource(label string, f glinet.PortForward) string {
 	var optional strings.Builder
 	if f.Name != "" {
-		fmt.Fprintf(&optional, "  name      = %q\n", f.Name)
+		fmt.Fprintf(&optional, "  name          = %q\n", f.Name)
 	}
 	if !f.Enabled {
-		optional.WriteString("  enabled   = false\n")
+		optional.WriteString("  enabled       = false\n")
 	}
 
 	return fmt.Sprintf(`
 resource "glinet_firewall_port_forward" %q {
-  src       = %q
-  proto     = %q
-  src_dport = %q
-  dest      = %q
-  dest_ip   = %q
-  dest_port = %q
+  protocol      = %q
+  external_zone = %q
+  external_port = %q
+  internal_zone = %q
+  internal_ip   = %q
+  internal_port = %q
 %s}
-`, label, f.Src, f.Proto, f.SrcDport, f.Dest, f.DestIP, f.DestPort, optional.String())
+`, label, f.Proto, f.Src, f.SrcDport, f.Dest, f.DestIP, f.DestPort, optional.String())
 }
 
 func forwardConfig(f glinet.PortForward) string {
@@ -92,7 +92,7 @@ func fakes(forwards ...glinet.PortForward) []glinettest.PortForward {
 }
 
 func identityOf(f glinet.PortForward) portForwardIdentity {
-	return portForwardIdentity{src: f.Src, proto: f.Proto, srcDport: f.SrcDport}
+	return portForwardIdentity{externalZone: f.Src, protocol: f.Proto, externalPort: f.SrcDport}
 }
 
 func expectForward(attribute string, value knownvalue.Check) statecheck.StateCheck {
@@ -106,12 +106,12 @@ func expectForwardState(f glinet.PortForward) []statecheck.StateCheck {
 	}
 
 	return []statecheck.StateCheck{
-		expectForward("src", knownvalue.StringExact(f.Src)),
-		expectForward("proto", knownvalue.StringExact(f.Proto)),
-		expectForward("src_dport", knownvalue.StringExact(f.SrcDport)),
-		expectForward("dest", knownvalue.StringExact(f.Dest)),
-		expectForward("dest_ip", knownvalue.StringExact(f.DestIP)),
-		expectForward("dest_port", knownvalue.StringExact(f.DestPort)),
+		expectForward("protocol", knownvalue.StringExact(f.Proto)),
+		expectForward("external_zone", knownvalue.StringExact(f.Src)),
+		expectForward("external_port", knownvalue.StringExact(f.SrcDport)),
+		expectForward("internal_zone", knownvalue.StringExact(f.Dest)),
+		expectForward("internal_ip", knownvalue.StringExact(f.DestIP)),
+		expectForward("internal_port", knownvalue.StringExact(f.DestPort)),
 		expectForward("name", name),
 		expectForward("enabled", knownvalue.Bool(f.Enabled)),
 	}
@@ -239,7 +239,7 @@ func TestFirewallPortForwardResource(t *testing.T) {
 				ImportState:                          true,
 				ImportStateId:                        "wan/tcp/50001",
 				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "src_dport",
+				ImportStateVerifyIdentifierAttribute: "external_port",
 			},
 		},
 	})
@@ -286,9 +286,9 @@ func TestFirewallPortForwardResourceReplace(t *testing.T) {
 		name    string
 		changed glinet.PortForward
 	}{
-		{"src", guest},
-		{"proto", forward("tcp udp", "50001", "8080", "test")},
-		{"src_dport", forward("tcp", "50002-50003", "8080", "test")},
+		{"external_zone", guest},
+		{"protocol", forward("tcp udp", "50001", "8080", "test")},
+		{"external_port", forward("tcp", "50002-50003", "8080", "test")},
 	}
 
 	for _, tt := range tests {
@@ -499,7 +499,7 @@ func TestFirewallPortForwardResourceOverlap(t *testing.T) {
 		{"same identity tcp udp", "tcp udp", forward("tcp udp", "50001", "9090", ""),
 			`(?s)Firewall Port Forward Already Exists.*"wan/tcp\+udp/50001"`},
 		{"protocol intersects", "tcp", forward("tcp udp", "50001", "9090", "existing"),
-			`(?s)Firewall Port Forward Overlaps.*"existing".*protocol\s+"tcp udp"`},
+			`(?s)Firewall Port Forward Overlaps.*"existing".*protocol\s+tcp\s+udp,`},
 		{"range intersects", "tcp", forward("tcp", "50000-50010", "9090", ""),
 			`(?s)Firewall Port Forward Overlaps.*external\s+port\s+50000-50010`},
 		{"no protocol", "udp", forward("", "50001", "9090", "existing"),
@@ -671,19 +671,19 @@ func TestFirewallPortForwardResourceInvalidConfig(t *testing.T) {
 		{"protocol upper case", with(func(f *glinet.PortForward) { f.Proto = "TCP" }), `value must be one of`},
 		{"protocol tcpudp", with(func(f *glinet.PortForward) { f.Proto = "tcpudp" }), `value must be one of`},
 		{"protocol icmp", with(func(f *glinet.PortForward) { f.Proto = "icmp" }), `value must be one of`},
-		{"src empty", with(func(f *glinet.PortForward) { f.Src = "" }), `string length must be at least 1`},
-		{"dest empty", with(func(f *glinet.PortForward) { f.Dest = "" }), `string length must be at least 1`},
-		{"src_dport 0", with(func(f *glinet.PortForward) { f.SrcDport = "0" }), `src_dport must be a port from 1 to 65535`},
-		{"src_dport 65536", with(func(f *glinet.PortForward) { f.SrcDport = "65536" }), `src_dport must be a port`},
-		{"src_dport reversed range", with(func(f *glinet.PortForward) { f.SrcDport = "50010-50001" }), `src_dport must be a port`},
-		{"src_dport leading zero", with(func(f *glinet.PortForward) { f.SrcDport = "08080" }), `src_dport must be a port`},
-		{"src_dport name", with(func(f *glinet.PortForward) { f.SrcDport = "http" }), `src_dport must be a port`},
-		{"src_dport space", with(func(f *glinet.PortForward) { f.SrcDport = "50001 " }), `src_dport must be a port`},
-		{"dest_port range end too large", with(func(f *glinet.PortForward) { f.DestPort = "8080-70000" }), `dest_port must be a port`},
-		{"dest_port empty", with(func(f *glinet.PortForward) { f.DestPort = "" }), `dest_port must be a port`},
-		{"dest_ip out of range", with(func(f *glinet.PortForward) { f.DestIP = "192.168.8.256" }), `dest_ip must be an IPv4 address`},
-		{"dest_ip IPv6", with(func(f *glinet.PortForward) { f.DestIP = "fd00::1" }), `dest_ip must be an IPv4 address`},
-		{"dest_ip host name", with(func(f *glinet.PortForward) { f.DestIP = "printer" }), `dest_ip must be an IPv4 address`},
+		{"external_zone empty", with(func(f *glinet.PortForward) { f.Src = "" }), `string length must be at least 1`},
+		{"internal_zone empty", with(func(f *glinet.PortForward) { f.Dest = "" }), `string length must be at least 1`},
+		{"external_port 0", with(func(f *glinet.PortForward) { f.SrcDport = "0" }), `external_port must be a port from 1 to 65535`},
+		{"external_port 65536", with(func(f *glinet.PortForward) { f.SrcDport = "65536" }), `external_port must be a port`},
+		{"external_port reversed range", with(func(f *glinet.PortForward) { f.SrcDport = "50010-50001" }), `external_port must be a port`},
+		{"external_port leading zero", with(func(f *glinet.PortForward) { f.SrcDport = "08080" }), `external_port must be a port`},
+		{"external_port name", with(func(f *glinet.PortForward) { f.SrcDport = "http" }), `external_port must be a port`},
+		{"external_port space", with(func(f *glinet.PortForward) { f.SrcDport = "50001 " }), `external_port must be a port`},
+		{"internal_port range end too large", with(func(f *glinet.PortForward) { f.DestPort = "8080-70000" }), `internal_port must be a port`},
+		{"internal_port empty", with(func(f *glinet.PortForward) { f.DestPort = "" }), `internal_port must be a port`},
+		{"internal_ip out of range", with(func(f *glinet.PortForward) { f.DestIP = "192.168.8.256" }), `internal_ip must be an IPv4 address`},
+		{"internal_ip IPv6", with(func(f *glinet.PortForward) { f.DestIP = "fd00::1" }), `internal_ip must be an IPv4 address`},
+		{"internal_ip host name", with(func(f *glinet.PortForward) { f.DestIP = "printer" }), `internal_ip must be an IPv4 address`},
 		{"name empty", strings.Replace(forwardConfig(valid), "}", "  name = \"\"\n}", 1), `string length must be at least 1`},
 	}
 

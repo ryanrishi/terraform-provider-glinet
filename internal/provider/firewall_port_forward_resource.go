@@ -47,38 +47,38 @@ type firewallPortForwardResource struct {
 }
 
 type firewallPortForwardResourceModel struct {
-	Src      types.String `tfsdk:"src"`
-	Proto    types.String `tfsdk:"proto"`
-	SrcDport types.String `tfsdk:"src_dport"`
-	Dest     types.String `tfsdk:"dest"`
-	DestIP   types.String `tfsdk:"dest_ip"`
-	DestPort types.String `tfsdk:"dest_port"`
-	Name     types.String `tfsdk:"name"`
-	Enabled  types.Bool   `tfsdk:"enabled"`
+	Protocol     types.String `tfsdk:"protocol"`
+	ExternalZone types.String `tfsdk:"external_zone"`
+	ExternalPort types.String `tfsdk:"external_port"`
+	InternalZone types.String `tfsdk:"internal_zone"`
+	InternalIP   types.String `tfsdk:"internal_ip"`
+	InternalPort types.String `tfsdk:"internal_port"`
+	Name         types.String `tfsdk:"name"`
+	Enabled      types.Bool   `tfsdk:"enabled"`
 }
 
 // portForwardIdentity identifies a port forward. The router ID is not used because it changes
 // when an earlier port forward is removed.
 type portForwardIdentity struct {
-	src, proto, srcDport string
+	externalZone, protocol, externalPort string
 }
 
 func (id portForwardIdentity) importID() string {
-	return id.src + "/" + strings.ReplaceAll(id.proto, " ", "+") + "/" + id.srcDport
+	return id.externalZone + "/" + strings.ReplaceAll(id.protocol, " ", "+") + "/" + id.externalPort
 }
 
 func (id portForwardIdentity) String() string {
-	return fmt.Sprintf("zone %s, protocol %q, external port %s", id.src, id.proto, id.srcDport)
+	return fmt.Sprintf("external zone %s, protocol %s, external port %s", id.externalZone, id.protocol, id.externalPort)
 }
 
 func (id portForwardIdentity) matches(f glinet.PortForward) bool {
-	return f.Src == id.src && f.Proto == id.proto && f.SrcDport == id.srcDport
+	return f.Src == id.externalZone && f.Proto == id.protocol && f.SrcDport == id.externalPort
 }
 
 // overlaps reports whether f takes traffic that the port forward id also takes:
-// same source zone, a common protocol, and a common external port.
+// same external zone, a common protocol, and a common external port.
 func (id portForwardIdentity) overlaps(f glinet.PortForward) bool {
-	if f.Src != id.src || !protocolsIntersect(f.Proto, id.proto) {
+	if f.Src != id.externalZone || !protocolsIntersect(f.Proto, id.protocol) {
 		return false
 	}
 
@@ -86,7 +86,7 @@ func (id portForwardIdentity) overlaps(f glinet.PortForward) bool {
 	if !ok {
 		return false
 	}
-	idLo, idHi, _ := parsePorts(id.srcDport)
+	idLo, idHi, _ := parsePorts(id.externalPort)
 	return lo <= idHi && idLo <= hi
 }
 
@@ -164,24 +164,14 @@ func (r *firewallPortForwardResource) Metadata(_ context.Context, req resource.M
 func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages a port forward of the firewall. " +
-			"The source zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. " +
-			"The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same source zone, " +
+			"The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. " +
+			"The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, " +
 			"a common protocol and a common external port. " +
 			"When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. " +
 			"The check and the write are separate calls, so a change on the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
-			"src": schema.StringAttribute{
-				Description: "Firewall zone that the traffic comes from, for example `wan`. Changing it replaces the port forward.",
-				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
-				},
-			},
-			"proto": schema.StringAttribute{
-				Description: "Protocol: `tcp`, `udp` or `tcp udp`. Changing it replaces the port forward.",
+			"protocol": schema.StringAttribute{
+				Description: "Protocol: `tcp`, `udp` or `tcp udp` (`proto` in the router API). Changing it replaces the port forward.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -190,42 +180,52 @@ func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.Schem
 					stringvalidator.OneOf("tcp", "udp", "tcp udp"),
 				},
 			},
-			"src_dport": schema.StringAttribute{
-				Description: "External port, or a range of ports such as `8000-8010`. Changing it replaces the port forward.",
+			"external_zone": schema.StringAttribute{
+				Description: "Firewall zone that the traffic comes from, for example `wan` (`src` in the router API). Changing it replaces the port forward.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
+			},
+			"external_port": schema.StringAttribute{
+				Description: "External port, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{portValidator},
 			},
-			"dest": schema.StringAttribute{
-				Description: "Firewall zone of the destination, for example `lan`.",
+			"internal_zone": schema.StringAttribute{
+				Description: "Firewall zone of the destination, for example `lan` (`dest` in the router API).",
 				Required:    true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"dest_ip": schema.StringAttribute{
-				Description: "IPv4 address of the destination.",
+			"internal_ip": schema.StringAttribute{
+				Description: "IPv4 address of the destination (`dest_ip` in the router API).",
 				Required:    true,
 				Validators: []validator.String{
 					stringCheck{description: "must be an IPv4 address", valid: validIPv4},
 				},
 			},
-			"dest_port": schema.StringAttribute{
-				Description: "Port of the destination, or a range of ports such as `8000-8010`.",
+			"internal_port": schema.StringAttribute{
+				Description: "Port of the destination, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
 				Required:    true,
 				Validators:  []validator.String{portValidator},
 			},
 			"name": schema.StringAttribute{
-				Description: "Name of the port forward.",
+				Description: "Name of the port forward, shown as Description in the web UI (`name` in the router API).",
 				Optional:    true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the port forward is enabled. Defaults to `true`.",
+				Description: "Whether the port forward is enabled (`enabled` in the router API). Defaults to `true`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
@@ -350,14 +350,14 @@ func (r *firewallPortForwardResource) ImportState(ctx context.Context, req resou
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != 3 || parts[0] == "" || importProtocols[parts[1]] == "" || !validPorts(parts[2]) {
 		resp.Diagnostics.AddError("Invalid Import ID",
-			fmt.Sprintf("The import ID of glinet_firewall_port_forward must be <src>/<proto>/<src_dport>, "+
-				"where proto is tcp, udp or tcp+udp, for example wan/tcp/8080 or wan/tcp+udp/8000-8010. Got %q.", req.ID))
+			fmt.Sprintf("The import ID of glinet_firewall_port_forward must be <external_zone>/<protocol>/<external_port>, "+
+				"where protocol is tcp, udp or tcp+udp, for example wan/tcp/8080 or wan/tcp+udp/8000-8010. Got %q.", req.ID))
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("src"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("proto"), importProtocols[parts[1]])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("src_dport"), parts[2])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("external_zone"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("protocol"), importProtocols[parts[1]])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("external_port"), parts[2])...)
 }
 
 // find returns the first port forward with the identity id, because the firewall uses the first one.
@@ -401,7 +401,7 @@ func (r *firewallPortForwardResource) readBack(ctx context.Context, id portForwa
 }
 
 func describePortForward(f glinet.PortForward) string {
-	id := portForwardIdentity{src: f.Src, proto: f.Proto, srcDport: f.SrcDport}
+	id := portForwardIdentity{externalZone: f.Src, protocol: f.Proto, externalPort: f.SrcDport}
 	if f.Name == "" {
 		return "(" + id.String() + ")"
 	}
@@ -409,19 +409,19 @@ func describePortForward(f glinet.PortForward) string {
 }
 
 func (m firewallPortForwardResourceModel) identity() portForwardIdentity {
-	return portForwardIdentity{src: m.Src.ValueString(), proto: m.Proto.ValueString(), srcDport: m.SrcDport.ValueString()}
+	return portForwardIdentity{externalZone: m.ExternalZone.ValueString(), protocol: m.Protocol.ValueString(), externalPort: m.ExternalPort.ValueString()}
 }
 
 func (m firewallPortForwardResourceModel) portForward(id string) glinet.PortForward {
 	return glinet.PortForward{
 		ID:       id,
 		Name:     m.Name.ValueString(),
-		Proto:    m.Proto.ValueString(),
-		Src:      m.Src.ValueString(),
-		SrcDport: m.SrcDport.ValueString(),
-		Dest:     m.Dest.ValueString(),
-		DestIP:   m.DestIP.ValueString(),
-		DestPort: m.DestPort.ValueString(),
+		Proto:    m.Protocol.ValueString(),
+		Src:      m.ExternalZone.ValueString(),
+		SrcDport: m.ExternalPort.ValueString(),
+		Dest:     m.InternalZone.ValueString(),
+		DestIP:   m.InternalIP.ValueString(),
+		DestPort: m.InternalPort.ValueString(),
 		Enabled:  m.Enabled.ValueBool(),
 	}
 }
@@ -433,13 +433,13 @@ func portForwardModel(f *glinet.PortForward) *firewallPortForwardResourceModel {
 	}
 
 	return &firewallPortForwardResourceModel{
-		Src:      types.StringValue(f.Src),
-		Proto:    types.StringValue(f.Proto),
-		SrcDport: types.StringValue(f.SrcDport),
-		Dest:     types.StringValue(f.Dest),
-		DestIP:   types.StringValue(f.DestIP),
-		DestPort: types.StringValue(f.DestPort),
-		Name:     name,
-		Enabled:  types.BoolValue(f.Enabled),
+		Protocol:     types.StringValue(f.Proto),
+		ExternalZone: types.StringValue(f.Src),
+		ExternalPort: types.StringValue(f.SrcDport),
+		InternalZone: types.StringValue(f.Dest),
+		InternalIP:   types.StringValue(f.DestIP),
+		InternalPort: types.StringValue(f.DestPort),
+		Name:         name,
+		Enabled:      types.BoolValue(f.Enabled),
 	}
 }
