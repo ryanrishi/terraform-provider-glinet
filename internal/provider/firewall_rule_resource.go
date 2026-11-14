@@ -130,7 +130,8 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. " +
 			"When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.\n\n" +
 			"The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, " +
-			"so a replaced rule goes to the end of the list. Use `depends_on` to create rules in a given order.\n\n" +
+			"so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule " +
+			"to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.\n\n" +
 			"The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to " +
 			"`" + removablePort + "`, then removes it. When the remove fails, the provider writes the original values to the rule again.\n\n" +
 			"The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.",

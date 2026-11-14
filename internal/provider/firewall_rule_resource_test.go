@@ -378,6 +378,43 @@ func TestFirewallRuleResourceReplace(t *testing.T) {
 	}
 }
 
+// TestFirewallRuleResourceReplaceTriggeredBy shows the pattern of the documentation that keeps the order of two rules
+// when the earlier rule is replaced.
+func TestFirewallRuleResourceReplaceTriggeredBy(t *testing.T) {
+	srv := glinettest.NewServer(t)
+	first := testRule("50001", "ACCEPT", "first")
+	first.SrcIP = "203.0.113.0/24"
+	changed := first
+	changed.SrcIP = "198.51.100.0/24"
+	second := testRule("50001", "DROP", "second")
+	config := func(first glinet.Rule) string {
+		return fakeRouterConfig(srv) + ruleResource("first", first) +
+			strings.TrimSuffix(ruleResource("second", second), "}\n") +
+			"  lifecycle {\n    replace_triggered_by = [glinet_firewall_rule.first]\n  }\n}\n"
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeRules(srv),
+		Steps: []resource.TestStep{
+			{
+				Config: config(first),
+				Check:  expectFakeRules(srv, first, second),
+			},
+			{
+				Config: config(changed),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("glinet_firewall_rule.first", plancheck.ResourceActionDestroyBeforeCreate),
+						plancheck.ExpectResourceAction("glinet_firewall_rule.second", plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+				Check: expectFakeRules(srv, changed, second),
+			},
+		},
+	})
+}
+
 func TestFirewallRuleResourceImport(t *testing.T) {
 	imported := glinet.Rule{
 		Name:    "imported",

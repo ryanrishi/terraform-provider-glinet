@@ -4,7 +4,7 @@ page_title: "glinet_firewall_rule Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
   Manages a traffic rule of the firewall. The match attributes (source_zone, source_ip, source_mac, source_port, protocol, destination_zone, destination_ip and destination_port) identify the rule, and a match attribute with no value is part of the identity. A change to a match attribute replaces the rule. The router does not check rules and accepts duplicates, so create fails when a rule on the router has exactly the same match attributes. Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.
-  The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. Use depends_on to create rules in a given order.
+  The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add replace_triggered_by with the earlier rule to the lifecycle block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
   The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again.
   The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 ---
@@ -13,7 +13,7 @@ description: |-
 
 Manages a traffic rule of the firewall. The match attributes (`source_zone`, `source_ip`, `source_mac`, `source_port`, `protocol`, `destination_zone`, `destination_ip` and `destination_port`) identify the rule, and a match attribute with no value is part of the identity. A change to a match attribute replaces the rule. The router does not check rules and accepts duplicates, so create fails when a rule on the router has exactly the same match attributes. Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.
 
-The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. Use `depends_on` to create rules in a given order.
+The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
 
 The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again.
 
@@ -34,6 +34,7 @@ resource "glinet_firewall_rule" "ssh_from_office" {
 }
 
 # The firewall applies the first matching rule, so this rule must come after the rule above.
+# A replaced rule goes to the end of the list, so this rule is replaced when the rule above is replaced.
 resource "glinet_firewall_rule" "block_ssh" {
   name             = "block ssh"
   source_zone      = "wan"
@@ -43,7 +44,9 @@ resource "glinet_firewall_rule" "block_ssh" {
   destination_port = "22"
   action           = "DROP"
 
-  depends_on = [glinet_firewall_rule.ssh_from_office]
+  lifecycle {
+    replace_triggered_by = [glinet_firewall_rule.ssh_from_office]
+  }
 }
 ```
 

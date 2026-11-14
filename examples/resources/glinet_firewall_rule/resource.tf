@@ -10,6 +10,7 @@ resource "glinet_firewall_rule" "ssh_from_office" {
 }
 
 # The firewall applies the first matching rule, so this rule must come after the rule above.
+# A replaced rule goes to the end of the list, so this rule is replaced when the rule above is replaced.
 resource "glinet_firewall_rule" "block_ssh" {
   name             = "block ssh"
   source_zone      = "wan"
@@ -19,5 +20,7 @@ resource "glinet_firewall_rule" "block_ssh" {
   destination_port = "22"
   action           = "DROP"
 
-  depends_on = [glinet_firewall_rule.ssh_from_office]
+  lifecycle {
+    replace_triggered_by = [glinet_firewall_rule.ssh_from_office]
+  }
 }
