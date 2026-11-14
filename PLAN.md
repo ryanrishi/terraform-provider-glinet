@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`) and 6 (`glinet_dns`). The provider uses client `v0.5.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`), 13 (`glinet_led_schedule`), 14 (`glinet_reboot_schedule`), 6 (`glinet_dns`) and 7 (`glinet_adguardhome`). The provider uses client `v0.5.0`.
 
 One item at a time. For each item:
 
@@ -166,7 +166,7 @@ The client session can be one or two items ahead of the provider session.
 | 4 | `glinet_firewall_rule` | `firewall.get_rule_list`, `add_rule`, `set_rule`, `remove_rule` | CRUD, identity is the match fields `source_zone`, `source_ip`, `source_mac`, `source_port`, `protocol`, `destination_zone`, `destination_ip`, `destination_port` | A match field with no value is part of the identity, and a change to a match field replaces the rule. `action` (`target`), `name` and `enabled` are updated in place. The router ID is not in the state; the resource finds its rule by identity before each read, update and delete. Create fails only when a rule has exactly the same identity (no overlap analysis). With duplicates, the resource uses the first rule and shows a warning. Import ID is the name of the rule: no rule or more than one rule with the name is an error, and a rule with no name cannot be imported. Required: `source_zone`, `action`. `protocol` allows `tcp`, `udp`, `tcp udp` (verified) and `icmp`, `all` (OpenWrt values, not tested on the router). Delete of a rule with no destination port first disables it and sets the destination port `65535`, because the router cannot remove it. |
 | 5 | `glinet_firewall_dmz` | `firewall.get_dmz`, `set_dmz` | singleton | Destroy disables the DMZ and removes the DMZ host (exception to the singleton destroy convention). When the router has no DMZ host, read removes the resource from the state. Attribute `internal_ip` (`dest_ip` in the API). Import ID `dmz`. |
 | 6 | `glinet_dns` | `dns.get_config`, `set_config` | singleton | Real fields differ from the 2023 reference. `force_dns`, `rebind_protection`, `override_vpn` are required, because the router writes a missing one as `false`. `mode` allows only `auto` and is not written when it is not set. `servers` is computed runtime data. Import ID `dns`. |
-| 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | |
+| 7 | `glinet_adguardhome` | `adguardhome.get_config`, `set_config` | singleton | `enabled` and `dns_enabled` are required and always written. No wait after the write. Import ID `adguardhome`. |
 | 8 | `glinet_wifi_iface` | `wifi.get_config`, `set_config` | update-only, import by `iface_name` | The key is sensitive. Can cut Wi-Fi access. |
 | 9 | `glinet_lan_config` | `lan.get_config_list`, `set_config` | singleton for each interface (`lan`, `guest`) | Can cut router access. |
 | 10 | `glinet_wireguard_server_peer` | `wg-server.get_peer_list`, `add_peer`, `set_peer`, `remove_peer` | CRUD | Needs the WireGuard server to be initialized. |
