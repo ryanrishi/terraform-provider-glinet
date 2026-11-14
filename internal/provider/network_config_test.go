@@ -70,6 +70,22 @@ func (c *callRecorder) expect(want ...string) resource.TestCheckFunc {
 	}
 }
 
+// expectUnordered is expect for calls that can come in any order.
+func (c *callRecorder) expectUnordered(want ...string) resource.TestCheckFunc {
+	for i := range want {
+		want[i] = canonicalJSON(c.t, want[i])
+	}
+	slices.Sort(want)
+	return func(*terraform.State) error {
+		got := c.take()
+		slices.Sort(got)
+		if !slices.Equal(got, want) {
+			return fmt.Errorf("calls have params %q, want %q", got, want)
+		}
+		return nil
+	}
+}
+
 // expectRouterJSON checks that the fake router result that get returns is the JSON value want.
 func expectRouterJSON(t *testing.T, get func() json.RawMessage, want string) resource.TestCheckFunc {
 	want = canonicalJSON(t, want)

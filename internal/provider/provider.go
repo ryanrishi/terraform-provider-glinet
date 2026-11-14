@@ -153,6 +153,7 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewZeroTierResource,
 		NewWANResource,
 		NewIPv6Resource,
+		NewLANConfigResource,
 	}
 }
 
