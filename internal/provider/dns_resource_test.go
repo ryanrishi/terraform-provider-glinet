@@ -235,12 +235,14 @@ func TestDNSResourceWrites(t *testing.T) {
 		Steps: []resource.TestStep{
 			{Config: fakeRouterConfig(srv) + dnsSettings{"", false, false, false}.config()},
 			{Config: fakeRouterConfig(srv) + dnsSettings{"auto", false, true, true}.config()},
+			{Config: fakeRouterConfig(srv) + dnsSettings{"", true, true, true}.config()},
 		},
 	})
 
 	want := []string{
 		`{"force_dns":false,"rebind_protection":false,"override_vpn":false}`,
 		`{"mode":"auto","force_dns":false,"rebind_protection":true,"override_vpn":true}`,
+		`{"force_dns":true,"rebind_protection":true,"override_vpn":true}`,
 	}
 	mu.Lock()
 	defer mu.Unlock()

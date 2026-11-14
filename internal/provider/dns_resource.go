@@ -99,7 +99,7 @@ func (r *dnsResource) Configure(_ context.Context, req resource.ConfigureRequest
 }
 
 func (r *dnsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	r.set(ctx, req.Plan, &resp.State, &resp.Diagnostics)
+	r.set(ctx, req.Config, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
 func (r *dnsResource) Read(ctx context.Context, _ resource.ReadRequest, resp *resource.ReadResponse) {
@@ -107,7 +107,7 @@ func (r *dnsResource) Read(ctx context.Context, _ resource.ReadRequest, resp *re
 }
 
 func (r *dnsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	r.set(ctx, req.Plan, &resp.State, &resp.Diagnostics)
+	r.set(ctx, req.Config, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
 func (r *dnsResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
@@ -125,15 +125,17 @@ func (r *dnsResource) ImportState(ctx context.Context, req resource.ImportStateR
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), dnsID)...)
 }
 
-func (r *dnsResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *dnsResource) set(ctx context.Context, config tfsdk.Config, plan tfsdk.Plan, state *tfsdk.State, diags *diag.Diagnostics) {
 	var model dnsResourceModel
 	diags.Append(plan.Get(ctx, &model)...)
+	var configuredMode types.String
+	diags.Append(config.GetAttribute(ctx, path.Root("mode"), &configuredMode)...)
 	if diags.HasError() {
 		return
 	}
 
 	err := r.client.DNS.SetConfig(ctx, glinet.SetDNSConfigRequest{
-		Mode:             model.Mode.ValueString(),
+		Mode:             configuredMode.ValueString(),
 		ForceDNS:         model.ForceDNS.ValueBool(),
 		RebindProtection: model.RebindProtection.ValueBool(),
 		OverrideVPN:      model.OverrideVPN.ValueBool(),
