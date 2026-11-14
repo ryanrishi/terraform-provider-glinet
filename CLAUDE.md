@@ -15,7 +15,7 @@ make fmt        # gofmt
 make lint       # golangci-lint v2 (.golangci.yml)
 make generate   # terraform fmt on examples/ and tfplugindocs into docs/ (runs in tools/)
 make test       # tests on the fake router, no TF_ACC needed
-make testacc    # TF_ACC=1; with GLINET_HOST set, the data source tests read the real router
+make testacc    # TF_ACC=1; with GLINET_HOST set, the main data source and resource tests use the real router
 ```
 
 Go version: `.tool-versions` and `go.mod`. `make generate` and the tests need `terraform` (or `tofu`) on `PATH`.
@@ -51,7 +51,7 @@ Tests run Terraform with the provider in the test process:
   - `srv.Handle(module, method, m)`: replace a method, for example to return a `glinettest.Error`.
   - `srv.ExpireSessions()`: the next call gets `-32000`.
 - Assertions use `ConfigStateChecks` with `statecheck` and `knownvalue`. Error paths use `ExpectError`.
-- `realRouter()` is true when `TF_ACC=1` and `GLINET_HOST` are set. Then read tests use `provider "glinet" {}` (credentials from the environment) and check only types and empty values. Error tests always use the fake router.
+- `realRouter()` is true when `TF_ACC=1` and `GLINET_HOST` are set. Then the main test of each data source and resource uses `provider "glinet" {}` (credentials from the environment). Data source tests check only types and empty values. Resource tests restore the initial router values in `t.Cleanup`. Other tests (errors, drift) always use the fake router.
 - With OpenTofu: set `TF_ACC_TERRAFORM_PATH`, `TF_ACC_PROVIDER_HOST=registry.opentofu.org`, `TF_ACC_PROVIDER_NAMESPACE=hashicorp`.
 
 CI (`.github/workflows/test.yml`): build and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags.
