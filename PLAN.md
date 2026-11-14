@@ -195,7 +195,7 @@ The existing `glinet_system_timezone_config` data source stays.
 
 ### Deferred
 
-OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Tailscale, ZeroTier, DDNS, WAN (`cable`) configuration, Wi-Fi schedule.
+OpenVPN client and server, VPN policy, `vpn-client` (firmware 4.9.0), Wi-Fi schedule.
 
 ## Conventions for resources
 

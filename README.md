@@ -31,15 +31,18 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 |---|---|---|
 | Resource | `glinet_adguardhome` | [docs/resources/adguardhome.md](docs/resources/adguardhome.md) |
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
+| Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
-| Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
+| Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
+| Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
+| Resource | `glinet_zerotier` | [docs/resources/zerotier.md](docs/resources/zerotier.md) |
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
