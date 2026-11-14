@@ -182,7 +182,7 @@ Status: on the branch `data-sources` (not merged), the items marked done.
 | # | Name | API | Status | Notes |
 |---|---|---|---|---|
 | 1 | `glinet_system_info` | `system.get_info` | done | No serial numbers and no DDNS device ID. |
-| 2 | `glinet_system_status` | `system.get_status` | | |
+| 2 | `glinet_system_status` | `system.get_status` | done | No Wi-Fi keys. Disk use (`system.disk_info`) is left out: in the fixtures, `flash_free` and `flash_app` are the free and used space of the root file system. |
 | 3 | `glinet_clients` | `clients.get_list` | | |
 | 4 | `glinet_firewall_zones` | `firewall.get_zone_list` | | |
 | 5 | `glinet_wan_status` | `cable.get_status`, `network.check_wan_cable`, `lan.get_wan_info` | | |
