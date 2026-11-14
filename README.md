@@ -39,7 +39,14 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
+| Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
+| Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
+| Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
+| Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
+| Data source | `glinet_system_status` | [docs/data-sources/system_status.md](docs/data-sources/system_status.md) |
 | Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
+| Data source | `glinet_wan_status` | [docs/data-sources/wan_status.md](docs/data-sources/wan_status.md) |
+| Data source | `glinet_wifi_status` | [docs/data-sources/wifi_status.md](docs/data-sources/wifi_status.md) |
 
 The provider is tested with a GL-AXT1800 on firmware 4.7.0. Other models and firmware versions can have different API methods.
 

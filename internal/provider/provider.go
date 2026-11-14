@@ -153,7 +153,30 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewSystemTimezoneConfigDataSource,
+		NewSystemInfoDataSource,
+		NewSystemStatusDataSource,
+		NewClientsDataSource,
+		NewFirewallZonesDataSource,
+		NewWANStatusDataSource,
+		NewARPEntriesDataSource,
+		NewWifiStatusDataSource,
 	}
+}
+
+func dataSourceClient(req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) *glinet.Client {
+	if req.ProviderData == nil {
+		return nil
+	}
+
+	client, ok := req.ProviderData.(*glinet.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *glinet.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+	}
+
+	return client
 }
 
 func resourceClient(req resource.ConfigureRequest, resp *resource.ConfigureResponse) *glinet.Client {
