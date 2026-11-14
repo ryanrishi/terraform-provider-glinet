@@ -34,6 +34,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
+| Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
 

@@ -144,7 +144,7 @@ Done: `make lint`, `make generate` (no diff), `make test` pass in CI; `make test
 
 ## Phase 4: Resources and data sources
 
-Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resource 12 (`glinet_led`). The provider uses client `v0.5.0`.
+Status: resources 1 to 5 are done. On the branch `singletons` (not merged): resources 12 (`glinet_led`) and 13 (`glinet_led_schedule`). The provider uses client `v0.5.0`.
 
 One item at a time. For each item:
 
@@ -172,6 +172,7 @@ The client session can be one or two items ahead of the provider session.
 | 10 | `glinet_wireguard_server_peer` | `wg-server.get_peer_list`, `add_peer`, `set_peer`, `remove_peer` | CRUD | Needs the WireGuard server to be initialized. |
 | 11 | `glinet_wireguard_client_config` | `wg-client.get_config_list`, `add_config`, `set_config`, `remove_config` | CRUD in a group | Works on 4.7.0. Not expected to work on 4.9.0 (`vpn-client`). |
 | 12 | `glinet_led` | `led.get_config`, `set_config` | singleton | Import ID `led`. |
+| 13 | `glinet_led_schedule` | `timer.get_led`, `set_led` | singleton | Times `HH:MM`, days a set of 0 (Sunday) to 6. The router keeps times and days only from an enabled write, so a disabled apply writes the schedule enabled and then disables it. Import ID `led_schedule`. |
 
 ### Data sources
 
