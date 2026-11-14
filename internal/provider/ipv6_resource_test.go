@@ -52,6 +52,7 @@ lan_dns1     = "` + googleDNS1 + `"`
 // TestIPv6Resource creates the resource with IPv6 disabled and values, which writes only enable: false,
 // enables IPv6 later and changes each attribute.
 func TestIPv6Resource(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
 
@@ -195,6 +196,7 @@ lan_mode = "relay"`,
 
 // TestIPv6ResourceDestroy destroys an enabled configuration, which leaves the router unchanged.
 func TestIPv6ResourceDestroy(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
 	const router = `{"enable":true,"lan_mode":"nat6","lan_dns_mode":true}`
@@ -215,6 +217,7 @@ func TestIPv6ResourceDestroy(t *testing.T) {
 }
 
 func TestIPv6ResourceImport(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, router, body string
 	}{
@@ -254,6 +257,7 @@ func TestIPv6ResourceImport(t *testing.T) {
 // TestIPv6ResourceImportDisabledWithoutMode imports a disabled configuration into a configuration without lan_mode:
 // one update writes enable: false, and then the plan is empty.
 func TestIPv6ResourceImportDisabledWithoutMode(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
 	config := fakeRouterConfig(srv) + ipv6Config("enabled = false")
@@ -282,6 +286,7 @@ func TestIPv6ResourceImportDisabledWithoutMode(t *testing.T) {
 }
 
 func TestIPv6ResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -307,6 +312,7 @@ lan_dns1     = "` + googleDNS1 + `"
 lan_dns2     = "` + googleDNS2 + `"`
 
 func TestIPv6ResourceDrift(t *testing.T) {
+	parallel(t)
 	const static = `"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"`
 	tests := []struct {
 		name, body, router string
@@ -355,6 +361,7 @@ func TestIPv6ResourceDrift(t *testing.T) {
 }
 
 func TestIPv6ResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
 
@@ -401,6 +408,7 @@ func TestIPv6ResourceInvalidConfig(t *testing.T) {
 
 // TestIPv6ResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
 func TestIPv6ResourceUnknownValues(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, variables, body, params string
 	}{
@@ -461,6 +469,7 @@ func TestIPv6ResourceUnknownValues(t *testing.T) {
 }
 
 func TestIPv6ResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	config := ipv6Config(ipv6StaticEnabled)
 
 	t.Run("get after set", func(t *testing.T) {
@@ -528,6 +537,7 @@ func TestIPv6ResourceRouterErrors(t *testing.T) {
 // TestIPv6ResourceRemoveLANDNS2 removes lan_dns2 from the configuration. The provider does not send it, as the web UI
 // does; the fake router keeps it (not known for the real router), and the state shows it without an error.
 func TestIPv6ResourceRemoveLANDNS2(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
 

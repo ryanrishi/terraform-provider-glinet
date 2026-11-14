@@ -16,6 +16,7 @@ data "glinet_clients" "test" {}
 )
 
 func TestClientsDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+clientsDataSourceConfig, expectAttributes(clientsAddress, map[string]knownvalue.Check{
 			"clients": knownvalue.ListPartial(map[int]knownvalue.Check{
@@ -109,6 +110,7 @@ func TestClientsDataSource(t *testing.T) {
 }
 
 func TestClientsDataSourceEmpty(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Clients.SetList(json.RawMessage(`{"clients": []}`))
 
@@ -118,5 +120,6 @@ func TestClientsDataSourceEmpty(t *testing.T) {
 }
 
 func TestClientsDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), clientsDataSourceConfig, "clients", "get_list", "Unable to Read Clients")
 }

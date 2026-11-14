@@ -16,6 +16,7 @@ data "glinet_wan_status" "test" {}
 )
 
 func TestWANStatusDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+wanStatusDataSourceConfig, expectAttributes(wanStatusAddress, map[string]knownvalue.Check{
 			"cable_inserted":    anyBool,
@@ -75,6 +76,7 @@ func TestWANStatusDataSource(t *testing.T) {
 }
 
 func TestWANStatusDataSourceNoUplink(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.LAN.SetWANInfo(json.RawMessage(`{"wan_info": []}`))
 
@@ -86,6 +88,7 @@ func TestWANStatusDataSourceNoUplink(t *testing.T) {
 }
 
 func TestWANStatusDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		module, method, summary string
 	}{

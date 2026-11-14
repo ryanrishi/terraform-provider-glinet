@@ -177,6 +177,7 @@ var guest2g = wifiIface{name: "guest2g", ssid: "guest-2g", key: testWifiKey, enc
 // TestWifiIfaceResource takes over guest2g and changes each attribute. Each step checks which of the two
 // writes are sent, with which params, and in which order.
 func TestWifiIfaceResource(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 
@@ -247,6 +248,7 @@ func TestWifiIfaceResource(t *testing.T) {
 // TestWifiIfaceResourceEachInterface takes over each interface of the fake router. A write of a main interface
 // sends the radio values of the router.
 func TestWifiIfaceResourceEachInterface(t *testing.T) {
+	parallel(t)
 	for _, name := range []string{"default_radio0", "guest5g", "default_radio1", "guest2g"} {
 		t.Run(name, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -270,6 +272,7 @@ func TestWifiIfaceResourceEachInterface(t *testing.T) {
 // TestWifiIfaceResourceRadioValues changes the radio values on the router before a write of a main interface:
 // the write sends the values that the router has, and channel and htmode stay as they are.
 func TestWifiIfaceResourceRadioValues(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 	c := wifiIface{name: "default_radio0", ssid: "main", key: testWifiKey, encryption: "psk2", enabled: true}
@@ -307,6 +310,7 @@ func TestWifiIfaceResourceRadioValues(t *testing.T) {
 
 // TestWifiIfaceResourceParallel applies the four interfaces in one apply.
 func TestWifiIfaceResourceParallel(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 
@@ -339,6 +343,7 @@ func TestWifiIfaceResourceParallel(t *testing.T) {
 }
 
 func TestWifiIfaceResourceUnknownInterface(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 	c := guest2g
@@ -366,6 +371,7 @@ func TestWifiIfaceResourceUnknownInterface(t *testing.T) {
 }
 
 func TestWifiIfaceResourceUnsupportedEncryption(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	setWifi(t, srv, "radio1", map[string]any{"encryptions": []string{"none", "psk2", "psk-mixed"}}, "", nil)
 	calls := recordCalls(t, srv, "wifi", "set_config")
@@ -387,6 +393,7 @@ func TestWifiIfaceResourceUnsupportedEncryption(t *testing.T) {
 }
 
 func TestWifiIfaceResourceImport(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name string
 		c    wifiIface
@@ -449,6 +456,7 @@ func TestWifiIfaceResourceImport(t *testing.T) {
 }
 
 func TestWifiIfaceResourceDrift(t *testing.T) {
+	parallel(t)
 	c := guest2g
 	c.enabled = true
 
@@ -514,6 +522,7 @@ func TestWifiIfaceResourceDrift(t *testing.T) {
 
 // TestWifiIfaceResourceDestroy destroys the resource, which leaves the router unchanged.
 func TestWifiIfaceResourceDestroy(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 	applied := saveRouterJSON(srv.Wifi.Config)
@@ -532,6 +541,7 @@ func TestWifiIfaceResourceDestroy(t *testing.T) {
 }
 
 func TestWifiIfaceResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Wifi.Config()
 	calls := recordCalls(t, srv, "wifi", "set_config")
@@ -589,6 +599,7 @@ func TestWifiIfaceResourceInvalidConfig(t *testing.T) {
 
 // TestWifiIfaceResourceValidKeys applies the limits of the key rules.
 func TestWifiIfaceResourceValidKeys(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	for _, c := range []wifiIface{
@@ -611,6 +622,7 @@ func TestWifiIfaceResourceValidKeys(t *testing.T) {
 
 // TestWifiIfaceResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
 func TestWifiIfaceResourceUnknownValues(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, variables, body string
 		c                     wifiIface
@@ -665,6 +677,7 @@ resource "glinet_wifi_iface" "test" {
 }
 
 func TestWifiIfaceResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	c := guest2g
 	config := c.config()
 

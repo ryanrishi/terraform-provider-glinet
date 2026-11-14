@@ -92,6 +92,7 @@ func expectWANState(checks map[string]knownvalue.Check) []statecheck.StateCheck 
 }
 
 func TestWANResource(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_config")
 
@@ -169,6 +170,7 @@ func TestWANResource(t *testing.T) {
 
 // TestWANResourceDestroy destroys a static WAN port, which leaves the router unchanged.
 func TestWANResourceDestroy(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_config")
 
@@ -188,6 +190,7 @@ func TestWANResourceDestroy(t *testing.T) {
 }
 
 func TestWANResourceImport(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, body, router string
 	}{
@@ -224,6 +227,7 @@ func TestWANResourceImport(t *testing.T) {
 }
 
 func TestWANResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -242,6 +246,7 @@ func TestWANResourceImportInvalidID(t *testing.T) {
 
 // TestWANResourceOtherProtocolValues reads a router that keeps the values of another protocol, which gives no plan.
 func TestWANResourceOtherProtocolValues(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, body, router string
 	}{
@@ -273,6 +278,7 @@ func TestWANResourceOtherProtocolValues(t *testing.T) {
 }
 
 func TestWANResourceDrift(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, body, router string
 	}{
@@ -318,6 +324,7 @@ func TestWANResourceDrift(t *testing.T) {
 }
 
 func TestWANResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Cable.Config()
 	calls := recordCalls(t, srv, "cable", "set_config")
@@ -382,6 +389,7 @@ func TestWANResourceInvalidConfig(t *testing.T) {
 
 // TestWANResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
 func TestWANResourceUnknownValues(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name, variables, body, router string
 	}{
@@ -447,6 +455,7 @@ mtu      = 1492`,
 }
 
 func TestWANResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	config := wanConfig(wanStatic)
 
 	t.Run("get after set", func(t *testing.T) {

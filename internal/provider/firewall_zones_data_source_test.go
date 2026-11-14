@@ -16,6 +16,7 @@ data "glinet_firewall_zones" "test" {}
 )
 
 func TestFirewallZonesDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+firewallZonesDataSourceConfig, expectAttributes(firewallZonesAddress, map[string]knownvalue.Check{
 			"internal_zones": knownvalue.ListPartial(map[int]knownvalue.Check{0: nonEmptyString}),
@@ -34,6 +35,7 @@ func TestFirewallZonesDataSource(t *testing.T) {
 }
 
 func TestFirewallZonesDataSourceEmpty(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Firewall.SetZones(json.RawMessage(`{"internals": []}`))
 
@@ -44,5 +46,6 @@ func TestFirewallZonesDataSourceEmpty(t *testing.T) {
 }
 
 func TestFirewallZonesDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), firewallZonesDataSourceConfig, "firewall", "get_zone_list", "Unable to Read Firewall Zones")
 }

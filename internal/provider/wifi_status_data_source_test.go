@@ -16,6 +16,7 @@ data "glinet_wifi_status" "test" {}
 )
 
 func TestWifiStatusDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+wifiStatusDataSourceConfig, expectAttributes(wifiStatusAddress, map[string]knownvalue.Check{
 			"radios": knownvalue.ListPartial(map[int]knownvalue.Check{
@@ -54,6 +55,7 @@ func TestWifiStatusDataSource(t *testing.T) {
 }
 
 func TestWifiStatusDataSourceEmpty(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Wifi.SetStatus(json.RawMessage(`{"res": []}`))
 
@@ -63,5 +65,6 @@ func TestWifiStatusDataSourceEmpty(t *testing.T) {
 }
 
 func TestWifiStatusDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), wifiStatusDataSourceConfig, "wifi", "get_status", "Unable to Read Wi-Fi Status")
 }

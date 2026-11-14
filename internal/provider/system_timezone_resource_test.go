@@ -98,6 +98,7 @@ func expectRouterZonename(client *glinet.Client, zonename string) resource.TestC
 }
 
 func TestSystemTimezoneResource(t *testing.T) {
+	parallel(t)
 	provider, client := timezoneTestRouter(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -141,6 +142,7 @@ func TestSystemTimezoneResource(t *testing.T) {
 }
 
 func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -162,6 +164,7 @@ func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
 }
 
 func TestSystemTimezoneResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + timezoneConfig("Asia/Tokyo", "JST-9")
 
@@ -199,6 +202,7 @@ func TestSystemTimezoneResourceDrift(t *testing.T) {
 // TestSystemTimezoneResourceTimestampUnchanged proves that create and update do not send localtime,
 // because the fake router, like the router, sets its clock from localtime.
 func TestSystemTimezoneResourceTimestampUnchanged(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.System.TimezoneConfig().Timestamp
 	expectTimestampUnchanged := func(*terraform.State) error {
@@ -224,6 +228,7 @@ func TestSystemTimezoneResourceTimestampUnchanged(t *testing.T) {
 }
 
 func TestSystemTimezoneResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -241,6 +246,7 @@ func TestSystemTimezoneResourceImportInvalidID(t *testing.T) {
 }
 
 func TestSystemTimezoneResourceSetError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("system", "set_timezone_config", func(json.RawMessage) (any, error) {
 		return nil, glinettest.ErrInvalidParams
@@ -258,6 +264,7 @@ func TestSystemTimezoneResourceSetError(t *testing.T) {
 }
 
 func TestSystemTimezoneResourceReadError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("system", "get_timezone_config", func(json.RawMessage) (any, error) {
 		return nil, glinettest.ErrMethodNotFound

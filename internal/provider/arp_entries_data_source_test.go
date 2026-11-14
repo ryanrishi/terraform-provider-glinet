@@ -16,6 +16,7 @@ data "glinet_arp_entries" "test" {}
 )
 
 func TestARPEntriesDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+arpEntriesDataSourceConfig, expectAttributes(arpEntriesAddress, map[string]knownvalue.Check{
 			"entries": knownvalue.ListPartial(map[int]knownvalue.Check{
@@ -54,6 +55,7 @@ func TestARPEntriesDataSource(t *testing.T) {
 }
 
 func TestARPEntriesDataSourceEmpty(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Network.SetARPList(json.RawMessage(`{"entries": []}`))
 
@@ -63,5 +65,6 @@ func TestARPEntriesDataSourceEmpty(t *testing.T) {
 }
 
 func TestARPEntriesDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), arpEntriesDataSourceConfig, "network", "get_arp_list", "Unable to Read ARP Entries")
 }

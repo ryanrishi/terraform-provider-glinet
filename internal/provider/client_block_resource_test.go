@@ -143,6 +143,7 @@ func failWritesOutsideBlockMode(t *testing.T, srv *glinettest.Server) {
 }
 
 func TestClientBlockResource(t *testing.T) {
+	parallel(t)
 	provider, client := blockTestRouter(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -170,6 +171,7 @@ func TestClientBlockResource(t *testing.T) {
 }
 
 func TestClientBlockResourceReplace(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	setBlockList(srv, blockListMode, unrelatedBlockMAC)
 
@@ -195,6 +197,7 @@ func TestClientBlockResourceReplace(t *testing.T) {
 }
 
 func TestClientBlockResourceImport(t *testing.T) {
+	parallel(t)
 	for _, entry := range []string{blockMAC, blockMACUpper} {
 		for _, id := range []string{blockMAC, blockMACUpper} {
 			t.Run(entry+" as "+id, func(t *testing.T) {
@@ -232,6 +235,7 @@ func TestClientBlockResourceImport(t *testing.T) {
 }
 
 func TestClientBlockResourceImportNotFound(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -249,6 +253,7 @@ func TestClientBlockResourceImportNotFound(t *testing.T) {
 }
 
 func TestClientBlockResourceInvalidImportID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -266,6 +271,7 @@ func TestClientBlockResourceInvalidImportID(t *testing.T) {
 }
 
 func TestClientBlockResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
 
@@ -294,6 +300,7 @@ func TestClientBlockResourceDrift(t *testing.T) {
 
 // TestClientBlockResourceDeleteWhenGone removes the MAC address from the router after the refresh of the destroy.
 func TestClientBlockResourceDeleteWhenGone(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
 
@@ -342,6 +349,7 @@ func TestClientBlockResourceDeleteWhenGone(t *testing.T) {
 }
 
 func TestClientBlockResourceAlreadyExists(t *testing.T) {
+	parallel(t)
 	for _, entry := range []string{blockMAC, blockMACUpper} {
 		t.Run(entry, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -365,6 +373,7 @@ func TestClientBlockResourceAlreadyExists(t *testing.T) {
 // TestClientBlockResourceMixedCase has the MAC address in two letter cases on the router.
 // The resource owns both entries: create fails, import finds them, and destroy removes both.
 func TestClientBlockResourceMixedCase(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	setBlockList(srv, blockListMode, blockMAC, unrelatedBlockMAC, blockMACUpper)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
@@ -394,6 +403,7 @@ func TestClientBlockResourceMixedCase(t *testing.T) {
 }
 
 func TestClientBlockResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	for _, mac := range []string{blockMACUpper, "02-00-00-00-00-a1", "02:00:00:00:00", "02:00:00:00:00:a1:ff", "02:00:00:00:00:g1"} {
@@ -414,6 +424,7 @@ func TestClientBlockResourceInvalidConfig(t *testing.T) {
 }
 
 func TestClientBlockResourceAllowListModeCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	failWritesOutsideBlockMode(t, srv)
 	setBlockList(srv, "white", unrelatedBlockMAC)
@@ -436,6 +447,7 @@ func TestClientBlockResourceAllowListModeCreate(t *testing.T) {
 // TestClientBlockResourceAllowListModeReadAndDelete keeps the resource in the state while the router is in mode "white",
 // and fails the destroy without a write until the router is in mode "black" again.
 func TestClientBlockResourceAllowListModeReadAndDelete(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	failWritesOutsideBlockMode(t, srv)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
@@ -473,6 +485,7 @@ func TestClientBlockResourceAllowListModeReadAndDelete(t *testing.T) {
 }
 
 func TestClientBlockResourceReadErrorAfterCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	getConfig := srv.Handler("black_white_list", "get_config")
 	var failed atomic.Bool
@@ -507,6 +520,7 @@ func TestClientBlockResourceReadErrorAfterCreate(t *testing.T) {
 }
 
 func TestClientBlockResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name   string
 		method string
@@ -526,6 +540,7 @@ func TestClientBlockResourceRouterErrors(t *testing.T) {
 }
 
 func TestClientBlockResourceDeleteError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
 	setSingleMAC := srv.Handler("black_white_list", "set_single_mac")
@@ -566,6 +581,7 @@ func slowBlockListReads(srv *glinettest.Server) {
 }
 
 func TestClientBlockResourceParallel(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowBlockListReads(srv)
 	setBlockList(srv, blockListMode, unrelatedBlockMAC)
@@ -627,6 +643,7 @@ resource "glinet_client_block" "b%d" {
 // TestClientBlockResourceParallelSameMAC creates two blocks of the same MAC address in one apply.
 // Only one of them can own the entry, so the other one must fail.
 func TestClientBlockResourceParallelSameMAC(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowBlockListReads(srv)
 
@@ -658,6 +675,7 @@ resource "glinet_client_block" "second" {
 }
 
 func TestAllowTestMACBlock(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

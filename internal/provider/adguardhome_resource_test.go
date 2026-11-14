@@ -106,6 +106,7 @@ func adGuardHomeTestRouter(t *testing.T) (string, *glinet.Client, glinet.GetAdGu
 
 // TestAdGuardHomeResource keeps AdGuard Home disabled and changes only dns_enabled, because it also runs on the real router.
 func TestAdGuardHomeResource(t *testing.T) {
+	parallel(t)
 	provider, client, initial := adGuardHomeTestRouter(t)
 	changed := glinet.GetAdGuardConfigResponse{Enabled: false, DNSEnabled: !initial.DNSEnabled}
 
@@ -135,6 +136,7 @@ func TestAdGuardHomeResource(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	configs := []glinet.GetAdGuardConfigResponse{
@@ -166,6 +168,7 @@ func TestAdGuardHomeResourceUpdate(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceImport(t *testing.T) {
+	parallel(t)
 	for _, existing := range []glinet.GetAdGuardConfigResponse{
 		{Enabled: true, DNSEnabled: false},
 		{Enabled: false, DNSEnabled: true},
@@ -197,6 +200,7 @@ func TestAdGuardHomeResourceImport(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -214,6 +218,7 @@ func TestAdGuardHomeResourceImportInvalidID(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	want := glinet.GetAdGuardConfigResponse{Enabled: true, DNSEnabled: true}
@@ -240,6 +245,7 @@ func TestAdGuardHomeResourceDrift(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.AdGuardHome.Config()
 
@@ -271,6 +277,7 @@ func TestAdGuardHomeResourceInvalidConfig(t *testing.T) {
 }
 
 func TestAdGuardHomeResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	c := glinet.GetAdGuardConfigResponse{Enabled: true, DNSEnabled: false}
 
 	t.Run("get after set", func(t *testing.T) {
@@ -339,6 +346,7 @@ func TestAdGuardHomeResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowAdGuardHomeDisabled(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		method string
 		params string

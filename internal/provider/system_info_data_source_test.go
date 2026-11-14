@@ -16,6 +16,7 @@ data "glinet_system_info" "test" {}
 )
 
 func TestSystemInfoDataSource(t *testing.T) {
+	parallel(t)
 	if realRouter() {
 		readDataSource(t, `provider "glinet" {}`+systemInfoDataSourceConfig, expectAttributes(systemInfoAddress, realRouterSystemInfoChecks()))
 		return
@@ -148,6 +149,7 @@ func TestSystemInfoDataSource(t *testing.T) {
 }
 
 func TestSystemInfoDataSourceAbsentFields(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.System.SetInfo(json.RawMessage(`{"model": "axt1800"}`))
 
@@ -165,6 +167,7 @@ func TestSystemInfoDataSourceAbsentFields(t *testing.T) {
 }
 
 func TestSystemInfoDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	expectReadError(t, glinettest.NewServer(t), systemInfoDataSourceConfig, "system", "get_info", "Unable to Read System Info")
 }
 

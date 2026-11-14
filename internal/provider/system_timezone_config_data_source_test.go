@@ -17,6 +17,7 @@ import (
 const timezoneConfigAddress = "data.glinet_system_timezone_config.test"
 
 func TestSystemTimezoneConfigDataSource(t *testing.T) {
+	parallel(t)
 	var config string
 	var checks []statecheck.StateCheck
 
@@ -55,6 +56,7 @@ func TestSystemTimezoneConfigDataSource(t *testing.T) {
 }
 
 func TestSystemTimezoneConfigDataSourceAPIError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("system", "get_timezone_config", func(json.RawMessage) (any, error) {
 		return nil, glinettest.ErrMethodNotFound
@@ -72,6 +74,7 @@ func TestSystemTimezoneConfigDataSourceAPIError(t *testing.T) {
 }
 
 func TestSystemTimezoneConfigDataSourceSessionExpired(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	var expired atomic.Bool

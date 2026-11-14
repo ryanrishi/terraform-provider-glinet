@@ -143,6 +143,7 @@ func dnsTestRouter(t *testing.T) (string, *glinet.Client, glinet.DNSConfig) {
 
 // TestDNSResource changes only rebind_protection, because it also runs on the real router.
 func TestDNSResource(t *testing.T) {
+	parallel(t)
 	provider, client, initial := dnsTestRouter(t)
 	settings := dnsSettings{mode: initial.Mode, forceDNS: initial.ForceDNS, rebindProtection: !initial.RebindProtection, overrideVPN: initial.OverrideVPN}
 	changed := initial
@@ -176,6 +177,7 @@ func TestDNSResource(t *testing.T) {
 }
 
 func TestDNSResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	initial := glinet.DNSConfig(srv.DNS.Config())
@@ -217,6 +219,7 @@ func TestDNSResourceUpdate(t *testing.T) {
 
 // TestDNSResourceWrites checks that each write has the three flags, and the mode only when it is configured.
 func TestDNSResourceWrites(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	var (
 		mu     sync.Mutex
@@ -252,6 +255,7 @@ func TestDNSResourceWrites(t *testing.T) {
 }
 
 func TestDNSResourceMode(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	manual := glinet.DNSConfig(srv.DNS.Config())
@@ -303,6 +307,7 @@ func TestDNSResourceMode(t *testing.T) {
 }
 
 func TestDNSResourceImport(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	existing := glinet.DNSConfig(srv.DNS.Config())
 	existing.ForceDNS = true
@@ -333,6 +338,7 @@ func TestDNSResourceImport(t *testing.T) {
 }
 
 func TestDNSResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -350,6 +356,7 @@ func TestDNSResourceImportInvalidID(t *testing.T) {
 }
 
 func TestDNSResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	want := glinet.DNSConfig(srv.DNS.Config())
@@ -404,6 +411,7 @@ func TestDNSResourceDrift(t *testing.T) {
 }
 
 func TestDNSResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.DNS.Config()
 
@@ -461,6 +469,7 @@ func TestDNSResourceInvalidConfig(t *testing.T) {
 }
 
 func TestDNSResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	s := dnsSettings{"auto", false, true, true}
 
 	t.Run("get after set", func(t *testing.T) {
@@ -531,6 +540,7 @@ func TestDNSResourceRouterErrors(t *testing.T) {
 }
 
 func TestAllowDNSRebindProtection(t *testing.T) {
+	parallel(t)
 	allow := allowDNSRebindProtection(glinet.DNSConfig{Mode: "auto", ForceDNS: false, OverrideVPN: true})
 
 	tests := []struct {

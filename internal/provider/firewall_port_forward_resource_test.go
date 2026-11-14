@@ -216,6 +216,7 @@ func expectRouterForward(client *glinet.Client, id portForwardIdentity, want *gl
 }
 
 func TestFirewallPortForwardResource(t *testing.T) {
+	parallel(t)
 	created := forward("tcp", "50001", "8080", "tf-test-forward")
 	updated := forward("tcp", "50001", "8081", "tf-test-renamed")
 	updated.Enabled = false
@@ -249,6 +250,7 @@ func TestFirewallPortForwardResource(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	noName := forward("tcp", "50001", "8080", "")
 	named := forward("tcp", "50001", "8080", "first")
@@ -281,6 +283,7 @@ func TestFirewallPortForwardResourceUpdate(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceReplace(t *testing.T) {
+	parallel(t)
 	initial := forward("tcp", "50001", "8080", "test")
 	guest := initial
 	guest.Src = "guest"
@@ -319,6 +322,7 @@ func TestFirewallPortForwardResourceReplace(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceImport(t *testing.T) {
+	parallel(t)
 	disabled := forward("udp", "50002", "8080", "")
 	disabled.Enabled = false
 
@@ -364,6 +368,7 @@ func TestFirewallPortForwardResourceImport(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceImportInvalidID(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 
 	for _, id := range []string{
@@ -397,6 +402,7 @@ func TestFirewallPortForwardResourceImportInvalidID(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceImportNotFound(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Firewall.SetPortForwards(fakes(forward("udp", "50001", "8080", "")))
 
@@ -415,6 +421,7 @@ func TestFirewallPortForwardResourceImportNotFound(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	want := forward("tcp", "50001", "8080", "test")
 	config := fakeRouterConfig(srv) + forwardConfig(want)
@@ -460,6 +467,7 @@ func TestFirewallPortForwardResourceDrift(t *testing.T) {
 // TestFirewallPortForwardResourceIDShift removes a port forward before the managed one on the router and
 // adds one after it, so the router ID of the managed port forward when it was created is now the ID of the added one.
 func TestFirewallPortForwardResourceIDShift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := forward("tcp", "50101", "8080", "first")
 	second := forward("tcp", "50102", "8080", "second")
@@ -491,6 +499,7 @@ func TestFirewallPortForwardResourceIDShift(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceOverlap(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name     string
 		proto    string
@@ -532,6 +541,7 @@ func TestFirewallPortForwardResourceOverlap(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceNoOverlap(t *testing.T) {
+	parallel(t)
 	guest := forward("tcp", "50001", "9090", "guest")
 	guest.Src = "guest"
 	existing := []glinet.PortForward{
@@ -556,6 +566,7 @@ func TestFirewallPortForwardResourceNoOverlap(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceDuplicate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := forward("tcp", "50001", "8080", "first")
 	duplicate := forward("tcp", "50001", "8080", "duplicate")
@@ -586,6 +597,7 @@ func TestFirewallPortForwardResourceDuplicate(t *testing.T) {
 }
 
 func TestFirewallPortForwardFindDuplicateWarning(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := forward("tcp", "50001", "8080", "first")
 	duplicate := forward("tcp", "50001", "9090", "duplicate")
@@ -611,6 +623,7 @@ func TestFirewallPortForwardFindDuplicateWarning(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceDeleteAlreadyGone(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	removeAfterNextList := false
 	list := srv.Handler("firewall", "get_port_forward_list")
@@ -647,6 +660,7 @@ func TestFirewallPortForwardResourceDeleteAlreadyGone(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	valid := forward("tcp", "50001", "8080", "")
 	with := func(change func(*glinet.PortForward)) string {
@@ -699,6 +713,7 @@ func TestFirewallPortForwardResourceInvalidConfig(t *testing.T) {
 }
 
 func TestFirewallPortForwardResourceReadErrorAfterCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	failed := false
 	list := srv.Handler("firewall", "get_port_forward_list")
@@ -761,6 +776,7 @@ func expectFakeForwardSet(srv *glinettest.Server, want ...glinet.PortForward) re
 // TestFirewallPortForwardResourceParallel creates, updates and deletes many port forwards in parallel.
 // The router IDs are positions in the list, so a delete between the list and the write of another resource moves its port forward.
 func TestFirewallPortForwardResourceParallel(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowLists(srv, "get_port_forward_list")
 
@@ -807,6 +823,7 @@ func TestFirewallPortForwardResourceParallel(t *testing.T) {
 
 // TestFirewallPortForwardResourceParallelOverlap creates two port forwards that overlap in one apply.
 func TestFirewallPortForwardResourceParallelOverlap(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowLists(srv, "get_port_forward_list")
 	single := forward("tcp", "50001", "8080", "single")
@@ -842,6 +859,7 @@ func failMethod(srv *glinettest.Server, method string) func() {
 }
 
 func TestFirewallPortForwardResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	want := forward("tcp", "50001", "8080", "")
 	changed := want
 	changed.DestPort = "8081"

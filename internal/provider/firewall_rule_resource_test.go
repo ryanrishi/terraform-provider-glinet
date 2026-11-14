@@ -221,6 +221,7 @@ func expectRouterRule(client *glinet.Client, id ruleIdentity, want *glinet.Rule)
 // TestFirewallRuleResource runs on the real router when TF_ACC and GLINET_HOST are set. The rule accepts only
 // tcp traffic from the zone wan to port 50001 of the unused address forwardIP, so it cannot cut access to the router.
 func TestFirewallRuleResource(t *testing.T) {
+	parallel(t)
 	created := testRule("50001", "ACCEPT", "tf-test-rule")
 	updated := testRule("50001", "ACCEPT", "tf-test-rule-renamed")
 	updated.Enabled = false
@@ -254,6 +255,7 @@ func TestFirewallRuleResource(t *testing.T) {
 }
 
 func TestFirewallRuleResourceCreate(t *testing.T) {
+	parallel(t)
 	minimal := glinet.Rule{Src: "wan", Target: "DROP", Enabled: true}
 	full := glinet.Rule{
 		Name:     "full",
@@ -294,6 +296,7 @@ func TestFirewallRuleResourceCreate(t *testing.T) {
 }
 
 func TestFirewallRuleResourceUpdate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	noName := testRule("50001", "ACCEPT", "")
 	named := testRule("50001", "ACCEPT", "first")
@@ -324,6 +327,7 @@ func TestFirewallRuleResourceUpdate(t *testing.T) {
 
 // TestFirewallRuleResourceReplace changes each match attribute. The replaced rule goes to the end of the list.
 func TestFirewallRuleResourceReplace(t *testing.T) {
+	parallel(t)
 	initial := testRule("50001", "ACCEPT", "test")
 	with := func(change func(*glinet.Rule)) glinet.Rule {
 		r := initial
@@ -376,6 +380,7 @@ func TestFirewallRuleResourceReplace(t *testing.T) {
 // TestFirewallRuleResourceReplaceTriggeredBy shows the pattern of the documentation that keeps the order of two rules
 // when the earlier rule is replaced.
 func TestFirewallRuleResourceReplaceTriggeredBy(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := testRule("50001", "ACCEPT", "first")
 	first.SrcIP = "203.0.113.0/24"
@@ -411,6 +416,7 @@ func TestFirewallRuleResourceReplaceTriggeredBy(t *testing.T) {
 }
 
 func TestFirewallRuleResourceImport(t *testing.T) {
+	parallel(t)
 	imported := glinet.Rule{
 		Name:    "imported",
 		Src:     "wan",
@@ -449,6 +455,7 @@ func TestFirewallRuleResourceImport(t *testing.T) {
 }
 
 func TestFirewallRuleResourceImportErrors(t *testing.T) {
+	parallel(t)
 	first := testRule("50001", "ACCEPT", "first")
 	duplicate := testRule("50001", "DROP", "duplicate")
 	same := testRule("50002", "ACCEPT", "same")
@@ -487,6 +494,7 @@ func TestFirewallRuleResourceImportErrors(t *testing.T) {
 
 // TestFirewallRuleImportEmptyID calls ImportState directly, because the test framework replaces an empty import ID.
 func TestFirewallRuleImportEmptyID(t *testing.T) {
+	parallel(t)
 	ctx := context.Background()
 	r := &firewallRuleResource{}
 	var schemaResp fwresource.SchemaResponse
@@ -504,6 +512,7 @@ func TestFirewallRuleImportEmptyID(t *testing.T) {
 }
 
 func TestFirewallRuleResourceDrift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	want := testRule("50001", "ACCEPT", "test")
 	config := fakeRouterConfig(srv) + ruleConfig(want)
@@ -548,6 +557,7 @@ func TestFirewallRuleResourceDrift(t *testing.T) {
 // TestFirewallRuleResourceIDShift removes a rule and a port forward before the managed rule on the router and adds
 // rules after it, so the router ID of the managed rule when it was created is now the ID of an added rule.
 func TestFirewallRuleResourceIDShift(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	earlierRule := testRule("50101", "ACCEPT", "earlier")
@@ -615,6 +625,7 @@ func TestFirewallRuleResourceIDShift(t *testing.T) {
 }
 
 func TestFirewallRuleResourceExists(t *testing.T) {
+	parallel(t)
 	tests := []struct {
 		name     string
 		existing glinet.Rule
@@ -651,6 +662,7 @@ func TestFirewallRuleResourceExists(t *testing.T) {
 // TestFirewallRuleResourceOverlapNotChecked shows that create checks only the exact identity: rules that match
 // some of the same traffic do not stop the create.
 func TestFirewallRuleResourceOverlapNotChecked(t *testing.T) {
+	parallel(t)
 	noDestIP := testRule("50001", "DROP", "no destination IP")
 	noDestIP.DestIP = ""
 	existing := []glinet.Rule{
@@ -674,6 +686,7 @@ func TestFirewallRuleResourceOverlapNotChecked(t *testing.T) {
 }
 
 func TestFirewallRuleResourceDuplicate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := testRule("50001", "ACCEPT", "first")
 	duplicate := testRule("50001", "DROP", "duplicate")
@@ -703,6 +716,7 @@ func TestFirewallRuleResourceDuplicate(t *testing.T) {
 }
 
 func TestFirewallRuleFindDuplicateWarning(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	first := testRule("50001", "ACCEPT", "first")
 	duplicate := testRule("50001", "DROP", "duplicate")
@@ -730,6 +744,7 @@ func TestFirewallRuleFindDuplicateWarning(t *testing.T) {
 // TestFirewallRuleResourceNoDestinationPort creates, updates and destroys a rule with no destination port,
 // which the router can remove only after a destination port is written to it.
 func TestFirewallRuleResourceNoDestinationPort(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := testRule("50101", "ACCEPT", "before")
 	after := testRule("50102", "ACCEPT", "after")
@@ -764,6 +779,7 @@ func TestFirewallRuleResourceNoDestinationPort(t *testing.T) {
 }
 
 func TestFirewallRuleResourceNoDestinationPortSetError(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	created := glinet.Rule{Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
 
@@ -794,6 +810,7 @@ func TestFirewallRuleResourceNoDestinationPortSetError(t *testing.T) {
 // TestFirewallRuleResourceNoDestinationPortRemoveError makes the remove that follows the write of the destination
 // port fail one time. The next destroy finds the rule by the identity of the state, unless the restore failed too.
 func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
+	parallel(t)
 	before := testRule("50101", "ACCEPT", "before")
 	created := glinet.Rule{Name: "no port", Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
 	removable := created
@@ -868,6 +885,7 @@ func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 }
 
 func TestFirewallRuleResourceDeleteAlreadyGone(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	removeAfterNextList := false
 	list := srv.Handler("firewall", "get_rule_list")
@@ -906,6 +924,7 @@ func TestFirewallRuleResourceDeleteAlreadyGone(t *testing.T) {
 }
 
 func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	valid := testRule("50001", "ACCEPT", "")
 	with := func(change func(*glinet.Rule)) string {
@@ -961,6 +980,7 @@ func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
 }
 
 func TestFirewallRuleResourceReadErrorAfterCreate(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	failed := false
 	list := srv.Handler("firewall", "get_rule_list")
@@ -993,6 +1013,7 @@ func TestFirewallRuleResourceReadErrorAfterCreate(t *testing.T) {
 }
 
 func TestFirewallRuleResourceRouterErrors(t *testing.T) {
+	parallel(t)
 	want := testRule("50001", "ACCEPT", "")
 	changed := want
 	changed.Target = "DROP"
@@ -1111,6 +1132,7 @@ func expectFakeRuleSet(srv *glinettest.Server, want ...glinet.Rule) resource.Tes
 // Rules and port forwards share the positions that make their router IDs, so a remove between the list and the
 // write of another resource moves its rule. Some rules have no destination port and need two writes to be removed.
 func TestFirewallRuleResourceParallel(t *testing.T) {
+	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowLists(srv, "get_rule_list", "get_port_forward_list")
 	provider := fakeRouterConfig(srv)
