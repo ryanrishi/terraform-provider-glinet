@@ -177,12 +177,17 @@ The client session can be one or two items ahead of the provider session.
 
 ### Data sources
 
-| # | Name | API |
-|---|---|---|
-| 1 | `glinet_system_info` | `system.get_info` |
-| 2 | `glinet_system_status` | `system.get_status` |
-| 3 | `glinet_clients` | `clients.get_list` |
-| 4 | `glinet_firewall_zones` | `firewall.get_zone_list` |
+Status: on the branch `data-sources` (not merged), the items marked done.
+
+| # | Name | API | Status | Notes |
+|---|---|---|---|---|
+| 1 | `glinet_system_info` | `system.get_info` | done | No serial numbers and no DDNS device ID. |
+| 2 | `glinet_system_status` | `system.get_status` | | |
+| 3 | `glinet_clients` | `clients.get_list` | | |
+| 4 | `glinet_firewall_zones` | `firewall.get_zone_list` | | |
+| 5 | `glinet_wan_status` | `cable.get_status`, `network.check_wan_cable`, `lan.get_wan_info` | | |
+| 6 | `glinet_arp_entries` | `network.get_arp_list` | | |
+| 7 | `glinet_wifi_status` | `wifi.get_status` | | |
 
 The existing `glinet_system_timezone_config` data source stays.
 

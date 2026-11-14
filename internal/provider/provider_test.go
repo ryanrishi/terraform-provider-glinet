@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/ryanrishi/glinet-client-go"
 	"github.com/ryanrishi/glinet-client-go/glinettest"
 )
@@ -149,6 +150,62 @@ func failFirstCall(srv *glinettest.Server, module, method string) {
 			return nil, glinettest.ErrMethodNotFound
 		}
 		return next(params)
+	})
+}
+
+// Checks for the real-router tests, which cannot know the values.
+var (
+	anyString = knownvalue.StringFunc(func(string) error { return nil })
+	anyBool   = knownvalue.BoolFunc(func(bool) error { return nil })
+	anyInt64  = knownvalue.Int64Func(func(int64) error { return nil })
+
+	nonEmptyString = knownvalue.StringFunc(func(v string) error {
+		if v == "" {
+			return errors.New("value is empty")
+		}
+		return nil
+	})
+	positiveInt64 = knownvalue.Int64Func(func(v int64) error {
+		if v <= 0 {
+			return errors.New("value is not positive")
+		}
+		return nil
+	})
+)
+
+// expectAttributes checks the top-level attributes of the data source or resource at address.
+func expectAttributes(address string, checks map[string]knownvalue.Check) []statecheck.StateCheck {
+	var stateChecks []statecheck.StateCheck
+	for name, check := range checks {
+		stateChecks = append(stateChecks, statecheck.ExpectKnownValue(address, tfjsonpath.New(name), check))
+	}
+	return stateChecks
+}
+
+// readDataSource applies config and runs checks on the state.
+func readDataSource(t *testing.T, config string, checks []statecheck.StateCheck) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            config,
+				ConfigStateChecks: checks,
+			},
+		},
+	})
+}
+
+// expectReadError makes module.method fail on srv and expects config to fail with an error that matches summary and "Method not found".
+func expectReadError(t *testing.T, srv *glinettest.Server, config, module, method, summary string) {
+	failRouterMethod(srv, module, method)()
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      fakeRouterConfig(srv) + config,
+				ExpectError: regexp.MustCompile(`(?s)` + regexp.QuoteMeta(summary) + `.*Method not found`),
+			},
+		},
 	})
 }
 
