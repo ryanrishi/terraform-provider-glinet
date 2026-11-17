@@ -58,16 +58,17 @@ resource "glinet_wifi_iface" %q {
 	return res + "}\n"
 }
 
-// radioOf gives the radio device, band and guest flag of each interface of the fake router.
+// radioOf gives the radio device, band and guest flag of each interface of the fake router, and whether the
+// interface is enabled on a new fake router.
 var radioOf = map[string]struct {
-	device, band string
-	guest        bool
-	fields       string
+	device, band   string
+	guest, enabled bool
+	fields         string
 }{
-	"default_radio0": {"radio0", "5G", false, `"device":"radio0","hwmode":"11a/n/ac/ax","txpower":"Medium","random_bssid":true`},
-	"guest5g":        {"radio0", "5G", true, ""},
-	"default_radio1": {"radio1", "2G", false, `"device":"radio1","hwmode":"11g/n/ax","txpower":"Max","random_bssid":true`},
-	"guest2g":        {"radio1", "2G", true, ""},
+	"default_radio0": {"radio0", "5G", false, true, `"device":"radio0","hwmode":"11a/n/ac/ax","txpower":"Medium","random_bssid":true`},
+	"guest5g":        {"radio0", "5G", true, false, ""},
+	"default_radio1": {"radio1", "2G", false, false, `"device":"radio1","hwmode":"11g/n/ax","txpower":"Max","random_bssid":true`},
+	"guest2g":        {"radio1", "2G", true, false, ""},
 }
 
 func (c wifiIface) state() []statecheck.StateCheck {
@@ -103,6 +104,18 @@ func (c wifiIface) defaultSettingsParams() string {
 
 func (c wifiIface) switchParams() string {
 	return fmt.Sprintf(`{"iface_name":%q,"enabled":%t}`, c.name, c.enabled)
+}
+
+// createParams returns the params of the calls of a create of c on a new fake router, when the settings of c
+// differ from those of the router.
+func (c wifiIface) createParams() []string {
+	if c.enabled == radioOf[c.name].enabled {
+		return []string{c.defaultSettingsParams()}
+	}
+	if c.enabled {
+		return []string{c.defaultSettingsParams(), c.switchParams()}
+	}
+	return []string{c.switchParams(), c.defaultSettingsParams()}
 }
 
 // fakeWifiConfig is the get_config result of the fake router, with the radios and their interfaces as maps.
@@ -174,7 +187,7 @@ func expectRouterIface(t *testing.T, srv *glinettest.Server, c wifiIface) resour
 
 var guest2g = wifiIface{name: "guest2g", ssid: "guest-2g", key: testWifiKey, encryption: "psk2"}
 
-// TestWifiIfaceResource takes over guest2g and changes each attribute. Each step checks which of the two
+// TestWifiIfaceResource takes over guest2g, which is disabled on the router, and changes each attribute. Each step checks which of the two
 // writes are sent, with which params, and in which order.
 func TestWifiIfaceResource(t *testing.T) {
 	parallel(t)
@@ -204,7 +217,7 @@ func TestWifiIfaceResource(t *testing.T) {
 		c     wifiIface
 		calls []string
 	}{
-		{guest2g, []string{guest2g.switchParams(), guest2g.settingsParams("")}},
+		{guest2g, []string{guest2g.settingsParams("")}},
 		{enabled, []string{enabled.switchParams()}},
 		{renamed, []string{renamed.settingsParams("")}},
 		{newKey, []string{newKey.settingsParams("")}},
@@ -245,6 +258,47 @@ func TestWifiIfaceResource(t *testing.T) {
 	})
 }
 
+// TestWifiIfaceResourceCreate takes over an interface and sends only the calls whose values differ from the router values.
+func TestWifiIfaceResourceCreate(t *testing.T) {
+	parallel(t)
+	equal := wifiIface{name: "guest2g", ssid: "ssid-3", key: "redacted-passwd-2", encryption: "psk2"}
+	enabled := equal
+	enabled.enabled = true
+	open := wifiIface{name: "guest2g", ssid: "ssid-3", encryption: "none"}
+
+	tests := []struct {
+		name  string
+		c     wifiIface
+		calls []string
+	}{
+		{"equal", equal, nil},
+		{"open network equal", open, nil},
+		{"only settings differ", guest2g, []string{guest2g.settingsParams("")}},
+		{"only enabled differs", enabled, []string{enabled.switchParams()}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			if tt.c.encryption == "none" {
+				setWifi(t, srv, "radio1", nil, "guest2g", map[string]any{"encryption": "none"})
+			}
+			calls := recordCalls(t, srv, "wifi", "set_config")
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:            fakeRouterConfig(srv) + tt.c.config(),
+						ConfigStateChecks: tt.c.state(),
+						Check:             resource.ComposeTestCheckFunc(calls.expect(tt.calls...), expectRouterIface(t, srv, tt.c)),
+					},
+				},
+			})
+		})
+	}
+}
+
 // TestWifiIfaceResourceEachInterface takes over each interface of the fake router. A write of a main interface
 // sends the radio values of the router.
 func TestWifiIfaceResourceEachInterface(t *testing.T) {
@@ -261,7 +315,7 @@ func TestWifiIfaceResourceEachInterface(t *testing.T) {
 					{
 						Config:            fakeRouterConfig(srv) + c.config(),
 						ConfigStateChecks: c.state(),
-						Check:             resource.ComposeTestCheckFunc(calls.expect(c.defaultSettingsParams(), c.switchParams()), expectRouterIface(t, srv, c)),
+						Check:             resource.ComposeTestCheckFunc(calls.expect(c.createParams()...), expectRouterIface(t, srv, c)),
 					},
 				},
 			})
@@ -284,7 +338,7 @@ func TestWifiIfaceResourceRadioValues(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fakeRouterConfig(srv) + c.config(),
-				Check:  calls.expect(c.defaultSettingsParams(), c.switchParams()),
+				Check:  calls.expect(c.defaultSettingsParams()),
 			},
 			{
 				PreConfig: func() {
@@ -322,7 +376,7 @@ func TestWifiIfaceResourceParallel(t *testing.T) {
 		c := wifiIface{resName: fmt.Sprintf("i%d", i), name: name, ssid: "ssid-" + name, key: testWifiKey, encryption: "psk-mixed", enabled: i%2 == 0}
 		ifaces = append(ifaces, c)
 		config += c.config()
-		want = append(want, c.defaultSettingsParams(), c.switchParams())
+		want = append(want, c.createParams()...)
 		checks = append(checks, c.state()...)
 	}
 	routerChecks := []resource.TestCheckFunc{calls.expectUnordered(want...)}
@@ -534,7 +588,7 @@ func TestWifiIfaceResourceDestroy(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fakeRouterConfig(srv) + c.config(),
-				Check:  resource.ComposeTestCheckFunc(calls.expect(c.switchParams(), c.defaultSettingsParams()), applied.save),
+				Check:  resource.ComposeTestCheckFunc(calls.expect(c.defaultSettingsParams()), applied.save),
 			},
 		},
 	})
@@ -754,6 +808,7 @@ func TestWifiIfaceResourceRouterErrors(t *testing.T) {
 	for _, call := range []string{"switch", "settings"} {
 		t.Run("set "+call, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
+			setWifi(t, srv, "radio1", nil, "guest2g", map[string]any{"enabled": true})
 			before := srv.Wifi.Config()
 			set := srv.Handler("wifi", "set_config")
 			srv.Handle("wifi", "set_config", func(params json.RawMessage) (any, error) {

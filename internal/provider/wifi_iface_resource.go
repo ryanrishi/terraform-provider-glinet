@@ -68,8 +68,10 @@ func (r *wifiIfaceResource) Metadata(_ context.Context, req resource.MetadataReq
 func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages a Wi-Fi interface (a Wi-Fi network) of the router, for example the main 5 GHz network `default_radio0` or the guest network `guest2g` (`wifi.set_config` in the router API). " +
-			"Use one instance of this resource for each interface. The interface always exists on the router, so create takes over the interface and writes the configured values. " +
-			"The web UI writes the switch (`enabled`) and the other attributes in two calls; the provider sends a call only when one of its attributes changed. " +
+			"Use one instance of this resource for each interface. The interface always exists on the router, so create takes over the interface. " +
+			"The web UI writes the switch (`enabled`) and the other attributes in two calls. " +
+			"The provider sends a call only when one of its values differs: on create from the values of the router, on update from the state. " +
+			"A create whose values are equal to those of the router sends no write. " +
 			"When it disables an interface, the provider sends the switch first; else it sends the switch last. " +
 			"This resource does not manage the radio (channel, channel width, hardware mode, TX power): " +
 			"for a main interface, the web UI also sends `device`, `hwmode`, `txpower` and `random_bssid` of the radio, so the provider reads them from the router just before the write and sends them back unchanged. " +
@@ -226,16 +228,12 @@ func (r *wifiIfaceResource) ImportState(ctx context.Context, req resource.Import
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
 }
 
-// write sends the settings call and the switch call of plan: on create (prior is nil) both, else each one only
-// when one of its attributes changed. It holds routerWrites from the read of the radio values to the last write,
-// so that the write of a main interface sends back the radio values that the router has.
+// write sends the settings call and the switch call of plan, each one only when one of its attributes differs
+// from prior, or on create (prior is nil) from the router values. It holds routerWrites from the read of the
+// radio values to the last write, so that the write of a main interface sends back the radio values that the
+// router has.
 func (r *wifiIfaceResource) write(ctx context.Context, plan wifiIfaceResourceModel, prior *wifiIfaceResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	name := plan.Name.ValueString()
-	settings, enable := true, true
-	if prior != nil {
-		settings = !plan.SSID.Equal(prior.SSID) || !plan.Key.Equal(prior.Key) || !plan.Encryption.Equal(prior.Encryption) || !plan.Hidden.Equal(prior.Hidden)
-		enable = !plan.Enabled.Equal(prior.Enabled)
-	}
 
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
@@ -257,6 +255,13 @@ func (r *wifiIfaceResource) write(ctx context.Context, plan wifiIfaceResourceMod
 				radio.Device, name, encryption, strings.Join(radio.Encryptions, ", ")))
 		return
 	}
+
+	compared := prior
+	if compared == nil {
+		compared = wifiIfaceModel(radio, iface)
+	}
+	settings := !plan.SSID.Equal(compared.SSID) || !plan.Key.Equal(compared.Key) || !plan.Encryption.Equal(compared.Encryption) || !plan.Hidden.Equal(compared.Hidden)
+	enable := !plan.Enabled.Equal(compared.Enabled)
 
 	request := glinet.SetWifiConfigRequest{
 		IfaceName:  name,

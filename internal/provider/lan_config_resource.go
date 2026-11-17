@@ -137,7 +137,8 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"so the write of the DHCP group and the read after the write fail: change the provider `host` to the new address and apply again. " +
 			"Also a wrong DHCP configuration or a disabled DHCP server of the `lan` network can cut the access to the router of the clients that get their address by DHCP. " +
 			"The router does not accept a network that contains the address of the other network or of the uplink (errors -7, -8, -9). " +
-			untestedWriteNote + destroyNote,
+			"Only one write of this resource was tested on a router: `{\"interface\":\"guest\",\"enable\":0}`, the measurement above; the parameters come from the router's web UI. " +
+			destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"interface": schema.StringAttribute{
 				Description: "The network: `lan` or `guest` (`interface` in the router API). Changing it replaces the resource.",
