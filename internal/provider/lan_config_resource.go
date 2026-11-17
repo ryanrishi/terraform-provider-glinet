@@ -125,15 +125,20 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 
 	resp.Schema = schema.Schema{
 		Description: "Manages the address and the DHCP server of the LAN or of the guest network of the router (`lan.set_config` in the router API). " +
-			"Use one instance of this resource for each network. Both networks always exist on the router, so create takes over the network and writes the configured values. " +
-			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation`) and the DHCP group (the other attributes) in two calls; " +
-			"the provider sends a group only when one of its attributes changed, and the address group first. " +
-			"**Danger:** a change of `ip` or `netmask` of the `lan` network changes the address of the router. The provider then loses its connection, " +
+			"Use one instance of this resource for each network. Both networks always exist on the router, so create takes over the network. " +
+			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation`) and the DHCP group (the other attributes) in two calls. " +
+			"The provider sends a group only when one of its values differs: on create from the values of the router, on update from the state. " +
+			"It sends the address group first. A create whose values are equal to those of the router sends no write. " +
+			"**Danger:** each write to the LAN configuration, also for the `guest` network and also a write that changes nothing, " +
+			"makes the router restart its Wi-Fi a few seconds later. When the uplink of the router is a Wi-Fi repeater, " +
+			"the uplink and each VPN on it can drop and may not come back without a manual reconnect or a reboot. " +
+			"This was measured on a GL-AXT1800 with firmware 4.7.0. " +
+			"A change of `ip` or `netmask` of the `lan` network changes the address of the router. The provider then loses its connection, " +
 			"so the write of the DHCP group and the read after the write fail: change the provider `host` to the new address and apply again. " +
 			"Also a wrong DHCP configuration or a disabled DHCP server of the `lan` network can cut the access to the router of the clients that get their address by DHCP. " +
-			"A write probably restarts the network and the DHCP server. " +
 			"The router does not accept a network that contains the address of the other network or of the uplink (errors -7, -8, -9). " +
-			untestedWriteNote + destroyNote,
+			"Only one write of this resource was tested on a router: `{\"interface\":\"guest\",\"enable\":0}`, the measurement above; the parameters come from the router's web UI. " +
+			destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"interface": schema.StringAttribute{
 				Description: "The network: `lan` or `guest` (`interface` in the router API). Changing it replaces the resource.",
@@ -369,16 +374,12 @@ func (r *lanConfigResource) ImportState(ctx context.Context, req resource.Import
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("interface"), req.ID)...)
 }
 
-// write sends the address group and the DHCP group of plan: on create (prior is nil) both, else each one only
-// when one of its attributes changed. The DHCP write sends back the lpr values of the router, which the provider
-// does not manage, as the web UI does. When the DHCP write fails after the address write, the state gets the
-// new address.
+// write sends the address group and the DHCP group of plan, each one only when one of its attributes differs
+// from prior, or on create (prior is nil) from the router values. The DHCP write sends back the lpr values of
+// the router, which the provider does not manage, as the web UI does. When the DHCP write of an update fails
+// after the address write, the state gets the new address.
 func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceModel, prior *lanConfigResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	iface := plan.Interface.ValueString()
-	address, dhcp := true, true
-	if prior != nil {
-		address, dhcp = addressChanged(plan, *prior), dhcpChanged(plan, *prior)
-	}
 
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
@@ -392,6 +393,15 @@ func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceMod
 		diags.AddAttributeError(path.Root("interface"), "LAN Interface Not Found", fmt.Sprintf("The router has no network %q.", iface))
 		return
 	}
+
+	compared := prior
+	if compared == nil {
+		compared = lanConfigModel(ctx, current, plan.LeaseTime, diags)
+		if diags.HasError() {
+			return
+		}
+	}
+	address, dhcp := addressChanged(plan, *compared), dhcpChanged(plan, *compared)
 
 	if address {
 		err := r.client.LAN.SetAddress(ctx, glinet.LANAddress{

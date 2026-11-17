@@ -170,8 +170,8 @@ var (
 		dhcp: true, start: "192.168.8.100", end: "192.168.8.249", lease: "12h"}
 )
 
-// TestLANConfigResource takes over the guest network and changes each attribute. Each step checks which of
-// the two writes are sent, with which params.
+// TestLANConfigResource takes over the guest network, which has the configured values, and changes each
+// attribute. Each step checks which of the two writes are sent, with which params.
 func TestLANConfigResource(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
@@ -196,7 +196,7 @@ func TestLANConfigResource(t *testing.T) {
 		c     lanConfig
 		calls []string
 	}{
-		{guestDisabled, []string{guestDisabled.addressParams(), guestDisabled.dhcpParams("")}},
+		{guestDisabled, nil},
 		{guestDHCP, []string{guestDHCP.dhcpParams("120m")}},
 		{withDNS, []string{withDNS.dhcpParams("120m")}},
 		{sameDuration, nil},
@@ -265,10 +265,11 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
 				{
+					PreConfig:         func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "6h"}) },
 					Config:            fakeRouterConfig(srv) + lanDefault.config(),
 					ConfigStateChecks: lanDefault.state(lanConfigAddress),
 					Check: resource.ComposeTestCheckFunc(
-						calls.expect(lanDefault.addressParams(), lanDefault.dhcpParams("720m")),
+						calls.expect(lanDefault.dhcpParams("720m")),
 						expectLANItem(t, srv, "lan", map[string]any{"leasetime": "720m"}),
 					),
 				},
@@ -305,6 +306,7 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
 				{
+					PreConfig:         func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "6h"}) },
 					Config:            fakeRouterConfig(srv) + c.config(),
 					ConfigStateChecks: c.state(lanConfigAddress),
 					Check:             expectLANItem(t, srv, "lan", map[string]any{"leasetime": "12h"}),
@@ -344,6 +346,45 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 	})
 }
 
+// TestLANConfigResourceCreate takes over a network and sends only the groups that differ from the router values.
+func TestLANConfigResourceCreate(t *testing.T) {
+	parallel(t)
+	sameDuration := lanDefault
+	sameDuration.lease = "720m"
+	isolated := lanDefault
+	isolated.isolation = true
+
+	tests := []struct {
+		name  string
+		c     lanConfig
+		calls []string
+	}{
+		{"lan equal", lanDefault, nil},
+		{"lease time with the same duration", sameDuration, nil},
+		{"guest equal", guestDisabled, nil},
+		{"dhcp differs", guestDHCP, []string{guestDHCP.dhcpParams("120m")}},
+		{"address differs", isolated, []string{isolated.addressParams()}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			calls := recordCalls(t, srv, "lan", "set_config")
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:            fakeRouterConfig(srv) + tt.c.config(),
+						ConfigStateChecks: tt.c.state(lanConfigAddress),
+						Check:             calls.expect(tt.calls...),
+					},
+				},
+			})
+		})
+	}
+}
+
 // TestLANConfigResourceBothNetworks applies the lan and the guest network in one apply.
 func TestLANConfigResourceBothNetworks(t *testing.T) {
 	parallel(t)
@@ -361,7 +402,7 @@ func TestLANConfigResourceBothNetworks(t *testing.T) {
 				Config:            fakeRouterConfig(srv) + lan.config() + guest.config(),
 				ConfigStateChecks: append(lan.state(lanConfigAddress), guest.state(guestConfigAddress)...),
 				Check: resource.ComposeTestCheckFunc(
-					calls.expectUnordered(lan.addressParams(), lan.dhcpParams("60m"), guest.addressParams(), guest.dhcpParams("120m")),
+					calls.expectUnordered(lan.dhcpParams("60m"), guest.dhcpParams("120m")),
 					expectLANItem(t, srv, "lan", map[string]any{"leasetime": "60m", "enable": 1}),
 					expectLANItem(t, srv, "guest", map[string]any{"leasetime": "120m", "enable": 1, "start": "192.168.9.100", "end": "192.168.9.200"}),
 				),
@@ -384,7 +425,7 @@ func TestLANConfigResourceLANAddressChange(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fakeRouterConfig(srv) + lanDefault.config(),
-				Check:  calls.expect(lanDefault.addressParams(), lanDefault.dhcpParams("720m")),
+				Check:  calls.expect(),
 			},
 			{
 				Config:            fakeRouterConfig(srv) + moved.config(),
@@ -405,14 +446,16 @@ func TestLANConfigResourceLPR(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	setLANItem(t, srv, "lan", map[string]any{"lpr": []string{"lpr-1"}})
 	calls := recordCalls(t, srv, "lan", "set_config")
+	c := lanDefault
+	c.lease = "1h"
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: fakeRouterConfig(srv) + lanDefault.config(),
-				Check: calls.expect(lanDefault.addressParams(),
-					`{"interface":"lan","enable":1,"start":"192.168.8.100","end":"192.168.8.249","leasetime":"720m","gateway":"","dns":[],"lpr":["lpr-1"]}`),
+				Config: fakeRouterConfig(srv) + c.config(),
+				Check: calls.expect(
+					`{"interface":"lan","enable":1,"start":"192.168.8.100","end":"192.168.8.249","leasetime":"60m","gateway":"","dns":[],"lpr":["lpr-1"]}`),
 			},
 		},
 	})
@@ -634,7 +677,7 @@ func TestLANConfigResourceDestroy(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fakeRouterConfig(srv) + guestDHCP.config(),
-				Check:  resource.ComposeTestCheckFunc(calls.expect(guestDHCP.addressParams(), guestDHCP.dhcpParams("120m")), applied.save),
+				Check:  resource.ComposeTestCheckFunc(calls.expect(guestDHCP.dhcpParams("120m")), applied.save),
 			},
 		},
 	})
@@ -880,12 +923,14 @@ func TestLANConfigResourceRouterErrors(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		before := srv.LAN.ConfigList()
 		failRouterMethod(srv, "lan", "set_config")()
+		wideMask := guestDHCP
+		wideMask.netmask = "255.255.0.0"
 
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
 				{
-					Config:      fakeRouterConfig(srv) + config,
+					Config:      fakeRouterConfig(srv) + wideMask.config(),
 					ExpectError: regexp.MustCompile(`(?s)Unable to Set LAN Address.*Method not found`),
 				},
 			},
