@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/ryanrishi/glinet-client-go"
@@ -49,17 +48,19 @@ func (r *clientBlockResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"and create and destroy fail when the router is in allow-list mode. " +
 			"While the router is not in block-list mode, refresh keeps the resource in the state and shows a warning. " +
 			"The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. " +
+			"The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. " +
 			"Destroy removes the MAC address in each letter case. " +
 			"It was not verified that the router blocks the traffic of a client in the list.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
-				Description: "MAC address of the client, in lower case, for example `02:00:00:00:00:01`. Changing it replaces the block.",
-				Required:    true,
+				Description: "MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. " +
+					"A change of only the letter case changes only the state. Another change replaces the block.",
+				Required: true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					requiresReplaceIfNotLetterCase(),
 				},
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(lowerCaseMAC, "must be a MAC address in lower case, for example 02:00:00:00:00:01"),
+					stringvalidator.RegexMatches(macAddress, "must be a MAC address, for example 02:00:00:00:00:01"),
 				},
 			},
 		},
@@ -138,8 +139,15 @@ func (r *clientBlockResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 }
 
-func (r *clientBlockResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError("Unexpected Update", "Each change of a client block replaces it. Please report this issue to the provider developers.")
+// Update changes only the letter case of mac. The router finds the entries without letter case, so it needs no write.
+func (r *clientBlockResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan clientBlockResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
 func (r *clientBlockResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -164,9 +172,10 @@ func (r *clientBlockResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 }
 
+// ImportState sets mac in lower case, because the router can have the MAC address in more than one letter case.
 func (r *clientBlockResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	mac := strings.ToLower(req.ID)
-	if !lowerCaseMAC.MatchString(mac) {
+	if !macAddress.MatchString(mac) {
 		resp.Diagnostics.AddError("Invalid Import ID", fmt.Sprintf("The import ID must be a MAC address, for example 02:00:00:00:00:01, got %q.", req.ID))
 		return
 	}
