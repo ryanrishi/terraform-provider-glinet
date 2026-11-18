@@ -56,7 +56,8 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"Read the warnings on their pages before you apply them.\n\n" +
 			"Destroy of a resource disables a feature that exposes the router or acts on its own " +
 			"(`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), " +
-			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_firewall_port_forward`, `glinet_firewall_rule`), " +
+			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_firewall_port_forward`, `glinet_firewall_rule`, " +
+			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`), " +
 			"and leaves a plain setting unchanged on the router (the other resources).",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
@@ -166,6 +167,9 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewIPv6Resource,
 		NewLANResource,
 		NewWifiInterfaceResource,
+		NewWireGuardClientGroupResource,
+		NewWireGuardClientConfigResource,
+		NewWireGuardServerPeerResource,
 	}
 }
 
