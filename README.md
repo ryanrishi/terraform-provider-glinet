@@ -68,7 +68,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_wan_status` | [docs/data-sources/wan_status.md](docs/data-sources/wan_status.md) |
 | Data source | `glinet_wifi_status` | [docs/data-sources/wifi_status.md](docs/data-sources/wifi_status.md) |
 
-The provider is tested with a GL-AXT1800 on firmware 4.7.0. Other models and firmware versions can have different API methods.
+The provider is tested with a GL-AXT1800 on firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.
 
 ## Requirements
 
