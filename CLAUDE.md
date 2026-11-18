@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Terraform provider for GL.iNet routers that run v4 firmware. It is published at `registry.terraform.io/ryanrishi/glinet`. `PLAN.md` has the work plan.
+This is a Terraform provider for GL.iNet routers that run v4 firmware. It is published at `registry.terraform.io/ryanrishi/glinet`.
 
 ## Development Commands
 
@@ -35,6 +35,27 @@ Add a dependency with `go get github.com/author/dependency` and `go mod tidy`. D
 - Resources: `glinet_system_timezone` (`system_timezone_resource.go`, singleton), `glinet_lan_static_lease` (`lan_static_lease_resource.go`, ID is the MAC), `glinet_firewall_port_forward` (`firewall_port_forward_resource.go`, identity is `external_zone` + `protocol` + `external_port`; the router ID is looked up before each call and is not in the state), `glinet_firewall_dmz` (`firewall_dmz_resource.go`, singleton; destroy disables the DMZ on the router), `glinet_firewall_rule` (`firewall_rule_resource.go`, identity is the eight match fields; the router ID is looked up before each call and is not in the state; import by name), `glinet_led` (`led_resource.go`, singleton), `glinet_led_schedule` (`led_schedule_resource.go`, singleton; `schedule.go` has the time and day helpers of the schedules), `glinet_reboot_schedule` (`reboot_schedule_resource.go`, singleton; keeps `time` and `days` of the state while the router reports the schedule as disabled; destroy disables the schedule with the write `enable: false`), `glinet_dns` (`dns_resource.go`, singleton), `glinet_adguardhome` (`adguardhome_resource.go`, singleton), `glinet_client_block` (`client_block_resource.go`, ID is the MAC in lower case; writes upper case and matches block list entries without letter case; create and delete fail when the router is not in block-list mode), `glinet_ddns` (`ddns_resource.go`, singleton; destroy disables DDNS), `glinet_tailscale` (`tailscale_resource.go`, singleton; destroy disables Tailscale; the login is not managed), `glinet_zerotier` (`zerotier_resource.go`, singleton; the router ignores the network ID and the flags in a disabled write; destroy disables ZeroTier and cannot remove the network ID), `glinet_wan` (`wan_resource.go`, singleton; full replace of `cable.set_config`; `network_config.go` has the helpers of the network configuration resources), `glinet_ipv6` (`ipv6_resource.go`, singleton; a disabled write sends only `enable: false`, and the state keeps the other attributes while the router reports IPv6 as disabled; a `lan_dns` list with one server sends only `lan_dns1`, and the read then ignores the second DNS server of the router), `glinet_lan` (`lan_resource.go`, one per network `lan` or `guest`, ID is `name`; create takes over the network; sends the address group and the DHCP group only when they differ from the state, or on create from the router values, because each write restarts the router's Wi-Fi; compares lease times by duration), `glinet_wifi_interface` (`wifi_interface_resource.go`, one per Wi-Fi interface, ID is `name`; create takes over the interface; sends the settings call and the switch call only when they differ from the state, or on create from the router values; a main interface write sends back the radio values read under `routerWrites`), `glinet_wireguard_client_group` (`wireguard_client_group_resource.go`, a custom group (type 2); `id` is the router's `group_id` and is in the state; destroy fails while the group has configurations), `glinet_wireguard_client_config` (`wireguard_client_config_resource.go`, a peer of `wg-client` in a custom group; each read, import and delete also rejects a group that is not custom; `id` is the router's `peer_id`; import `<group_id>/<id>`; `ipv6_enable` and `presharedkey_enable` come from `address_v6` and `preshared_key`), `glinet_wireguard_server_peer` (`wireguard_server_peer_resource.go`, `id` is the router's `peer_id`; create fails when the server is not initialized; the client configuration file is not exposed). `wireguard.go` has the helpers of the WireGuard resources: `addCreateError` adds to a create error of a group or a configuration that the router may have created the object, because the client error does not tell the add call from the list read after it; the optional `dns`, `listen_port`, `persistent_keepalive`, `mtu` (and `allowed_ips` of the server peer) are Optional and Computed, because the client does not send an empty value; the resources do not start or stop a tunnel.
 - `resourceClient` in `provider.go` gives a resource the client in `Configure`.
 - Destroy rule: destroy disables a feature that exposes the router or acts on its own (DMZ, DDNS, Tailscale, ZeroTier, reboot schedule), removes a list item (static lease, client block, port forward, firewall rule), and leaves a plain setting unchanged (the other resources). Each resource description states its destroy behaviour.
+
+## Router API References
+
+- `REPORT.md` in `testdata/fixtures/axt1800_4.7.0/` of `glinet-client-go`: the verified behaviour of a GL-AXT1800 on firmware 4.7.0, and for each write method whether it was tested on a router. Highest authority.
+- [Archived official reference, 2023-09](https://web.archive.org/web/20230909030901if_/https://dev.gl-inet.com/router-4.x-api/docs/api_docs_api/?version=4): parameters and examples of 55 modules. Authority for a method until it is verified on a router.
+- [HarvsG/gli4py](https://github.com/HarvsG/gli4py) and [angolo40/GLiNet_HomeAssistant](https://github.com/angolo40/GLiNet_HomeAssistant): other clients, for login variants, firewall calls and VPN calls.
+- [shauneccles/glinet-registry](https://github.com/shauneccles/glinet-registry): method probe of an MT6000 on firmware 4.9.0. GPL-3.0: read only, do not copy content.
+
+## Resource Conventions
+
+- Each resource has import.
+- Secrets (Wi-Fi key, private key, preshared key, password) are `Sensitive`.
+- Router API numbers that mean true or false (0 or 1) are `Bool` in the schema.
+- A resource does not start, stop or restart a service unless the router does it as part of the write.
+- A new router method is client work first (typed method, `glinettest` handler, fixtures), then a client release, then provider work.
+
+Not built:
+
+- A DNS hosts resource (`dns.get_host`, `dns.set_host`): in the write test, the router did not use a new hosts file within 5 minutes.
+- VPN policy, the WireGuard server configuration, tunnel start and stop: the client has the methods, and their writes were not tested on a router.
+- OpenVPN client and server, the Wi-Fi schedule, and `vpn-client`, which replaces `wg-client` on firmware 4.9.0.
 
 ## Adding Data Sources and Resources
 
