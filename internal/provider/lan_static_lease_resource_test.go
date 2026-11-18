@@ -435,13 +435,14 @@ func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
 
 // TestLANStaticLeaseResourceImportUpperCase imports a lease with a MAC address in upper case in the import ID.
 func TestLANStaticLeaseResourceImportUpperCase(t *testing.T) {
+	const mac = "02:00:00:aa:bb:cc"
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
-	if err := client.LAN.AddStaticBind(context.Background(), glinet.StaticBind{MAC: leaseMAC, IP: leaseIP}); err != nil {
+	if err := client.LAN.AddStaticBind(context.Background(), glinet.StaticBind{MAC: mac, IP: leaseIP}); err != nil {
 		t.Fatal(err)
 	}
-	config := fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, "")
+	config := fakeRouterConfig(srv) + leaseConfig(mac, leaseIP, "")
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -450,13 +451,13 @@ func TestLANStaticLeaseResourceImportUpperCase(t *testing.T) {
 				Config:             config,
 				ResourceName:       leaseAddress,
 				ImportState:        true,
-				ImportStateId:      strings.ToUpper(leaseMAC),
+				ImportStateId:      strings.ToUpper(mac),
 				ImportStatePersist: true,
 			},
 			{
 				Config:            config,
 				ConfigPlanChecks:  expectEmptyPlan,
-				ConfigStateChecks: []statecheck.StateCheck{expectLease("mac", knownvalue.StringExact(leaseMAC))},
+				ConfigStateChecks: []statecheck.StateCheck{expectLease("mac", knownvalue.StringExact(mac))},
 			},
 		},
 	})
