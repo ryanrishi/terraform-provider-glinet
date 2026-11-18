@@ -3,18 +3,19 @@
 page_title: "glinet_dns Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the DNS settings of the router. The router has one DNS configuration, so use one instance of this resource. The router sets force_dns, rebind_protection and override_vpn to false when a write does not have them, so the provider always writes all three. Destroy removes the resource from the Terraform state and does not change the router.
+  Manages the DNS settings of the router. The router has one DNS configuration, so use one instance of this resource. The router sets force_dns, rebind_protection and override_vpn to false when a write does not have them, so the provider always writes all three. Only the writes in mode auto were tested on a router. The parameters of the modes manual, proxy and secure come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 ---
 
 # glinet_dns (Resource)
 
-Manages the DNS settings of the router. The router has one DNS configuration, so use one instance of this resource. The router sets `force_dns`, `rebind_protection` and `override_vpn` to `false` when a write does not have them, so the provider always writes all three. Destroy removes the resource from the Terraform state and does not change the router.
+Manages the DNS settings of the router. The router has one DNS configuration, so use one instance of this resource. The router sets `force_dns`, `rebind_protection` and `override_vpn` to `false` when a write does not have them, so the provider always writes all three. Only the writes in mode `auto` were tested on a router. The parameters of the modes `manual`, `proxy` and `secure` come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 
 ## Example Usage
 
 ```terraform
 resource "glinet_dns" "this" {
-  mode              = "auto"
+  mode              = "manual"
+  servers           = ["1.1.1.1", "9.9.9.9", "2606:4700:4700::1111"]
   force_dns         = false
   rebind_protection = true
   override_vpn      = true
@@ -32,12 +33,15 @@ resource "glinet_dns" "this" {
 
 ### Optional
 
-- `mode` (String) DNS mode (`mode` in the router API). The only value is `auto`: the other modes of the router need settings that this resource does not have. When it is not set, the provider does not write the mode, and the router keeps it.
+- `dot_provider` (String) DNS over TLS provider (`dot_provider` in the router API): `cloudflare` (`0`), `nextdns` (`1`), `controld` (Control D with a paid plan, `2`) or `controld_free` (Control D with a free resolver, `3`). Required when `protocol` is `DoT`, and can be set only then. The state has no value when the router gives a code that is not in this list.
+- `dot_resolver_id` (String) Resolver ID of the DNS over TLS provider: the NextDNS configuration ID (`nextdns_id` in the router API), the Control D resolver ID of a paid plan (`controld_id`), or the Control D free resolver, for example `p0` (`free_controld_id`). Required when `dot_provider` is `controld` or `controld_free`, optional when it is `nextdns`, and cannot be set for `cloudflare`. The provider writes and reads only the ID of the configured provider. It is not known whether the router keeps the IDs of the other providers.
+- `mode` (String) DNS mode (`mode` in the router API): `auto` (the router uses the DNS servers of the uplink and the VPN), `manual` (the router uses the DNS servers of `servers`), `proxy` (the router sends the DNS queries to one DNS server and port), or `secure` (encrypted DNS, see `protocol`). When it is not set, the provider does not write the mode, and the router keeps it. Then `servers`, `protocol`, `dot_provider` and `dot_resolver_id` cannot be set. The web UI does not write the mode while AdGuard Home is enabled.
+- `protocol` (String) Encrypted DNS protocol (`proto` in the router API): `DoT` (DNS over TLS), `DNSCrypt`, `DoH` (DNS over HTTPS) or `oDoH` (Oblivious DNS over HTTPS). Required when `mode` is `secure`, and can be set only then.
+- `servers` (List of String) DNS servers (`server` in the router API). The value depends on `mode`. In mode `manual` it is required: 1 to 4 IPv4 or IPv6 addresses, and at least one address must be IPv4. In mode `proxy` it is required: one item `<ip>#<port>`, for example `192.0.2.10#5353`, with a port from 1 to 65535. In mode `secure` with `protocol` `DoH`, `DNSCrypt` or `oDoH` it is required: one or more server names from the data source `glinet_dns_secure_servers`. The provider does not check the names, and the router gets them as they are. In mode `auto` it cannot be set: it is the upstream DNS servers that the router uses, each as `<interface> <ip>`, for example `wwan 192.168.100.53`. The router learns them from the uplink and the VPN, so they can change at any time. In mode `secure` with `protocol` `DoT`, and when `mode` is not set, it cannot be set, and it is the value that the router returns. It is not known what the router returns for `DoT`. In these three cases, a change of the router value does not make a plan diff.
 
 ### Read-Only
 
 - `id` (String) Always `dns`.
-- `servers` (List of String) Upstream DNS servers that the router uses, each as `<interface> <ip>`, for example `wwan 192.168.100.53` (`server` in the router API). In mode `auto` the router learns them from the uplink and the VPN, so they can change at any time. A change does not make a plan diff.
 
 ## Import
 
