@@ -42,12 +42,12 @@ func (c tailscale) config() string {
 	return res + "}\n"
 }
 
-// router returns the Tailscale configuration that a router with LAN subnet lanIP has after an apply of c.
-func (c tailscale) router(lanIP string) glinet.TailscaleConfig {
-	return glinet.TailscaleConfig{Enabled: c.enabled, LANEnabled: c.lan, WANEnabled: c.wan, ExitNodeIP: c.exitNode, LANIP: lanIP}
+// router returns the Tailscale configuration that a router with LAN subnet lanSubnet has after an apply of c.
+func (c tailscale) router(lanSubnet string) glinet.TailscaleConfig {
+	return glinet.TailscaleConfig{Enabled: c.enabled, LANEnabled: c.lan, WANEnabled: c.wan, ExitNodeIP: c.exitNode, LANIP: lanSubnet}
 }
 
-func expectTailscaleState(c tailscale, lanIP string) []statecheck.StateCheck {
+func expectTailscaleState(c tailscale, lanSubnet string) []statecheck.StateCheck {
 	var exitNode knownvalue.Check = knownvalue.Null()
 	if c.exitNode != "" {
 		exitNode = knownvalue.StringExact(c.exitNode)
@@ -58,7 +58,7 @@ func expectTailscaleState(c tailscale, lanIP string) []statecheck.StateCheck {
 		"lan_enabled":  knownvalue.Bool(c.lan),
 		"wan_enabled":  knownvalue.Bool(c.wan),
 		"exit_node_ip": exitNode,
-		"lan_ip":       knownvalue.StringExact(lanIP),
+		"lan_subnet":   knownvalue.StringExact(lanSubnet),
 	})
 }
 
@@ -76,10 +76,10 @@ func expectRouterTailscale(client *glinet.Client, want glinet.TailscaleConfig) r
 	}
 }
 
-const fakeLANIP = "192.168.8.0/24"
+const fakeLANSubnet = "192.168.8.0/24"
 
 func setFakeTailscale(srv *glinettest.Server, c tailscale) {
-	srv.Tailscale.SetConfig(glinettest.TailscaleConfig(c.router(fakeLANIP)))
+	srv.Tailscale.SetConfig(glinettest.TailscaleConfig(c.router(fakeLANSubnet)))
 }
 
 // allowTailscaleWithoutAccess allows the reads of the tailscale module, and writes with lan_enabled and
@@ -182,8 +182,8 @@ func TestTailscaleResourceUpdate(t *testing.T) {
 	for i, c := range configs {
 		step := resource.TestStep{
 			Config:            fakeRouterConfig(srv) + c.config(),
-			ConfigStateChecks: expectTailscaleState(c, fakeLANIP),
-			Check:             expectRouterTailscale(client, c.router(fakeLANIP)),
+			ConfigStateChecks: expectTailscaleState(c, fakeLANSubnet),
+			Check:             expectRouterTailscale(client, c.router(fakeLANSubnet)),
 		}
 		if i > 0 {
 			step.ConfigPlanChecks = expectResourceAction(tailscaleAddress, plancheck.ResourceActionUpdate)
@@ -195,7 +195,7 @@ func TestTailscaleResourceUpdate(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectRouterTailscale(client, tailscale{}.router(fakeLANIP)),
+		CheckDestroy:             expectRouterTailscale(client, tailscale{}.router(fakeLANSubnet)),
 		Steps:                    steps,
 	})
 }
@@ -218,8 +218,8 @@ resource "glinet_tailscale" "test" {
 		Steps: []resource.TestStep{
 			{
 				Config:            config,
-				ConfigStateChecks: expectTailscaleState(tailscale{}, fakeLANIP),
-				Check:             expectRouterTailscale(client, tailscale{}.router(fakeLANIP)),
+				ConfigStateChecks: expectTailscaleState(tailscale{}, fakeLANSubnet),
+				Check:             expectRouterTailscale(client, tailscale{}.router(fakeLANSubnet)),
 			},
 			{
 				Config:           fakeRouterConfig(srv) + tailscale{}.config(),
@@ -254,7 +254,7 @@ func TestTailscaleResourceImport(t *testing.T) {
 					{
 						Config:            config,
 						ConfigPlanChecks:  expectEmptyPlan,
-						ConfigStateChecks: expectTailscaleState(existing, fakeLANIP),
+						ConfigStateChecks: expectTailscaleState(existing, fakeLANSubnet),
 					},
 				},
 			})
@@ -312,8 +312,8 @@ func TestTailscaleResourceDrift(t *testing.T) {
 						PreConfig:         func() { setFakeTailscale(srv, tt.router) },
 						Config:            config,
 						ConfigPlanChecks:  expectResourceAction(tailscaleAddress, plancheck.ResourceActionUpdate),
-						ConfigStateChecks: expectTailscaleState(tt.want, fakeLANIP),
-						Check:             expectRouterTailscale(client, tt.want.router(fakeLANIP)),
+						ConfigStateChecks: expectTailscaleState(tt.want, fakeLANSubnet),
+						Check:             expectRouterTailscale(client, tt.want.router(fakeLANSubnet)),
 					},
 				},
 			})
@@ -343,15 +343,15 @@ resource "glinet_tailscale" "test" {
   exit_node_ip = var.exit_node_ip
 }
 `,
-				ConfigStateChecks: expectTailscaleState(tailscale{}, fakeLANIP),
-				Check:             expectRouterTailscale(client, tailscale{}.router(fakeLANIP)),
+				ConfigStateChecks: expectTailscaleState(tailscale{}, fakeLANSubnet),
+				Check:             expectRouterTailscale(client, tailscale{}.router(fakeLANSubnet)),
 			},
 		},
 	})
 }
 
-// TestTailscaleResourceLANIPChanged changes the LAN subnet of the router, which changes lan_ip without a plan.
-func TestTailscaleResourceLANIPChanged(t *testing.T) {
+// TestTailscaleResourceLANSubnetChanged changes the LAN subnet of the router, which changes lan_subnet without a plan.
+func TestTailscaleResourceLANSubnetChanged(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	c := tailscale{enabled: true}
@@ -375,9 +375,9 @@ func TestTailscaleResourceLANIPChanged(t *testing.T) {
 	})
 }
 
-// TestTailscaleResourceLANIPChangedInApply changes the LAN subnet of the router during an apply that updates
+// TestTailscaleResourceLANSubnetChangedInApply changes the LAN subnet of the router during an apply that updates
 // the resource, as a change of the LAN configuration in the same apply can do.
-func TestTailscaleResourceLANIPChangedInApply(t *testing.T) {
+func TestTailscaleResourceLANSubnetChangedInApply(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	enabled := tailscale{enabled: true}
@@ -423,8 +423,8 @@ func TestTailscaleResourceInvalidConfig(t *testing.T) {
   lan_enabled = false
 }`, `The argument "enabled" is required`},
 		{`resource "glinet_tailscale" "test" {
-  enabled = true
-  lan_ip  = "192.168.8.0/24"
+  enabled    = true
+  lan_subnet = "192.168.8.0/24"
 }`, `Invalid Configuration for Read-Only Attribute`},
 		{`resource "glinet_tailscale" "test" {
   enabled      = true
@@ -473,7 +473,7 @@ func TestTailscaleResourceRouterErrors(t *testing.T) {
 				{
 					Config:            fakeRouterConfig(srv) + c.config(),
 					ConfigPlanChecks:  expectResourceAction(tailscaleAddress, plancheck.ResourceActionDestroyBeforeCreate),
-					ConfigStateChecks: expectTailscaleState(c, fakeLANIP),
+					ConfigStateChecks: expectTailscaleState(c, fakeLANSubnet),
 				},
 			},
 		})
@@ -526,7 +526,7 @@ func TestTailscaleResourceRouterErrors(t *testing.T) {
 	t.Run("set on delete", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		set := srv.Handler("tailscale", "set_config")
-		want := glinettest.TailscaleConfig(c.router(fakeLANIP))
+		want := glinettest.TailscaleConfig(c.router(fakeLANSubnet))
 
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -547,7 +547,7 @@ func TestTailscaleResourceRouterErrors(t *testing.T) {
 						srv.Handle("tailscale", "set_config", set)
 					},
 					Config: fakeRouterConfig(srv),
-					Check:  expectRouterTailscale(testClient(t, srv.URL, srv.Username, srv.Password), tailscale{}.router(fakeLANIP)),
+					Check:  expectRouterTailscale(testClient(t, srv.URL, srv.Username, srv.Password), tailscale{}.router(fakeLANSubnet)),
 				},
 			},
 		})

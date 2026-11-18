@@ -18,32 +18,32 @@ import (
 )
 
 const (
-	wifiIfaceAddress = "glinet_wifi_iface.test"
-	testWifiKey      = "test-wifi-key-1"
-	otherWifiKey     = "test-wifi-key-2"
-	hexKey           = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	wifiInterfaceAddress = "glinet_wifi_interface.test"
+	testWifiKey          = "test-wifi-key-1"
+	otherWifiKey         = "test-wifi-key-2"
+	hexKey               = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 )
 
-// wifiIface is the configuration of a glinet_wifi_iface resource. hidden is in the configuration only when it is true.
-type wifiIface struct {
+// wifiInterface is the configuration of a glinet_wifi_interface resource. hidden is in the configuration only when it is true.
+type wifiInterface struct {
 	resName, name, ssid, key, encryption string
 	hidden, enabled                      bool
 }
 
-func (c wifiIface) address() string {
+func (c wifiInterface) address() string {
 	if c.resName == "" {
-		return wifiIfaceAddress
+		return wifiInterfaceAddress
 	}
-	return "glinet_wifi_iface." + c.resName
+	return "glinet_wifi_interface." + c.resName
 }
 
-func (c wifiIface) config() string {
+func (c wifiInterface) config() string {
 	resName := c.resName
 	if resName == "" {
 		resName = "test"
 	}
 	res := fmt.Sprintf(`
-resource "glinet_wifi_iface" %q {
+resource "glinet_wifi_interface" %q {
   name       = %q
   ssid       = %q
   encryption = %q
@@ -71,7 +71,7 @@ var radioOf = map[string]struct {
 	"guest2g":        {"radio1", "2G", true, false, ""},
 }
 
-func (c wifiIface) state() []statecheck.StateCheck {
+func (c wifiInterface) state() []statecheck.StateCheck {
 	radio := radioOf[c.name]
 	return expectAttributes(c.address(), map[string]knownvalue.Check{
 		"name":       knownvalue.StringExact(c.name),
@@ -87,7 +87,7 @@ func (c wifiIface) state() []statecheck.StateCheck {
 }
 
 // settingsParams returns the params of the settings write of c, with radioFields for a main interface.
-func (c wifiIface) settingsParams(radioFields string) string {
+func (c wifiInterface) settingsParams(radioFields string) string {
 	res := fmt.Sprintf(`{"iface_name":%q,"ssid":%q,"encryption":%q,"hidden":%t`, c.name, c.ssid, c.encryption, c.hidden)
 	if c.key != "" {
 		res += fmt.Sprintf(`,"key":%q`, c.key)
@@ -98,17 +98,17 @@ func (c wifiIface) settingsParams(radioFields string) string {
 	return res + "}"
 }
 
-func (c wifiIface) defaultSettingsParams() string {
+func (c wifiInterface) defaultSettingsParams() string {
 	return c.settingsParams(radioOf[c.name].fields)
 }
 
-func (c wifiIface) switchParams() string {
+func (c wifiInterface) switchParams() string {
 	return fmt.Sprintf(`{"iface_name":%q,"enabled":%t}`, c.name, c.enabled)
 }
 
 // createParams returns the params of the calls of a create of c on a new fake router, when the settings of c
 // differ from those of the router.
-func (c wifiIface) createParams() []string {
+func (c wifiInterface) createParams() []string {
 	if c.enabled == radioOf[c.name].enabled {
 		return []string{c.defaultSettingsParams()}
 	}
@@ -161,8 +161,8 @@ func setWifi(t *testing.T, srv *glinettest.Server, device string, radioFields ma
 	srv.Wifi.SetConfig(json.RawMessage(mustJSON(t, config)))
 }
 
-// expectRouterIface checks that the interface of c on the fake router has the values of c.
-func expectRouterIface(t *testing.T, srv *glinettest.Server, c wifiIface) resource.TestCheckFunc {
+// expectRouterWifiInterface checks that the interface of c on the fake router has the values of c.
+func expectRouterWifiInterface(t *testing.T, srv *glinettest.Server, c wifiInterface) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		_, ifaces := wifiRadios(t, srv)
 		for _, radio := range ifaces {
@@ -185,11 +185,11 @@ func expectRouterIface(t *testing.T, srv *glinettest.Server, c wifiIface) resour
 	}
 }
 
-var guest2g = wifiIface{name: "guest2g", ssid: "guest-2g", key: testWifiKey, encryption: "psk2"}
+var guest2g = wifiInterface{name: "guest2g", ssid: "guest-2g", key: testWifiKey, encryption: "psk2"}
 
-// TestWifiIfaceResource takes over guest2g, which is disabled on the router, and changes each attribute. Each step checks which of the two
+// TestWifiInterfaceResource takes over guest2g, which is disabled on the router, and changes each attribute. Each step checks which of the two
 // writes are sent, with which params, and in which order.
-func TestWifiIfaceResource(t *testing.T) {
+func TestWifiInterfaceResource(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
@@ -214,7 +214,7 @@ func TestWifiIfaceResource(t *testing.T) {
 	hexKeyed.encryption, hexKeyed.key, hexKeyed.hidden = "psk2", hexKey, false
 
 	steps := []struct {
-		c     wifiIface
+		c     wifiInterface
 		calls []string
 	}{
 		{guest2g, []string{guest2g.settingsParams("")}},
@@ -234,15 +234,15 @@ func TestWifiIfaceResource(t *testing.T) {
 		ts := resource.TestStep{
 			Config:            fakeRouterConfig(srv) + s.c.config(),
 			ConfigStateChecks: s.c.state(),
-			Check:             resource.ComposeTestCheckFunc(calls.expect(s.calls...), expectRouterIface(t, srv, s.c)),
+			Check:             resource.ComposeTestCheckFunc(calls.expect(s.calls...), expectRouterWifiInterface(t, srv, s.c)),
 		}
 		if i > 0 {
-			ts.ConfigPlanChecks = expectResourceAction(wifiIfaceAddress, plancheck.ResourceActionUpdate)
+			ts.ConfigPlanChecks = expectResourceAction(wifiInterfaceAddress, plancheck.ResourceActionUpdate)
 		}
 		testSteps = append(testSteps, ts)
 	}
 	testSteps = append(testSteps, resource.TestStep{
-		ResourceName:                         wifiIfaceAddress,
+		ResourceName:                         wifiInterfaceAddress,
 		ImportState:                          true,
 		ImportStateId:                        "guest2g",
 		ImportStateVerify:                    true,
@@ -258,17 +258,17 @@ func TestWifiIfaceResource(t *testing.T) {
 	})
 }
 
-// TestWifiIfaceResourceCreate takes over an interface and sends only the calls whose values differ from the router values.
-func TestWifiIfaceResourceCreate(t *testing.T) {
+// TestWifiInterfaceResourceCreate takes over an interface and sends only the calls whose values differ from the router values.
+func TestWifiInterfaceResourceCreate(t *testing.T) {
 	parallel(t)
-	equal := wifiIface{name: "guest2g", ssid: "ssid-3", key: "redacted-passwd-2", encryption: "psk2"}
+	equal := wifiInterface{name: "guest2g", ssid: "ssid-3", key: "redacted-passwd-2", encryption: "psk2"}
 	enabled := equal
 	enabled.enabled = true
-	open := wifiIface{name: "guest2g", ssid: "ssid-3", encryption: "none"}
+	open := wifiInterface{name: "guest2g", ssid: "ssid-3", encryption: "none"}
 
 	tests := []struct {
 		name  string
-		c     wifiIface
+		c     wifiInterface
 		calls []string
 	}{
 		{"equal", equal, nil},
@@ -291,7 +291,7 @@ func TestWifiIfaceResourceCreate(t *testing.T) {
 					{
 						Config:            fakeRouterConfig(srv) + tt.c.config(),
 						ConfigStateChecks: tt.c.state(),
-						Check:             resource.ComposeTestCheckFunc(calls.expect(tt.calls...), expectRouterIface(t, srv, tt.c)),
+						Check:             resource.ComposeTestCheckFunc(calls.expect(tt.calls...), expectRouterWifiInterface(t, srv, tt.c)),
 					},
 				},
 			})
@@ -299,15 +299,15 @@ func TestWifiIfaceResourceCreate(t *testing.T) {
 	}
 }
 
-// TestWifiIfaceResourceEachInterface takes over each interface of the fake router. A write of a main interface
+// TestWifiInterfaceResourceEachInterface takes over each interface of the fake router. A write of a main interface
 // sends the radio values of the router.
-func TestWifiIfaceResourceEachInterface(t *testing.T) {
+func TestWifiInterfaceResourceEachInterface(t *testing.T) {
 	parallel(t)
 	for _, name := range []string{"default_radio0", "guest5g", "default_radio1", "guest2g"} {
 		t.Run(name, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
 			calls := recordCalls(t, srv, "wifi", "set_config")
-			c := wifiIface{name: name, ssid: "ssid-" + name, key: testWifiKey, encryption: "sae", enabled: true}
+			c := wifiInterface{name: name, ssid: "ssid-" + name, key: testWifiKey, encryption: "sae", enabled: true}
 
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -315,7 +315,7 @@ func TestWifiIfaceResourceEachInterface(t *testing.T) {
 					{
 						Config:            fakeRouterConfig(srv) + c.config(),
 						ConfigStateChecks: c.state(),
-						Check:             resource.ComposeTestCheckFunc(calls.expect(c.createParams()...), expectRouterIface(t, srv, c)),
+						Check:             resource.ComposeTestCheckFunc(calls.expect(c.createParams()...), expectRouterWifiInterface(t, srv, c)),
 					},
 				},
 			})
@@ -323,13 +323,13 @@ func TestWifiIfaceResourceEachInterface(t *testing.T) {
 	}
 }
 
-// TestWifiIfaceResourceRadioValues changes the radio values on the router before a write of a main interface:
+// TestWifiInterfaceResourceRadioValues changes the radio values on the router before a write of a main interface:
 // the write sends the values that the router has, and channel and htmode stay as they are.
-func TestWifiIfaceResourceRadioValues(t *testing.T) {
+func TestWifiInterfaceResourceRadioValues(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
-	c := wifiIface{name: "default_radio0", ssid: "main", key: testWifiKey, encryption: "psk2", enabled: true}
+	c := wifiInterface{name: "default_radio0", ssid: "main", key: testWifiKey, encryption: "psk2", enabled: true}
 	renamed := c
 	renamed.ssid = "main-new"
 
@@ -362,18 +362,18 @@ func TestWifiIfaceResourceRadioValues(t *testing.T) {
 	})
 }
 
-// TestWifiIfaceResourceParallel applies the four interfaces in one apply.
-func TestWifiIfaceResourceParallel(t *testing.T) {
+// TestWifiInterfaceResourceParallel applies the four interfaces in one apply.
+func TestWifiInterfaceResourceParallel(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 
-	var ifaces []wifiIface
+	var ifaces []wifiInterface
 	var config string
 	var want []string
 	var checks []statecheck.StateCheck
 	for i, name := range []string{"default_radio0", "guest5g", "default_radio1", "guest2g"} {
-		c := wifiIface{resName: fmt.Sprintf("i%d", i), name: name, ssid: "ssid-" + name, key: testWifiKey, encryption: "psk-mixed", enabled: i%2 == 0}
+		c := wifiInterface{resName: fmt.Sprintf("i%d", i), name: name, ssid: "ssid-" + name, key: testWifiKey, encryption: "psk-mixed", enabled: i%2 == 0}
 		ifaces = append(ifaces, c)
 		config += c.config()
 		want = append(want, c.createParams()...)
@@ -381,7 +381,7 @@ func TestWifiIfaceResourceParallel(t *testing.T) {
 	}
 	routerChecks := []resource.TestCheckFunc{calls.expectUnordered(want...)}
 	for _, c := range ifaces {
-		routerChecks = append(routerChecks, expectRouterIface(t, srv, c))
+		routerChecks = append(routerChecks, expectRouterWifiInterface(t, srv, c))
 	}
 
 	resource.UnitTest(t, resource.TestCase{
@@ -396,7 +396,7 @@ func TestWifiIfaceResourceParallel(t *testing.T) {
 	})
 }
 
-func TestWifiIfaceResourceUnknownInterface(t *testing.T) {
+func TestWifiInterfaceResourceUnknownInterface(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
@@ -412,7 +412,7 @@ func TestWifiIfaceResourceUnknownInterface(t *testing.T) {
 			},
 			{
 				Config:        fakeRouterConfig(srv) + c.config(),
-				ResourceName:  wifiIfaceAddress,
+				ResourceName:  wifiInterfaceAddress,
 				ImportState:   true,
 				ImportStateId: "guest6g",
 				ExpectError:   regexp.MustCompile(`Cannot import non-existent remote object`),
@@ -424,7 +424,7 @@ func TestWifiIfaceResourceUnknownInterface(t *testing.T) {
 	}
 }
 
-func TestWifiIfaceResourceUnsupportedEncryption(t *testing.T) {
+func TestWifiInterfaceResourceUnsupportedEncryption(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	setWifi(t, srv, "radio1", map[string]any{"encryptions": []string{"none", "psk2", "psk-mixed"}}, "", nil)
@@ -446,14 +446,14 @@ func TestWifiIfaceResourceUnsupportedEncryption(t *testing.T) {
 	}
 }
 
-func TestWifiIfaceResourceImport(t *testing.T) {
+func TestWifiInterfaceResourceImport(t *testing.T) {
 	parallel(t)
 	tests := []struct {
 		name string
-		c    wifiIface
+		c    wifiInterface
 	}{
-		{"default_radio0", wifiIface{name: "default_radio0", ssid: "ssid-1", key: "redacted-passwd-1", encryption: "psk2", enabled: true}},
-		{"guest2g", wifiIface{name: "guest2g", ssid: "ssid-3", key: "redacted-passwd-2", encryption: "psk2"}},
+		{"default_radio0", wifiInterface{name: "default_radio0", ssid: "ssid-1", key: "redacted-passwd-1", encryption: "psk2", enabled: true}},
+		{"guest2g", wifiInterface{name: "guest2g", ssid: "ssid-3", key: "redacted-passwd-2", encryption: "psk2"}},
 	}
 
 	for _, tt := range tests {
@@ -467,7 +467,7 @@ func TestWifiIfaceResourceImport(t *testing.T) {
 				Steps: []resource.TestStep{
 					{
 						Config:             config,
-						ResourceName:       wifiIfaceAddress,
+						ResourceName:       wifiInterfaceAddress,
 						ImportState:        true,
 						ImportStateId:      tt.c.name,
 						ImportStatePersist: true,
@@ -486,7 +486,7 @@ func TestWifiIfaceResourceImport(t *testing.T) {
 	t.Run("open network", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
 		setWifi(t, srv, "radio1", nil, "guest2g", map[string]any{"encryption": "none"})
-		c := wifiIface{name: "guest2g", ssid: "ssid-3", encryption: "none"}
+		c := wifiInterface{name: "guest2g", ssid: "ssid-3", encryption: "none"}
 		config := fakeRouterConfig(srv) + c.config()
 
 		resource.UnitTest(t, resource.TestCase{
@@ -494,7 +494,7 @@ func TestWifiIfaceResourceImport(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config:             config,
-					ResourceName:       wifiIfaceAddress,
+					ResourceName:       wifiInterfaceAddress,
 					ImportState:        true,
 					ImportStateId:      "guest2g",
 					ImportStatePersist: true,
@@ -509,7 +509,7 @@ func TestWifiIfaceResourceImport(t *testing.T) {
 	})
 }
 
-func TestWifiIfaceResourceDrift(t *testing.T) {
+func TestWifiInterfaceResourceDrift(t *testing.T) {
 	parallel(t)
 	c := guest2g
 	c.enabled = true
@@ -544,9 +544,9 @@ func TestWifiIfaceResourceDrift(t *testing.T) {
 							setWifi(t, srv, "radio1", nil, "guest2g", tt.fields)
 						},
 						Config:            config,
-						ConfigPlanChecks:  expectResourceAction(wifiIfaceAddress, plancheck.ResourceActionUpdate),
+						ConfigPlanChecks:  expectResourceAction(wifiInterfaceAddress, plancheck.ResourceActionUpdate),
 						ConfigStateChecks: c.state(),
-						Check:             resource.ComposeTestCheckFunc(calls.expect(tt.calls...), expectRouterIface(t, srv, c)),
+						Check:             resource.ComposeTestCheckFunc(calls.expect(tt.calls...), expectRouterWifiInterface(t, srv, c)),
 					},
 				},
 			})
@@ -555,7 +555,7 @@ func TestWifiIfaceResourceDrift(t *testing.T) {
 
 	t.Run("key of an open network", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
-		open := wifiIface{name: "guest2g", ssid: "open", encryption: "none"}
+		open := wifiInterface{name: "guest2g", ssid: "open", encryption: "none"}
 		config := fakeRouterConfig(srv) + open.config()
 
 		resource.UnitTest(t, resource.TestCase{
@@ -574,13 +574,13 @@ func TestWifiIfaceResourceDrift(t *testing.T) {
 	})
 }
 
-// TestWifiIfaceResourceDestroy destroys the resource, which leaves the router unchanged.
-func TestWifiIfaceResourceDestroy(t *testing.T) {
+// TestWifiInterfaceResourceDestroy destroys the resource, which leaves the router unchanged.
+func TestWifiInterfaceResourceDestroy(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "wifi", "set_config")
 	applied := saveRouterJSON(srv.Wifi.Config)
-	c := wifiIface{name: "default_radio1", ssid: "main-2g", key: testWifiKey, encryption: "psk2"}
+	c := wifiInterface{name: "default_radio1", ssid: "main-2g", key: testWifiKey, encryption: "psk2"}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -594,13 +594,13 @@ func TestWifiIfaceResourceDestroy(t *testing.T) {
 	})
 }
 
-func TestWifiIfaceResourceInvalidConfig(t *testing.T) {
+func TestWifiInterfaceResourceInvalidConfig(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.Wifi.Config()
 	calls := recordCalls(t, srv, "wifi", "set_config")
 
-	with := func(change func(*wifiIface)) string {
+	with := func(change func(*wifiInterface)) string {
 		c := guest2g
 		change(&c)
 		return c.config()
@@ -609,23 +609,23 @@ func TestWifiIfaceResourceInvalidConfig(t *testing.T) {
 	tests := []struct {
 		config, error string
 	}{
-		{with(func(c *wifiIface) { c.name = "" }), `name string length must be at least 1`},
-		{with(func(c *wifiIface) { c.ssid = "" }), `ssid string length must be between 1 and 32`},
-		{with(func(c *wifiIface) { c.ssid = strings.Repeat("a", 33) }), `ssid string length must be between 1 and 32`},
-		{with(func(c *wifiIface) { c.ssid = strings.Repeat("é", 17) }), `ssid string length must be between 1 and 32`},
-		{with(func(c *wifiIface) { c.encryption = "wep" }), `encryption value must be one of`},
-		{with(func(c *wifiIface) { c.encryption = "psk" }), `encryption value must be one of`},
-		{with(func(c *wifiIface) { c.key = "" }), `(?s)Invalid Attribute Combination.*key is required when encryption is psk2`},
-		{with(func(c *wifiIface) { c.key, c.encryption = "", "sae" }), `key is required when encryption is sae`},
-		{with(func(c *wifiIface) { c.encryption = "none" }), `key cannot be set when encryption is none`},
-		{with(func(c *wifiIface) { c.key = "1234567" }), `key must be 8 to 63 printable ASCII characters or 64 hex digits`},
-		{with(func(c *wifiIface) { c.key = strings.Repeat("a", 64) + "x" }), `key must be 8 to 63 printable ASCII characters`},
-		{with(func(c *wifiIface) { c.key = strings.Repeat("g", 64) }), `key must be 8 to 63 printable ASCII characters`},
-		{with(func(c *wifiIface) { c.key = "password\twith tab" }), `key must be 8 to 63 printable ASCII characters`},
-		{with(func(c *wifiIface) { c.key = "pässwörter" }), `key must be 8 to 63 printable ASCII characters`},
-		{with(func(c *wifiIface) { c.key, c.encryption = hexKey, "sae" }), `key must have at most 63 characters when encryption is sae`},
-		{with(func(c *wifiIface) { c.key, c.encryption = hexKey, "sae-mixed" }), `key must have at most 63 characters when encryption is\s+sae-mixed`},
-		{`resource "glinet_wifi_iface" "test" {
+		{with(func(c *wifiInterface) { c.name = "" }), `name string length must be at least 1`},
+		{with(func(c *wifiInterface) { c.ssid = "" }), `ssid string length must be between 1 and 32`},
+		{with(func(c *wifiInterface) { c.ssid = strings.Repeat("a", 33) }), `ssid string length must be between 1 and 32`},
+		{with(func(c *wifiInterface) { c.ssid = strings.Repeat("é", 17) }), `ssid string length must be between 1 and 32`},
+		{with(func(c *wifiInterface) { c.encryption = "wep" }), `encryption value must be one of`},
+		{with(func(c *wifiInterface) { c.encryption = "psk" }), `encryption value must be one of`},
+		{with(func(c *wifiInterface) { c.key = "" }), `(?s)Invalid Attribute Combination.*key is required when encryption is psk2`},
+		{with(func(c *wifiInterface) { c.key, c.encryption = "", "sae" }), `key is required when encryption is sae`},
+		{with(func(c *wifiInterface) { c.encryption = "none" }), `key cannot be set when encryption is none`},
+		{with(func(c *wifiInterface) { c.key = "1234567" }), `key must be 8 to 63 printable ASCII characters or 64 hex digits`},
+		{with(func(c *wifiInterface) { c.key = strings.Repeat("a", 64) + "x" }), `key must be 8 to 63 printable ASCII characters`},
+		{with(func(c *wifiInterface) { c.key = strings.Repeat("g", 64) }), `key must be 8 to 63 printable ASCII characters`},
+		{with(func(c *wifiInterface) { c.key = "password\twith tab" }), `key must be 8 to 63 printable ASCII characters`},
+		{with(func(c *wifiInterface) { c.key = "pässwörter" }), `key must be 8 to 63 printable ASCII characters`},
+		{with(func(c *wifiInterface) { c.key, c.encryption = hexKey, "sae" }), `key must have at most 63 characters when encryption is sae`},
+		{with(func(c *wifiInterface) { c.key, c.encryption = hexKey, "sae-mixed" }), `key must have at most 63 characters when encryption is\s+sae-mixed`},
+		{`resource "glinet_wifi_interface" "test" {
   name       = "guest2g"
   ssid       = "guest"
   encryption = "none"
@@ -651,12 +651,12 @@ func TestWifiIfaceResourceInvalidConfig(t *testing.T) {
 	expectJSONEqual(t, srv.Wifi.Config(), string(before))
 }
 
-// TestWifiIfaceResourceValidKeys applies the limits of the key rules.
-func TestWifiIfaceResourceValidKeys(t *testing.T) {
+// TestWifiInterfaceResourceValidKeys applies the limits of the key rules.
+func TestWifiInterfaceResourceValidKeys(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 
-	for _, c := range []wifiIface{
+	for _, c := range []wifiInterface{
 		{name: "guest2g", ssid: strings.Repeat("é", 16), key: "12345678", encryption: "psk2"},
 		{name: "guest2g", ssid: strings.Repeat("a", 32), key: strings.Repeat("~", 63), encryption: "sae"},
 		{name: "guest2g", ssid: "a", key: hexKey, encryption: "psk-mixed"},
@@ -674,24 +674,24 @@ func TestWifiIfaceResourceValidKeys(t *testing.T) {
 	}
 }
 
-// TestWifiIfaceResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
-func TestWifiIfaceResourceUnknownValues(t *testing.T) {
+// TestWifiInterfaceResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
+func TestWifiInterfaceResourceUnknownValues(t *testing.T) {
 	parallel(t)
 	tests := []struct {
 		name, variables, body string
-		c                     wifiIface
+		c                     wifiInterface
 	}{
 		{
 			"encryption",
 			`variable "encryption" { default = "none" }`,
 			`encryption = var.encryption`,
-			wifiIface{name: "guest2g", ssid: "open", encryption: "none"},
+			wifiInterface{name: "guest2g", ssid: "open", encryption: "none"},
 		},
 		{
 			"null key with none",
 			`variable "key" { default = null }`,
 			"encryption = \"none\"\nkey = var.key",
-			wifiIface{name: "guest2g", ssid: "open", encryption: "none"},
+			wifiInterface{name: "guest2g", ssid: "open", encryption: "none"},
 		},
 		{
 			"key with sae",
@@ -700,7 +700,7 @@ func TestWifiIfaceResourceUnknownValues(t *testing.T) {
   sensitive = true
 }`,
 			"encryption = \"sae\"\nkey = var.key",
-			wifiIface{name: "guest2g", ssid: "open", encryption: "sae", key: testWifiKey},
+			wifiInterface{name: "guest2g", ssid: "open", encryption: "sae", key: testWifiKey},
 		},
 	}
 
@@ -708,7 +708,7 @@ func TestWifiIfaceResourceUnknownValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
 			config := fmt.Sprintf(`
-resource "glinet_wifi_iface" "test" {
+resource "glinet_wifi_interface" "test" {
   name    = "guest2g"
   ssid    = "open"
   enabled = false
@@ -722,7 +722,7 @@ resource "glinet_wifi_iface" "test" {
 					{
 						Config:            fakeRouterConfig(srv) + tt.variables + config,
 						ConfigStateChecks: tt.c.state(),
-						Check:             expectRouterIface(t, srv, tt.c),
+						Check:             expectRouterWifiInterface(t, srv, tt.c),
 					},
 				},
 			})
@@ -730,7 +730,7 @@ resource "glinet_wifi_iface" "test" {
 	}
 }
 
-func TestWifiIfaceResourceRouterErrors(t *testing.T) {
+func TestWifiInterfaceResourceRouterErrors(t *testing.T) {
 	parallel(t)
 	c := guest2g
 	config := c.config()
@@ -755,7 +755,7 @@ func TestWifiIfaceResourceRouterErrors(t *testing.T) {
 				},
 				{
 					Config:            fakeRouterConfig(srv) + config,
-					ConfigPlanChecks:  expectResourceAction(wifiIfaceAddress, plancheck.ResourceActionDestroyBeforeCreate),
+					ConfigPlanChecks:  expectResourceAction(wifiInterfaceAddress, plancheck.ResourceActionDestroyBeforeCreate),
 					ConfigStateChecks: c.state(),
 				},
 			},

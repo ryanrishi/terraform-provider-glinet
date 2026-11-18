@@ -237,8 +237,8 @@ func expectReadError(t *testing.T, srv *glinettest.Server, config, module, metho
 	})
 }
 
-const timezoneConfigDataSourceConfig = `
-data "glinet_system_timezone_config" "test" {}
+const timezoneDataSourceConfig = `
+data "glinet_system_timezone" "test" {}
 `
 
 func TestProviderWrongPassword(t *testing.T) {
@@ -249,7 +249,7 @@ func TestProviderWrongPassword(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:      providerConfig(srv.URL, srv.Username, "wrong") + timezoneConfigDataSourceConfig,
+				Config:      providerConfig(srv.URL, srv.Username, "wrong") + timezoneDataSourceConfig,
 				ExpectError: regexp.MustCompile(`(?s)Unable to Create GL\.iNet API Client.*Access denied`),
 			},
 		},
@@ -268,21 +268,21 @@ func TestProviderMissingPassword(t *testing.T) {
 provider "glinet" {
   host = %q
 }
-`, srv.URL) + timezoneConfigDataSourceConfig,
+`, srv.URL) + timezoneDataSourceConfig,
 				ExpectError: regexp.MustCompile(`Missing GL\.iNet API Password`),
 			},
 		},
 	})
 }
 
-func readsTimezoneConfig(config string) resource.TestCase {
+func readsTimezone(config string) resource.TestCase {
 	return resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: config + timezoneConfigDataSourceConfig,
+				Config: config + timezoneDataSourceConfig,
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezoneConfig("id", knownvalue.NotNull()),
+					expectTimezoneDataSource("timezone", knownvalue.NotNull()),
 				},
 			},
 		},
@@ -295,7 +295,7 @@ func TestProviderConfigFromEnvironment(t *testing.T) {
 	t.Setenv("GLINET_USERNAME", srv.Username)
 	t.Setenv("GLINET_PASSWORD", srv.Password)
 
-	resource.UnitTest(t, readsTimezoneConfig(`provider "glinet" {}`))
+	resource.UnitTest(t, readsTimezone(`provider "glinet" {}`))
 }
 
 func TestProviderConfigOverridesEnvironment(t *testing.T) {
@@ -304,7 +304,7 @@ func TestProviderConfigOverridesEnvironment(t *testing.T) {
 	t.Setenv("GLINET_USERNAME", "not-"+srv.Username)
 	t.Setenv("GLINET_PASSWORD", "not-"+srv.Password)
 
-	resource.UnitTest(t, readsTimezoneConfig(fakeRouterConfig(srv)))
+	resource.UnitTest(t, readsTimezone(fakeRouterConfig(srv)))
 }
 
 func TestProviderDefaultUsername(t *testing.T) {
@@ -312,7 +312,7 @@ func TestProviderDefaultUsername(t *testing.T) {
 	srv.Username = defaultUsername
 	t.Setenv("GLINET_USERNAME", "")
 
-	resource.UnitTest(t, readsTimezoneConfig(fmt.Sprintf(`
+	resource.UnitTest(t, readsTimezone(fmt.Sprintf(`
 provider "glinet" {
   host     = %q
   password = %q

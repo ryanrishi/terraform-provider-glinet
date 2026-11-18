@@ -40,7 +40,7 @@ type tailscaleResourceModel struct {
 	LANEnabled types.Bool   `tfsdk:"lan_enabled"`
 	WANEnabled types.Bool   `tfsdk:"wan_enabled"`
 	ExitNodeIP types.String `tfsdk:"exit_node_ip"`
-	LANIP      types.String `tfsdk:"lan_ip"`
+	LANSubnet  types.String `tfsdk:"lan_subnet"`
 }
 
 func (r *tailscaleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -89,7 +89,7 @@ func (r *tailscaleResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					stringCheck{description: "must be an IPv4 address", valid: validIPv4},
 				},
 			},
-			"lan_ip": schema.StringAttribute{
+			"lan_subnet": schema.StringAttribute{
 				Description: "The LAN subnet that the router advertises to the tailnet, for example `192.168.8.0/24` (`lan_ip` in the router API).",
 				Computed:    true,
 			},
@@ -186,8 +186,8 @@ func (r *tailscaleResource) set(ctx context.Context, plan tfsdk.Plan, state *tfs
 	}
 
 	model.ID = types.StringValue(tailscaleID)
-	if model.LANIP.IsUnknown() {
-		model.LANIP = types.StringNull()
+	if model.LANSubnet.IsUnknown() {
+		model.LANSubnet = types.StringNull()
 	}
 	diags.Append(state.Set(ctx, &model)...)
 	if diags.HasError() {
@@ -210,7 +210,7 @@ func (r *tailscaleResource) read(ctx context.Context, state *tfsdk.State, diags 
 		LANEnabled: types.BoolValue(config.LANEnabled),
 		WANEnabled: types.BoolValue(config.WANEnabled),
 		ExitNodeIP: types.StringNull(),
-		LANIP:      types.StringValue(config.LANIP),
+		LANSubnet:  types.StringValue(config.LANIP),
 	}
 	if config.ExitNodeIP != "" {
 		model.ExitNodeIP = types.StringValue(config.ExitNodeIP)

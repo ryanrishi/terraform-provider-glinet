@@ -14,16 +14,16 @@ import (
 	"github.com/ryanrishi/glinet-client-go/glinettest"
 )
 
-const timezoneConfigAddress = "data.glinet_system_timezone_config.test"
+const timezoneDataSourceAddress = "data.glinet_system_timezone.test"
 
-func TestSystemTimezoneConfigDataSource(t *testing.T) {
+func TestSystemTimezoneDataSource(t *testing.T) {
 	parallel(t)
 	var config string
 	var checks []statecheck.StateCheck
 
 	if realRouter() {
-		config = `provider "glinet" {}` + timezoneConfigDataSourceConfig
-		checks = realRouterTimezoneConfigChecks()
+		config = `provider "glinet" {}` + timezoneDataSourceConfig
+		checks = realRouterTimezoneDataSourceChecks()
 	} else {
 		srv := glinettest.NewServer(t)
 		srv.System.SetTimezoneConfig(glinettest.TimezoneConfig{
@@ -33,14 +33,13 @@ func TestSystemTimezoneConfigDataSource(t *testing.T) {
 			AutoTimezoneEnabled: true,
 			Localtime:           1794499485,
 		})
-		config = fakeRouterConfig(srv) + timezoneConfigDataSourceConfig
+		config = fakeRouterConfig(srv) + timezoneDataSourceConfig
 		checks = []statecheck.StateCheck{
-			expectTimezoneConfig("id", knownvalue.StringExact("EST5EDT,M3.2.0,M11.1.0")),
-			expectTimezoneConfig("zonename", knownvalue.StringExact("America/New York")),
-			expectTimezoneConfig("timezone", knownvalue.StringExact("EST5EDT,M3.2.0,M11.1.0")),
-			expectTimezoneConfig("tzoffset", knownvalue.StringExact("-0500")),
-			expectTimezoneConfig("auto_timezone_enabled", knownvalue.Bool(true)),
-			expectTimezoneConfig("localtime", knownvalue.Int64Exact(1794499485)),
+			expectTimezoneDataSource("zonename", knownvalue.StringExact("America/New York")),
+			expectTimezoneDataSource("timezone", knownvalue.StringExact("EST5EDT,M3.2.0,M11.1.0")),
+			expectTimezoneDataSource("tzoffset", knownvalue.StringExact("-0500")),
+			expectTimezoneDataSource("auto_timezone_enabled", knownvalue.Bool(true)),
+			expectTimezoneDataSource("localtime", knownvalue.Int64Exact(1794499485)),
 		}
 	}
 
@@ -55,7 +54,7 @@ func TestSystemTimezoneConfigDataSource(t *testing.T) {
 	})
 }
 
-func TestSystemTimezoneConfigDataSourceAPIError(t *testing.T) {
+func TestSystemTimezoneDataSourceAPIError(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Handle("system", "get_timezone_config", func(json.RawMessage) (any, error) {
@@ -66,14 +65,14 @@ func TestSystemTimezoneConfigDataSourceAPIError(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:      fakeRouterConfig(srv) + timezoneConfigDataSourceConfig,
-				ExpectError: regexp.MustCompile(`(?s)Unable to Read System Timezone Config.*Method not found`),
+				Config:      fakeRouterConfig(srv) + timezoneDataSourceConfig,
+				ExpectError: regexp.MustCompile(`(?s)Unable to Read System Timezone.*Method not found`),
 			},
 		},
 	})
 }
 
-func TestSystemTimezoneConfigDataSourceSessionExpired(t *testing.T) {
+func TestSystemTimezoneDataSourceSessionExpired(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 
@@ -90,9 +89,9 @@ func TestSystemTimezoneConfigDataSourceSessionExpired(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: fakeRouterConfig(srv) + timezoneConfigDataSourceConfig,
+				Config: fakeRouterConfig(srv) + timezoneDataSourceConfig,
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezoneConfig("timezone", knownvalue.StringExact(srv.System.TimezoneConfig().Timezone)),
+					expectTimezoneDataSource("timezone", knownvalue.StringExact(srv.System.TimezoneConfig().Timezone)),
 				},
 			},
 		},
@@ -103,13 +102,13 @@ func TestSystemTimezoneConfigDataSourceSessionExpired(t *testing.T) {
 	}
 }
 
-func expectTimezoneConfig(attribute string, value knownvalue.Check) statecheck.StateCheck {
-	return statecheck.ExpectKnownValue(timezoneConfigAddress, tfjsonpath.New(attribute), value)
+func expectTimezoneDataSource(attribute string, value knownvalue.Check) statecheck.StateCheck {
+	return statecheck.ExpectKnownValue(timezoneDataSourceAddress, tfjsonpath.New(attribute), value)
 }
 
-// realRouterTimezoneConfigChecks checks only types and that values are not empty, because the router values are not fixed.
+// realRouterTimezoneDataSourceChecks checks only types and that values are not empty, because the router values are not fixed.
 // zonename is empty when the router uses UTC.
-func realRouterTimezoneConfigChecks() []statecheck.StateCheck {
+func realRouterTimezoneDataSourceChecks() []statecheck.StateCheck {
 	notEmpty := knownvalue.StringFunc(func(v string) error {
 		if v == "" {
 			return errors.New("value is empty")
@@ -118,12 +117,11 @@ func realRouterTimezoneConfigChecks() []statecheck.StateCheck {
 	})
 
 	return []statecheck.StateCheck{
-		expectTimezoneConfig("id", notEmpty),
-		expectTimezoneConfig("zonename", knownvalue.StringFunc(func(string) error { return nil })),
-		expectTimezoneConfig("timezone", notEmpty),
-		expectTimezoneConfig("tzoffset", notEmpty),
-		expectTimezoneConfig("auto_timezone_enabled", knownvalue.BoolFunc(func(bool) error { return nil })),
-		expectTimezoneConfig("localtime", knownvalue.Int64Func(func(v int64) error {
+		expectTimezoneDataSource("zonename", knownvalue.StringFunc(func(string) error { return nil })),
+		expectTimezoneDataSource("timezone", notEmpty),
+		expectTimezoneDataSource("tzoffset", notEmpty),
+		expectTimezoneDataSource("auto_timezone_enabled", knownvalue.BoolFunc(func(bool) error { return nil })),
+		expectTimezoneDataSource("localtime", knownvalue.Int64Func(func(v int64) error {
 			if v <= 0 {
 				return errors.New("value is not positive")
 			}

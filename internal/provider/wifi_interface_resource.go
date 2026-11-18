@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	_ resource.Resource                     = &wifiIfaceResource{}
-	_ resource.ResourceWithConfigure        = &wifiIfaceResource{}
-	_ resource.ResourceWithImportState      = &wifiIfaceResource{}
-	_ resource.ResourceWithConfigValidators = &wifiIfaceResource{}
+	_ resource.Resource                     = &wifiInterfaceResource{}
+	_ resource.ResourceWithConfigure        = &wifiInterfaceResource{}
+	_ resource.ResourceWithImportState      = &wifiInterfaceResource{}
+	_ resource.ResourceWithConfigValidators = &wifiInterfaceResource{}
 )
 
 var (
@@ -37,15 +37,15 @@ var (
 	hexWifiKey   = regexp.MustCompile(`^[0-9A-Fa-f]{64}$`)
 )
 
-func NewWifiIfaceResource() resource.Resource {
-	return &wifiIfaceResource{}
+func NewWifiInterfaceResource() resource.Resource {
+	return &wifiInterfaceResource{}
 }
 
-type wifiIfaceResource struct {
+type wifiInterfaceResource struct {
 	client *glinet.Client
 }
 
-type wifiIfaceResourceModel struct {
+type wifiInterfaceResourceModel struct {
 	Name       types.String `tfsdk:"name"`
 	SSID       types.String `tfsdk:"ssid"`
 	Key        types.String `tfsdk:"key"`
@@ -61,11 +61,11 @@ func validWifiKey(s string) bool {
 	return asciiWifiKey.MatchString(s) || hexWifiKey.MatchString(s)
 }
 
-func (r *wifiIfaceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_wifi_iface"
+func (r *wifiInterfaceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_wifi_interface"
 }
 
-func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *wifiInterfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages a Wi-Fi interface (a Wi-Fi network) of the router, for example the main 5 GHz network `default_radio0` or the guest network `guest2g` (`wifi.set_config` in the router API). " +
 			"Use one instance of this resource for each interface. The interface always exists on the router, so create takes over the interface. " +
@@ -78,7 +78,7 @@ func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"It does not send `channel` and `htmode`, as the web UI does while the repeater uses the radio. " +
 			"**Danger:** a write can restart the Wi-Fi of the radio, which disconnects its clients; it is not known whether it also restarts the other radio. " +
 			"When the uplink of the router is a Wi-Fi repeater on the same radio, a write can cut the uplink. " +
-			"A write to the LAN configuration (`glinet_lan_config`) restarted the Wi-Fi of a GL-AXT1800 with firmware 4.7.0 and cut its repeater uplink until a reboot; " +
+			"A write to the LAN configuration (`glinet_lan`) restarted the Wi-Fi of a GL-AXT1800 with firmware 4.7.0 and cut its repeater uplink until a reboot; " +
 			"a Wi-Fi write can probably do the same. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
@@ -152,11 +152,11 @@ func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	}
 }
 
-func (r *wifiIfaceResource) ConfigValidators(context.Context) []resource.ConfigValidator {
+func (r *wifiInterfaceResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
 		description: "key is required unless encryption is none, and has at most 63 characters for sae and sae-mixed",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
-			var config wifiIfaceResourceModel
+			var config wifiInterfaceResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
 			if diags.HasError() || config.Encryption.IsNull() || config.Encryption.IsUnknown() {
 				return
@@ -175,12 +175,12 @@ func (r *wifiIfaceResource) ConfigValidators(context.Context) []resource.ConfigV
 	}}
 }
 
-func (r *wifiIfaceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *wifiInterfaceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.client = resourceClient(req, resp)
 }
 
-func (r *wifiIfaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan wifiIfaceResourceModel
+func (r *wifiInterfaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan wifiInterfaceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -189,8 +189,8 @@ func (r *wifiIfaceResource) Create(ctx context.Context, req resource.CreateReque
 	r.write(ctx, plan, nil, &resp.State, &resp.Diagnostics)
 }
 
-func (r *wifiIfaceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state wifiIfaceResourceModel
+func (r *wifiInterfaceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state wifiInterfaceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -207,11 +207,11 @@ func (r *wifiIfaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, wifiIfaceModel(radio, iface))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, wifiInterfaceModel(radio, iface))...)
 }
 
-func (r *wifiIfaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state wifiIfaceResourceModel
+func (r *wifiInterfaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state wifiInterfaceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -221,10 +221,10 @@ func (r *wifiIfaceResource) Update(ctx context.Context, req resource.UpdateReque
 	r.write(ctx, plan, &state, &resp.State, &resp.Diagnostics)
 }
 
-func (r *wifiIfaceResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
+func (r *wifiInterfaceResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
 }
 
-func (r *wifiIfaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *wifiInterfaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
 }
 
@@ -232,7 +232,7 @@ func (r *wifiIfaceResource) ImportState(ctx context.Context, req resource.Import
 // from prior, or on create (prior is nil) from the router values. It holds routerWrites from the read of the
 // radio values to the last write, so that the write of a main interface sends back the radio values that the
 // router has.
-func (r *wifiIfaceResource) write(ctx context.Context, plan wifiIfaceResourceModel, prior *wifiIfaceResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *wifiInterfaceResource) write(ctx context.Context, plan wifiInterfaceResourceModel, prior *wifiInterfaceResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	name := plan.Name.ValueString()
 
 	routerWrites.Lock()
@@ -258,7 +258,7 @@ func (r *wifiIfaceResource) write(ctx context.Context, plan wifiIfaceResourceMod
 
 	compared := prior
 	if compared == nil {
-		compared = wifiIfaceModel(radio, iface)
+		compared = wifiInterfaceModel(radio, iface)
 	}
 	settings := !plan.SSID.Equal(compared.SSID) || !plan.Key.Equal(compared.Key) || !plan.Encryption.Equal(compared.Encryption) || !plan.Hidden.Equal(compared.Hidden)
 	enable := !plan.Enabled.Equal(compared.Enabled)
@@ -317,7 +317,7 @@ func (r *wifiIfaceResource) write(ctx context.Context, plan wifiIfaceResourceMod
 		return
 	}
 
-	diags.Append(state.Set(ctx, wifiIfaceModel(radio, iface))...)
+	diags.Append(state.Set(ctx, wifiInterfaceModel(radio, iface))...)
 }
 
 func ifaceNames(config *glinet.WifiConfig) []string {
@@ -330,10 +330,10 @@ func ifaceNames(config *glinet.WifiConfig) []string {
 	return names
 }
 
-// wifiIfaceModel returns the model of iface. The key is null for an open network, because the router can keep the
+// wifiInterfaceModel returns the model of iface. The key is null for an open network, because the router can keep the
 // previous key.
-func wifiIfaceModel(radio *glinet.WifiRadio, iface *glinet.WifiIface) *wifiIfaceResourceModel {
-	model := &wifiIfaceResourceModel{
+func wifiInterfaceModel(radio *glinet.WifiRadio, iface *glinet.WifiIface) *wifiInterfaceResourceModel {
+	model := &wifiInterfaceResourceModel{
 		Name:       types.StringValue(iface.Name),
 		SSID:       types.StringValue(iface.SSID),
 		Key:        stringOrNull(iface.Key),

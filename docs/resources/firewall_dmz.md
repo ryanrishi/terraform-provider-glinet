@@ -14,6 +14,7 @@ Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwar
 
 ```terraform
 resource "glinet_firewall_dmz" "this" {
+  enabled     = true
   internal_ip = "192.168.8.200"
 }
 ```
@@ -23,15 +24,12 @@ resource "glinet_firewall_dmz" "this" {
 
 ### Required
 
+- `enabled` (Boolean) Whether the DMZ is enabled (`enabled` in the router API).
 - `internal_ip` (String) IPv4 address of the DMZ host (`dest_ip` in the router API).
-
-### Optional
-
-- `enabled` (Boolean) Whether the DMZ is enabled (`enabled` in the router API). Defaults to `true`.
 
 ### Read-Only
 
-- `id` (String) Always `dmz`.
+- `id` (String) Always `firewall_dmz`.
 
 ## Import
 
@@ -40,6 +38,6 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is always "dmz". The router must have a DMZ host.
-terraform import glinet_firewall_dmz.this dmz
+# The import ID is always "firewall_dmz". The router must have a DMZ host.
+terraform import glinet_firewall_dmz.this firewall_dmz
 ```

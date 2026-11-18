@@ -28,9 +28,8 @@ resource "glinet_ipv6" "this" {
 
 ### Optional
 
-- `lan_dns1` (String) IPv6 address of the first DNS server for the LAN clients (`lan_dns1` in the router API). Required when `lan_dns_auto` is `false`, and can be set only then.
-- `lan_dns2` (String) IPv6 address of the second DNS server for the LAN clients (`lan_dns2` in the router API). Can be set only when `lan_dns_auto` is `false`. When it is not set, the provider does not send it, as the web UI does. It is not known whether the router then removes its second DNS server, so the value is computed: the state shows the second DNS server that the router reports.
-- `lan_dns_auto` (Boolean) Whether the LAN clients get the IPv6 DNS servers automatically (`lan_dns_mode` in the router API). When it is `false`, the router gives `lan_dns1` and `lan_dns2`. Must be `true` when `lan_mode` is `relay`. Defaults to `true`.
+- `lan_dns` (List of String) One or two IPv6 addresses of the DNS servers for the LAN clients (`lan_dns1` and `lan_dns2` in the router API). Required when `lan_dns_auto` is `false`, and can be set only then. With one server, the provider sends only `lan_dns1`, as the web UI does. It is not known whether the router then removes its second DNS server. While the state has one server, the provider does not compare the second DNS server of the router.
+- `lan_dns_auto` (Boolean) Whether the LAN clients get the IPv6 DNS servers automatically (`lan_dns_mode` in the router API). When it is `false`, the router gives the servers of `lan_dns`. Must be `true` when `lan_mode` is `relay`. Defaults to `true`.
 - `lan_ip` (String) IPv6 address of the router in the LAN with a prefix length from 48 to 64, for example `fd00:1::1/64` (`lan_ip` in the router API). Required when `lan_mode` is `static`, and can be set only then.
 - `lan_mode` (String) How the LAN gets IPv6 (`lan_mode` in the router API): `native`, `relay` (Passthrough in the web UI), `nat6` or `static`. Required when `enabled` is `true`.
 

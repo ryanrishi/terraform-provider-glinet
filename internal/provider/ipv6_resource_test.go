@@ -33,8 +33,7 @@ func expectIPv6State(checks map[string]knownvalue.Check) []statecheck.StateCheck
 		"lan_mode":     knownvalue.Null(),
 		"lan_dns_auto": knownvalue.Bool(true),
 		"lan_ip":       knownvalue.Null(),
-		"lan_dns1":     knownvalue.Null(),
-		"lan_dns2":     knownvalue.Null(),
+		"lan_dns":      knownvalue.Null(),
 	}
 	for k, v := range checks {
 		all[k] = v
@@ -47,7 +46,7 @@ enabled      = false
 lan_mode     = "static"
 lan_ip       = "fd00:1::1/64"
 lan_dns_auto = false
-lan_dns1     = "` + googleDNS1 + `"`
+lan_dns      = ["` + googleDNS1 + `"]`
 
 // TestIPv6Resource creates the resource with IPv6 disabled and values, which writes only enable: false,
 // enables IPv6 later and changes each attribute.
@@ -61,7 +60,7 @@ func TestIPv6Resource(t *testing.T) {
 		"lan_mode":     knownvalue.StringExact("static"),
 		"lan_ip":       knownvalue.StringExact("fd00:1::1/64"),
 		"lan_dns_auto": knownvalue.Bool(false),
-		"lan_dns1":     knownvalue.StringExact(googleDNS1),
+		"lan_dns":      dnsServers(googleDNS1),
 	}
 
 	type step struct {
@@ -78,7 +77,7 @@ func TestIPv6Resource(t *testing.T) {
 				"lan_mode":     knownvalue.StringExact("static"),
 				"lan_ip":       knownvalue.StringExact("fd00:1::1/64"),
 				"lan_dns_auto": knownvalue.Bool(false),
-				"lan_dns1":     knownvalue.StringExact(googleDNS1),
+				"lan_dns":      dnsServers(googleDNS1),
 			},
 		},
 		{
@@ -87,7 +86,7 @@ enabled      = true
 lan_mode     = "static"
 lan_ip       = "fd00:1::1/64"
 lan_dns_auto = false
-lan_dns1     = "` + googleDNS1 + `"`,
+lan_dns      = ["` + googleDNS1 + `"]`,
 			`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/64","lan_dns1":"` + googleDNS1 + `"}`,
 			`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/64","lan_dns1":"` + googleDNS1 + `"}`,
 			staticState,
@@ -98,8 +97,7 @@ enabled      = true
 lan_mode     = "static"
 lan_ip       = "fd00:2::1/48"
 lan_dns_auto = false
-lan_dns1     = "` + googleDNS1 + `"
-lan_dns2     = "` + googleDNS2 + `"`,
+lan_dns      = ["` + googleDNS1 + `", "` + googleDNS2 + `"]`,
 			`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:2::1/48","lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`,
 			`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:2::1/48","lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`,
 			map[string]knownvalue.Check{
@@ -107,8 +105,7 @@ lan_dns2     = "` + googleDNS2 + `"`,
 				"lan_mode":     knownvalue.StringExact("static"),
 				"lan_ip":       knownvalue.StringExact("fd00:2::1/48"),
 				"lan_dns_auto": knownvalue.Bool(false),
-				"lan_dns1":     knownvalue.StringExact(googleDNS1),
-				"lan_dns2":     knownvalue.StringExact(googleDNS2),
+				"lan_dns":      dnsServers(googleDNS1, googleDNS2),
 			},
 		},
 		{
@@ -124,15 +121,14 @@ lan_mode = "nat6"`,
 enabled      = true
 lan_mode     = "native"
 lan_dns_auto = false
-lan_dns1     = "` + googleDNS2 + `"`,
+lan_dns      = ["` + googleDNS2 + `"]`,
 			`{"enable":true,"lan_mode":"native","lan_dns_mode":false,"lan_dns1":"` + googleDNS2 + `"}`,
 			`{"enable":true,"lan_mode":"native","lan_dns_mode":false,"lan_ip":"fd00:2::1/48","lan_dns1":"` + googleDNS2 + `","lan_dns2":"` + googleDNS2 + `"}`,
 			map[string]knownvalue.Check{
 				"enabled":      knownvalue.Bool(true),
 				"lan_mode":     knownvalue.StringExact("native"),
 				"lan_dns_auto": knownvalue.Bool(false),
-				"lan_dns1":     knownvalue.StringExact(googleDNS2),
-				"lan_dns2":     knownvalue.StringExact(googleDNS2),
+				"lan_dns":      dnsServers(googleDNS2),
 			},
 		},
 		{
@@ -223,7 +219,7 @@ func TestIPv6ResourceImport(t *testing.T) {
 	}{
 		{"disabled", ipv6Initial, "enabled = false\nlan_mode = \"nat6\""},
 		{"static", `{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/64","lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`,
-			"enabled = true\nlan_mode = \"static\"\nlan_ip = \"fd00:1::1/64\"\nlan_dns_auto = false\nlan_dns1 = \"" + googleDNS1 + "\"\nlan_dns2 = \"" + googleDNS2 + "\""},
+			"enabled = true\nlan_mode = \"static\"\nlan_ip = \"fd00:1::1/64\"\nlan_dns_auto = false\nlan_dns = [\"" + googleDNS1 + "\", \"" + googleDNS2 + "\"]"},
 		{"nat6 with values of other modes", `{"enable":true,"lan_mode":"nat6","lan_dns_mode":true,"lan_ip":"fd00:1::1/64","lan_dns1":"` + googleDNS1 + `"}`,
 			"enabled = true\nlan_mode = \"nat6\""},
 	}
@@ -308,8 +304,7 @@ enabled      = true
 lan_mode     = "static"
 lan_ip       = "fd00:1::1/64"
 lan_dns_auto = false
-lan_dns1     = "` + googleDNS1 + `"
-lan_dns2     = "` + googleDNS2 + `"`
+lan_dns      = ["` + googleDNS1 + `", "` + googleDNS2 + `"]`
 
 func TestIPv6ResourceDrift(t *testing.T) {
 	parallel(t)
@@ -323,10 +318,10 @@ func TestIPv6ResourceDrift(t *testing.T) {
 		{"lan_mode", ipv6StaticEnabled, `{"enable":true,"lan_mode":"native","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`, true},
 		{"lan_ip", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:9::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`, true},
 		{"lan_dns_auto", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":true,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"` + googleDNS2 + `"}`, true},
-		{"lan_dns1", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"2001:db8::53","lan_dns2":"` + googleDNS2 + `"}`, true},
-		{"lan_dns2", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"2001:db8::53"}`, true},
-		{"lan_dns2 removed", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `"}`, true},
-		{"lan_dns2 not configured", "enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns1 = \"" + googleDNS1 + "\"", `{"enable":true,"lan_mode":"nat6","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"2001:db8::53"}`, false},
+		{"first DNS server", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"2001:db8::53","lan_dns2":"` + googleDNS2 + `"}`, true},
+		{"second DNS server", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"2001:db8::53"}`, true},
+		{"second DNS server removed", ipv6StaticEnabled, `{"enable":true,"lan_mode":"static","lan_ip":"fd00:1::1/64","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `"}`, true},
+		{"second DNS server not configured", "enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns = [\"" + googleDNS1 + "\"]", `{"enable":true,"lan_mode":"nat6","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `","lan_dns2":"2001:db8::53"}`, false},
 		{"values while disabled", ipv6StaticDisabled, `{"enable":false,"lan_mode":"relay","lan_dns_mode":true}`, false},
 		{"values of other modes", "enabled = true\nlan_mode = \"nat6\"", `{"enable":true,"lan_mode":"nat6","lan_dns_mode":true,"lan_ip":"fd00:1::1/64","lan_dns1":"` + googleDNS1 + `"}`, false},
 	}
@@ -373,18 +368,19 @@ func TestIPv6ResourceInvalidConfig(t *testing.T) {
 		{"enabled = false\nlan_mode = \"static\"", `lan_ip is required when lan_mode is static`},
 		{"enabled = true\nlan_mode = \"nat6\"\nlan_ip = \"fd00:1::1/64\"", `lan_ip cannot be set when lan_mode is not static`},
 		{"enabled = false\nlan_ip = \"fd00:1::1/64\"", `lan_ip cannot be set when lan_mode is not static`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns1 = \"" + googleDNS1 + "\"", `lan_dns1 cannot be set when lan_dns_auto is true`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = true\nlan_dns2 = \"" + googleDNS1 + "\"", `lan_dns2 cannot be set when lan_dns_auto is true`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false", `lan_dns1 is required when lan_dns_auto is false`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns2 = \"" + googleDNS2 + "\"", `lan_dns1 is required when lan_dns_auto is false`},
-		{"enabled = true\nlan_mode = \"relay\"\nlan_dns_auto = false\nlan_dns1 = \"" + googleDNS1 + "\"", `lan_dns_auto must be true when lan_mode is relay`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns = [\"" + googleDNS1 + "\"]", `lan_dns cannot be set when lan_dns_auto is true`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = true\nlan_dns = [\"" + googleDNS1 + "\"]", `lan_dns cannot be set when lan_dns_auto is true`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false", `lan_dns is required when lan_dns_auto is false`},
+		{"enabled = true\nlan_mode = \"relay\"\nlan_dns_auto = false\nlan_dns = [\"" + googleDNS1 + "\"]", `lan_dns_auto must be true when lan_mode is relay`},
 		{"enabled = true\nlan_mode = \"dhcpv6\"", `lan_mode value must be one of`},
 		{"enabled = true\nlan_mode = \"static\"\nlan_ip = \"fd00:1::1\"", `lan_ip must be an IPv6 address with a prefix length from 48 to 64`},
 		{"enabled = true\nlan_mode = \"static\"\nlan_ip = \"fd00:1::1/47\"", `lan_ip must be an IPv6 address with a prefix length from 48 to 64`},
 		{"enabled = true\nlan_mode = \"static\"\nlan_ip = \"fd00:1::1/65\"", `lan_ip must be an IPv6 address with a prefix length from 48 to 64`},
 		{"enabled = true\nlan_mode = \"static\"\nlan_ip = \"192.168.8.1/24\"", `lan_ip must be an IPv6 address with a prefix length from 48 to 64`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns1 = \"8.8.8.8\"", `lan_dns1 must be an IPv6 address`},
-		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns1 = \"" + googleDNS1 + "\"\nlan_dns2 = \"dns\"", `lan_dns2 must be an IPv6 address`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns = [\"8.8.8.8\"]", `lan_dns\[0\] must be an IPv6 address`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns = [\"" + googleDNS1 + "\", \"dns\"]", `lan_dns\[1\] must be an IPv6 address`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns = []", `lan_dns list must contain at least 1 elements`},
+		{"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = false\nlan_dns = [\"" + googleDNS1 + "\", \"" + googleDNS2 + "\", \"2001:db8::53\"]", `lan_dns list must contain at least 1 elements and at most 2`},
 		{`lan_mode = "nat6"`, `The argument "enabled" is required`},
 	}
 
@@ -439,13 +435,13 @@ func TestIPv6ResourceUnknownValues(t *testing.T) {
 		{
 			"lan_dns_auto",
 			`variable "auto" { default = false }`,
-			"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = var.auto\nlan_dns1 = \"" + googleDNS1 + "\"",
+			"enabled = true\nlan_mode = \"nat6\"\nlan_dns_auto = var.auto\nlan_dns = [\"" + googleDNS1 + "\"]",
 			`{"enable":true,"lan_mode":"nat6","lan_dns_mode":false,"lan_dns1":"` + googleDNS1 + `"}`,
 		},
 		{
 			"null DNS servers",
 			`variable "dns" { default = null }`,
-			"enabled = true\nlan_mode = \"nat6\"\nlan_dns1 = var.dns\nlan_dns2 = var.dns",
+			"enabled = true\nlan_mode = \"nat6\"\nlan_dns = var.dns",
 			`{"enable":true,"lan_mode":"nat6","lan_dns_mode":true}`,
 		},
 	}
@@ -486,7 +482,7 @@ func TestIPv6ResourceRouterErrors(t *testing.T) {
 				{
 					Config:            fakeRouterConfig(srv) + config,
 					ConfigPlanChecks:  expectResourceAction(ipv6Address, plancheck.ResourceActionDestroyBeforeCreate),
-					ConfigStateChecks: expectIPv6State(map[string]knownvalue.Check{"enabled": knownvalue.Bool(true), "lan_mode": knownvalue.StringExact("static"), "lan_ip": knownvalue.NotNull(), "lan_dns_auto": knownvalue.Bool(false), "lan_dns1": knownvalue.NotNull(), "lan_dns2": knownvalue.NotNull()}),
+					ConfigStateChecks: expectIPv6State(map[string]knownvalue.Check{"enabled": knownvalue.Bool(true), "lan_mode": knownvalue.StringExact("static"), "lan_ip": knownvalue.NotNull(), "lan_dns_auto": knownvalue.Bool(false), "lan_dns": dnsServers(googleDNS1, googleDNS2)}),
 				},
 			},
 		})
@@ -534,12 +530,25 @@ func TestIPv6ResourceRouterErrors(t *testing.T) {
 	})
 }
 
-// TestIPv6ResourceRemoveLANDNS2 removes lan_dns2 from the configuration. The provider does not send it, as the web UI
-// does; the fake router keeps it (not known for the real router), and the state shows it without an error.
-func TestIPv6ResourceRemoveLANDNS2(t *testing.T) {
+// TestIPv6ResourceRemoveSecondDNS removes the second DNS server from the configuration. The provider sends only lan_dns1,
+// as the web UI does; the fake router keeps lan_dns2 (not known for the real router), and the state has one server without a plan.
+func TestIPv6ResourceRemoveSecondDNS(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "ipv6", "set_ipv6")
+	oneServer := ipv6Config(`
+enabled      = true
+lan_mode     = "static"
+lan_ip       = "fd00:1::1/64"
+lan_dns_auto = false
+lan_dns      = ["` + googleDNS1 + `"]`)
+	oneServerState := expectIPv6State(map[string]knownvalue.Check{
+		"enabled":      knownvalue.Bool(true),
+		"lan_mode":     knownvalue.StringExact("static"),
+		"lan_ip":       knownvalue.StringExact("fd00:1::1/64"),
+		"lan_dns_auto": knownvalue.Bool(false),
+		"lan_dns":      dnsServers(googleDNS1),
+	})
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -548,42 +557,28 @@ func TestIPv6ResourceRemoveLANDNS2(t *testing.T) {
 				Config: fakeRouterConfig(srv) + ipv6Config(ipv6StaticEnabled),
 			},
 			{
-				PreConfig: func() { calls.take() },
-				Config: fakeRouterConfig(srv) + ipv6Config(`
-enabled      = true
-lan_mode     = "static"
-lan_ip       = "fd00:1::1/64"
-lan_dns_auto = false
-lan_dns1     = "`+googleDNS1+`"`),
-				ConfigPlanChecks: expectResourceAction(ipv6Address, plancheck.ResourceActionNoop),
-				ConfigStateChecks: expectIPv6State(map[string]knownvalue.Check{
-					"enabled":      knownvalue.Bool(true),
-					"lan_mode":     knownvalue.StringExact("static"),
-					"lan_ip":       knownvalue.StringExact("fd00:1::1/64"),
-					"lan_dns_auto": knownvalue.Bool(false),
-					"lan_dns1":     knownvalue.StringExact(googleDNS1),
-					"lan_dns2":     knownvalue.StringExact(googleDNS2),
-				}),
-				Check: calls.expect(),
+				PreConfig:         func() { calls.take() },
+				Config:            fakeRouterConfig(srv) + oneServer,
+				ConfigPlanChecks:  expectResourceAction(ipv6Address, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: oneServerState,
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/64","lan_dns1":"`+googleDNS1+`"}`),
+					expectRouterJSON(t, srv.IPv6.Config, `{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/64","lan_dns1":"`+googleDNS1+`","lan_dns2":"`+googleDNS2+`"}`),
+				),
 			},
 			{
-				Config: fakeRouterConfig(srv) + ipv6Config(`
-enabled      = true
-lan_mode     = "static"
-lan_ip       = "fd00:1::1/48"
-lan_dns_auto = false
-lan_dns1     = "`+googleDNS1+`"`),
-				ConfigPlanChecks: expectResourceAction(ipv6Address, plancheck.ResourceActionUpdate),
-				ConfigStateChecks: expectIPv6State(map[string]knownvalue.Check{
-					"enabled":      knownvalue.Bool(true),
-					"lan_mode":     knownvalue.StringExact("static"),
-					"lan_ip":       knownvalue.StringExact("fd00:1::1/48"),
-					"lan_dns_auto": knownvalue.Bool(false),
-					"lan_dns1":     knownvalue.StringExact(googleDNS1),
-					"lan_dns2":     knownvalue.StringExact(googleDNS2),
-				}),
-				Check: calls.expect(`{"enable":true,"lan_mode":"static","lan_dns_mode":false,"lan_ip":"fd00:1::1/48","lan_dns1":"` + googleDNS1 + `"}`),
+				Config:            fakeRouterConfig(srv) + oneServer,
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: oneServerState,
 			},
 		},
 	})
+}
+
+func dnsServers(servers ...string) knownvalue.Check {
+	var checks []knownvalue.Check
+	for _, server := range servers {
+		checks = append(checks, knownvalue.StringExact(server))
+	}
+	return knownvalue.ListExact(checks)
 }

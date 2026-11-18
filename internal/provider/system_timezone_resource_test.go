@@ -108,7 +108,7 @@ func TestSystemTimezoneResource(t *testing.T) {
 			{
 				Config: provider + timezoneConfig("Asia/Tokyo", "JST-9"),
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezone("id", knownvalue.StringExact("timezone")),
+					expectTimezone("id", knownvalue.StringExact("system_timezone")),
 					expectTimezone("zonename", knownvalue.StringExact("Asia/Tokyo")),
 					expectTimezone("timezone", knownvalue.StringExact("JST-9")),
 					expectTimezone("tzoffset", knownvalue.StringExact("+0900")),
@@ -134,7 +134,7 @@ func TestSystemTimezoneResource(t *testing.T) {
 			{
 				ResourceName:      timezoneAddress,
 				ImportState:       true,
-				ImportStateId:     "timezone",
+				ImportStateId:     "system_timezone",
 				ImportStateVerify: true,
 			},
 		},

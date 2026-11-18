@@ -3,14 +3,17 @@
 page_title: "glinet Provider"
 description: |-
   Manages GL.iNet routers that run v4 firmware. The provider is tested on a GL-AXT1800 with firmware 4.7.0. Other models and firmware versions can have different API methods.
-  ~> Warning: some resources can cut the access to the router: glinet_wan https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wan, glinet_lan_config https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/lan_config and glinet_wifi_iface https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wifi_iface. Read the warnings on their pages before you apply them.
+  ~> Warning: some resources can cut the access to the router: glinet_wan https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wan, glinet_lan https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/lan and glinet_wifi_interface https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wifi_interface. Read the warnings on their pages before you apply them.
+  Destroy of a resource disables a feature that exposes the router or acts on its own (glinet_firewall_dmz, glinet_ddns, glinet_tailscale, glinet_zerotier, glinet_reboot_schedule), removes a list item (glinet_lan_static_lease, glinet_client_block, glinet_firewall_port_forward, glinet_firewall_rule), and leaves a plain setting unchanged on the router (the other resources).
 ---
 
 # glinet Provider
 
 Manages GL.iNet routers that run v4 firmware. The provider is tested on a GL-AXT1800 with firmware 4.7.0. Other models and firmware versions can have different API methods.
 
-~> **Warning:** some resources can cut the access to the router: [`glinet_wan`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wan), [`glinet_lan_config`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/lan_config) and [`glinet_wifi_iface`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wifi_iface). Read the warnings on their pages before you apply them.
+~> **Warning:** some resources can cut the access to the router: [`glinet_wan`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wan), [`glinet_lan`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/lan) and [`glinet_wifi_interface`](https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/resources/wifi_interface). Read the warnings on their pages before you apply them.
+
+Destroy of a resource disables a feature that exposes the router or acts on its own (`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_firewall_port_forward`, `glinet_firewall_rule`), and leaves a plain setting unchanged on the router (the other resources).
 
 ## Example Usage
 

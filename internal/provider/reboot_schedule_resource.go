@@ -50,7 +50,8 @@ func (r *rebootScheduleResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"the configured `time` and `days` are kept in the Terraform state and get to the router only when the schedule is enabled. " +
 			"While the router reports the schedule as disabled, the provider does not compare `time` and `days` with the router. " +
 			"The write that enables the schedule (`enable`, `hour`, `min` and `week`) is taken from the web UI of the router and was not tested on a router. " +
-			"Destroy removes the resource from the Terraform state and does not change the router.",
+			"Destroy disables the schedule on the router, so that the router does not reboot on its own after the resource is removed. " +
+			"Destroy sends the same write as `enabled = false`, so the router keeps its time and days.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Always `" + rebootScheduleID + "`.",
@@ -85,7 +86,10 @@ func (r *rebootScheduleResource) Update(ctx context.Context, req resource.Update
 	r.set(ctx, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
-func (r *rebootScheduleResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
+func (r *rebootScheduleResource) Delete(ctx context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if err := r.client.Timer.SetRebootSchedule(ctx, glinet.RebootSchedule{Enabled: false}); err != nil {
+		resp.Diagnostics.AddError("Unable to Disable Reboot Schedule", err.Error())
+	}
 }
 
 func (r *rebootScheduleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

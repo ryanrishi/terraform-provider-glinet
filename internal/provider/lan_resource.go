@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	_ resource.Resource                     = &lanConfigResource{}
-	_ resource.ResourceWithConfigure        = &lanConfigResource{}
-	_ resource.ResourceWithImportState      = &lanConfigResource{}
-	_ resource.ResourceWithConfigValidators = &lanConfigResource{}
+	_ resource.Resource                     = &lanResource{}
+	_ resource.ResourceWithConfigure        = &lanResource{}
+	_ resource.ResourceWithImportState      = &lanResource{}
+	_ resource.ResourceWithConfigValidators = &lanResource{}
 )
 
 // The lease time limits of the web UI, in minutes.
@@ -42,25 +42,25 @@ var (
 	routerLeaseTime = regexp.MustCompile(`^([0-9]+)([hms]?)$`)
 )
 
-func NewLANConfigResource() resource.Resource {
-	return &lanConfigResource{}
+func NewLANResource() resource.Resource {
+	return &lanResource{}
 }
 
-type lanConfigResource struct {
+type lanResource struct {
 	client *glinet.Client
 }
 
-type lanConfigResourceModel struct {
-	Interface   types.String `tfsdk:"interface"`
-	IP          types.String `tfsdk:"ip"`
-	Netmask     types.String `tfsdk:"netmask"`
-	APIsolation types.Bool   `tfsdk:"ap_isolation"`
-	DHCPEnabled types.Bool   `tfsdk:"dhcp_enabled"`
-	DHCPStart   types.String `tfsdk:"dhcp_start"`
-	DHCPEnd     types.String `tfsdk:"dhcp_end"`
-	LeaseTime   types.String `tfsdk:"lease_time"`
-	Gateway     types.String `tfsdk:"gateway"`
-	DNS         types.List   `tfsdk:"dns"`
+type lanResourceModel struct {
+	Name          types.String `tfsdk:"name"`
+	IP            types.String `tfsdk:"ip"`
+	Netmask       types.String `tfsdk:"netmask"`
+	APIsolation   types.Bool   `tfsdk:"ap_isolation"`
+	DHCPEnabled   types.Bool   `tfsdk:"dhcp_enabled"`
+	DHCPStart     types.String `tfsdk:"dhcp_start"`
+	DHCPEnd       types.String `tfsdk:"dhcp_end"`
+	DHCPLeaseTime types.String `tfsdk:"dhcp_lease_time"`
+	DHCPGateway   types.String `tfsdk:"dhcp_gateway"`
+	DHCPDNS       types.List   `tfsdk:"dhcp_dns"`
 }
 
 // leaseSeconds returns the duration of a lease time of the router, such as "12h", "720m", "43200s" or "43200".
@@ -115,11 +115,11 @@ func validPrivateIPv4(s string) bool {
 	return err == nil && addr.Is4() && addr.IsPrivate()
 }
 
-func (r *lanConfigResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_lan_config"
+func (r *lanResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_lan"
 }
 
-func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	ipv4Validator := stringCheck{description: "must be an IPv4 address", valid: validIPv4}
 	privateIPv4Validator := stringCheck{description: "must be a private IPv4 address", valid: validPrivateIPv4}
 
@@ -140,7 +140,7 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"Only one write of this resource was tested on a router: `{\"interface\":\"guest\",\"enable\":0}`, the measurement above; the parameters come from the router's web UI. " +
 			destroyNote,
 		Attributes: map[string]schema.Attribute{
-			"interface": schema.StringAttribute{
+			"name": schema.StringAttribute{
 				Description: "The network: `lan` or `guest` (`interface` in the router API). Changing it replaces the resource.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
@@ -184,7 +184,7 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Optional:   true,
 				Validators: []validator.String{privateIPv4Validator},
 			},
-			"lease_time": schema.StringAttribute{
+			"dhcp_lease_time": schema.StringAttribute{
 				Description: "DHCP lease time in hours or minutes, for example `12h` or `720m`, from 2 minutes to 71582788 minutes (`leasetime` in the router API). " +
 					"The provider sends it in minutes, as the web UI does. Two values with the same duration, such as `12h` and `720m`, are equal: " +
 					"when the router reports a lease time with the same duration as the state, the state keeps its value. " +
@@ -194,12 +194,12 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					stringCheck{description: "must be a number of hours or minutes such as 12h or 720m, from 2 to 71582788 minutes", valid: validLeaseTime},
 				},
 			},
-			"gateway": schema.StringAttribute{
+			"dhcp_gateway": schema.StringAttribute{
 				Description: "IPv4 address of the gateway that the DHCP server gives (`gateway` in the router API). When it is not set, the clients get the router.",
 				Optional:    true,
 				Validators:  []validator.String{ipv4Validator},
 			},
-			"dns": schema.ListAttribute{
+			"dhcp_dns": schema.ListAttribute{
 				Description: "One or two IPv4 addresses of the DNS servers that the DHCP server gives (`dns` in the router API). When it is not set, the clients get the router.",
 				Optional:    true,
 				ElementType: types.StringType,
@@ -212,11 +212,11 @@ func (r *lanConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	}
 }
 
-func (r *lanConfigResource) ConfigValidators(context.Context) []resource.ConfigValidator {
+func (r *lanResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
 		description: "the DHCP attributes go with dhcp_enabled, and the addresses fit the network",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
-			var config lanConfigResourceModel
+			var config lanResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
 			if diags.HasError() {
 				return
@@ -224,16 +224,16 @@ func (r *lanConfigResource) ConfigValidators(context.Context) []resource.ConfigV
 
 			if !config.DHCPEnabled.IsNull() && !config.DHCPEnabled.IsUnknown() {
 				if config.DHCPEnabled.ValueBool() {
-					for name, value := range map[string]types.String{"dhcp_start": config.DHCPStart, "dhcp_end": config.DHCPEnd, "lease_time": config.LeaseTime} {
+					for name, value := range map[string]types.String{"dhcp_start": config.DHCPStart, "dhcp_end": config.DHCPEnd, "dhcp_lease_time": config.DHCPLeaseTime} {
 						require(diags, name, value, "when dhcp_enabled is true")
 					}
 				} else {
 					const reason = "when dhcp_enabled is false"
 					forbid(diags, "dhcp_start", config.DHCPStart, reason)
 					forbid(diags, "dhcp_end", config.DHCPEnd, reason)
-					forbid(diags, "lease_time", config.LeaseTime, reason)
-					forbid(diags, "gateway", config.Gateway, reason)
-					forbid(diags, "dns", config.DNS, reason)
+					forbid(diags, "dhcp_lease_time", config.DHCPLeaseTime, reason)
+					forbid(diags, "dhcp_gateway", config.DHCPGateway, reason)
+					forbid(diags, "dhcp_dns", config.DHCPDNS, reason)
 				}
 			}
 
@@ -252,7 +252,7 @@ func knownAddress(v types.String) (netip.Addr, bool) {
 }
 
 // validateLANAddresses applies the rules of the web UI for the network of ip and netmask and for the DHCP range.
-func validateLANAddresses(config lanConfigResourceModel, diags *diag.Diagnostics) {
+func validateLANAddresses(config lanResourceModel, diags *diag.Diagnostics) {
 	ip, ipKnown := knownAddress(config.IP)
 	if config.Netmask.IsNull() || config.Netmask.IsUnknown() {
 		return
@@ -304,12 +304,12 @@ func broadcast(network netip.Prefix) netip.Addr {
 	return netip.AddrFrom4(b)
 }
 
-func (r *lanConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *lanResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.client = resourceClient(req, resp)
 }
 
-func (r *lanConfigResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan lanConfigResourceModel
+func (r *lanResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan lanResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -318,14 +318,14 @@ func (r *lanConfigResource) Create(ctx context.Context, req resource.CreateReque
 	r.write(ctx, plan, nil, &resp.State, &resp.Diagnostics)
 }
 
-func (r *lanConfigResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state lanConfigResourceModel
+func (r *lanResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state lanResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	config, err := r.client.LAN.GetConfig(ctx, state.Interface.ValueString())
+	config, err := r.client.LAN.GetConfig(ctx, state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read LAN Configuration", err.Error())
 		return
@@ -335,11 +335,11 @@ func (r *lanConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, lanConfigModel(ctx, config, state.LeaseTime, &resp.Diagnostics))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, lanModel(ctx, config, state.DHCPLeaseTime, &resp.Diagnostics))...)
 }
 
-func (r *lanConfigResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state lanConfigResourceModel
+func (r *lanResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state lanResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -349,37 +349,37 @@ func (r *lanConfigResource) Update(ctx context.Context, req resource.UpdateReque
 	r.write(ctx, plan, &state, &resp.State, &resp.Diagnostics)
 }
 
-func addressChanged(plan, prior lanConfigResourceModel) bool {
+func addressChanged(plan, prior lanResourceModel) bool {
 	return !plan.IP.Equal(prior.IP) || !plan.Netmask.Equal(prior.Netmask) || !plan.APIsolation.Equal(prior.APIsolation)
 }
 
-func dhcpChanged(plan, prior lanConfigResourceModel) bool {
+func dhcpChanged(plan, prior lanResourceModel) bool {
 	return !plan.DHCPEnabled.Equal(prior.DHCPEnabled) || !plan.DHCPStart.Equal(prior.DHCPStart) || !plan.DHCPEnd.Equal(prior.DHCPEnd) ||
-		plan.LeaseTime.IsNull() != prior.LeaseTime.IsNull() || !sameLeaseTime(plan.LeaseTime.ValueString(), prior.LeaseTime.ValueString()) ||
-		!plan.Gateway.Equal(prior.Gateway) || !plan.DNS.Equal(prior.DNS)
+		plan.DHCPLeaseTime.IsNull() != prior.DHCPLeaseTime.IsNull() || !sameLeaseTime(plan.DHCPLeaseTime.ValueString(), prior.DHCPLeaseTime.ValueString()) ||
+		!plan.DHCPGateway.Equal(prior.DHCPGateway) || !plan.DHCPDNS.Equal(prior.DHCPDNS)
 }
 
-func (r *lanConfigResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
+func (r *lanResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
 }
 
-func (r *lanConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *lanResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	if req.ID != "lan" && req.ID != "guest" {
 		resp.Diagnostics.AddError(
 			"Invalid Import ID",
-			fmt.Sprintf("The import ID of glinet_lan_config must be \"lan\" or \"guest\", got %q.", req.ID),
+			fmt.Sprintf("The import ID of glinet_lan must be \"lan\" or \"guest\", got %q.", req.ID),
 		)
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("interface"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), req.ID)...)
 }
 
 // write sends the address group and the DHCP group of plan, each one only when one of its attributes differs
 // from prior, or on create (prior is nil) from the router values. The DHCP write sends back the lpr values of
 // the router, which the provider does not manage, as the web UI does. When the DHCP write of an update fails
 // after the address write, the state gets the new address.
-func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceModel, prior *lanConfigResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
-	iface := plan.Interface.ValueString()
+func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *lanResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
+	iface := plan.Name.ValueString()
 
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
@@ -390,13 +390,13 @@ func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceMod
 		return
 	}
 	if current == nil {
-		diags.AddAttributeError(path.Root("interface"), "LAN Interface Not Found", fmt.Sprintf("The router has no network %q.", iface))
+		diags.AddAttributeError(path.Root("name"), "LAN Interface Not Found", fmt.Sprintf("The router has no network %q.", iface))
 		return
 	}
 
 	compared := prior
 	if compared == nil {
-		compared = lanConfigModel(ctx, current, plan.LeaseTime, diags)
+		compared = lanModel(ctx, current, plan.DHCPLeaseTime, diags)
 		if diags.HasError() {
 			return
 		}
@@ -419,15 +419,15 @@ func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceMod
 	if dhcp {
 		settings := glinet.LANDHCP{Interface: iface}
 		if plan.DHCPEnabled.ValueBool() {
-			minutes, _ := leaseMinutes(plan.LeaseTime.ValueString())
+			minutes, _ := leaseMinutes(plan.DHCPLeaseTime.ValueString())
 			settings = glinet.LANDHCP{
 				Interface: iface,
 				Enable:    1,
 				Start:     plan.DHCPStart.ValueString(),
 				End:       plan.DHCPEnd.ValueString(),
 				LeaseTime: fmt.Sprintf("%dm", minutes),
-				Gateway:   plan.Gateway.ValueString(),
-				DNS:       listStrings(ctx, plan.DNS, diags),
+				Gateway:   plan.DHCPGateway.ValueString(),
+				DNS:       listStrings(ctx, plan.DHCPDNS, diags),
 				LPR:       current.LPR,
 			}
 		}
@@ -460,7 +460,7 @@ func (r *lanConfigResource) write(ctx context.Context, plan lanConfigResourceMod
 		return
 	}
 
-	diags.Append(state.Set(ctx, lanConfigModel(ctx, config, plan.LeaseTime, diags))...)
+	diags.Append(state.Set(ctx, lanModel(ctx, config, plan.DHCPLeaseTime, diags))...)
 }
 
 func boolInt(b bool) int {
@@ -470,20 +470,20 @@ func boolInt(b bool) int {
 	return 0
 }
 
-// lanConfigModel returns the model of the network config. It keeps the lease time prior when it is the same
+// lanModel returns the model of the network config. It keeps the lease time prior when it is the same
 // duration as that of the router. The DHCP attributes are null while the DHCP server is disabled.
-func lanConfigModel(ctx context.Context, config *glinet.LANConfig, prior types.String, diags *diag.Diagnostics) *lanConfigResourceModel {
-	model := &lanConfigResourceModel{
-		Interface:   types.StringValue(config.Interface),
-		IP:          types.StringValue(config.IP),
-		Netmask:     types.StringValue(config.Netmask),
-		APIsolation: types.BoolValue(config.APIsolate != 0),
-		DHCPEnabled: types.BoolValue(config.Enable != 0),
-		DHCPStart:   types.StringNull(),
-		DHCPEnd:     types.StringNull(),
-		LeaseTime:   types.StringNull(),
-		Gateway:     types.StringNull(),
-		DNS:         types.ListNull(types.StringType),
+func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String, diags *diag.Diagnostics) *lanResourceModel {
+	model := &lanResourceModel{
+		Name:          types.StringValue(config.Interface),
+		IP:            types.StringValue(config.IP),
+		Netmask:       types.StringValue(config.Netmask),
+		APIsolation:   types.BoolValue(config.APIsolate != 0),
+		DHCPEnabled:   types.BoolValue(config.Enable != 0),
+		DHCPStart:     types.StringNull(),
+		DHCPEnd:       types.StringNull(),
+		DHCPLeaseTime: types.StringNull(),
+		DHCPGateway:   types.StringNull(),
+		DHCPDNS:       types.ListNull(types.StringType),
 	}
 	if config.Enable == 0 {
 		return model
@@ -491,13 +491,13 @@ func lanConfigModel(ctx context.Context, config *glinet.LANConfig, prior types.S
 
 	model.DHCPStart = stringOrNull(config.Start)
 	model.DHCPEnd = stringOrNull(config.End)
-	model.LeaseTime = stringOrNull(config.LeaseTime)
+	model.DHCPLeaseTime = stringOrNull(config.LeaseTime)
 	if !prior.IsNull() && !prior.IsUnknown() && sameLeaseTime(prior.ValueString(), config.LeaseTime) {
-		model.LeaseTime = prior
+		model.DHCPLeaseTime = prior
 	}
-	model.Gateway = stringOrNull(config.Gateway)
+	model.DHCPGateway = stringOrNull(config.Gateway)
 	if len(config.DNS) > 0 {
-		model.DNS = stringList(ctx, config.DNS, diags)
+		model.DHCPDNS = stringList(ctx, config.DNS, diags)
 	}
 	return model
 }
