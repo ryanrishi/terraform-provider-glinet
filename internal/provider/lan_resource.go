@@ -55,12 +55,14 @@ type lanResourceModel struct {
 	IP            types.String `tfsdk:"ip"`
 	Netmask       types.String `tfsdk:"netmask"`
 	APIsolation   types.Bool   `tfsdk:"ap_isolation"`
+	WANIsolation  types.Bool   `tfsdk:"wan_isolation"`
 	DHCPEnabled   types.Bool   `tfsdk:"dhcp_enabled"`
 	DHCPStart     types.String `tfsdk:"dhcp_start"`
 	DHCPEnd       types.String `tfsdk:"dhcp_end"`
 	DHCPLeaseTime types.String `tfsdk:"dhcp_lease_time"`
 	DHCPGateway   types.String `tfsdk:"dhcp_gateway"`
 	DHCPDNS       types.List   `tfsdk:"dhcp_dns"`
+	DHCPLPR       types.List   `tfsdk:"dhcp_lpr_servers"`
 }
 
 // leaseSeconds returns the duration of a lease time of the router, such as "12h", "720m", "43200s" or "43200".
@@ -126,7 +128,7 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Description: "Manages the address and the DHCP server of the LAN or of the guest network of the router (`lan.set_config` in the router API). " +
 			"Use one instance of this resource for each network. Both networks always exist on the router, so create takes over the network. " +
-			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation`) and the DHCP group (the other attributes) in two calls. " +
+			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation`, `wan_isolation`) and the DHCP group (the other attributes) in two calls. " +
 			"The provider sends a group only when one of its values differs: on create from the values of the router, on update from the state. " +
 			"It sends the address group first. A create whose values are equal to those of the router sends no write. " +
 			"**Danger:** each write to the LAN configuration, also for the `guest` network and also a write that changes nothing, " +
@@ -166,6 +168,15 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			"ap_isolation": schema.BoolAttribute{
 				Description: "Whether the Wi-Fi clients of the network cannot reach each other (`ap_isolate` in the router API).",
 				Required:    true,
+			},
+			"wan_isolation": schema.BoolAttribute{
+				Description: "Whether the clients of the guest network cannot reach the networks of the uplinks (`wan_isolate` in the router API, \"block WAN\" in the web UI). " +
+					"Only for the `guest` network: it cannot be set for the `lan` network and is always null there. " +
+					"When it is not set, the provider sends back the value of the router in each address write, so the router value does not change. " +
+					"The option is in the web UI of firmware 4.8.3. Firmware 4.7.0 does not report `wan_isolate`; the provider then reads `false`. " +
+					"The provider sends `wan_isolate` in each address write of the `guest` network. What firmware without this option does with it is not known.",
+				Optional: true,
+				Computed: true,
 			},
 			"dhcp_enabled": schema.BoolAttribute{
 				Description: "Whether the DHCP server of the network is enabled (`enable` in the router API). " +
@@ -208,13 +219,27 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					listvalidator.ValueStringsAre(ipv4Validator),
 				},
 			},
+			"dhcp_lpr_servers": schema.ListAttribute{
+				Description: "One to five IPv4 addresses of LPR servers, each one time, that the DHCP server gives (`lpr` in the router API, DHCP option 9). " +
+					"When it is not set, the provider sends back the LPR servers of the router in each DHCP write. " +
+					"The provider cannot remove all LPR servers: it sends `lpr` only when the list has items, and what the router does with a write without `lpr` is not known. " +
+					"What the router does with the LPR servers was not verified. Cannot be set when `dhcp_enabled` is `false`.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.SizeBetween(1, 5),
+					listvalidator.UniqueValues(),
+					listvalidator.ValueStringsAre(ipv4Validator),
+				},
+			},
 		},
 	}
 }
 
 func (r *lanResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
-		description: "the DHCP attributes go with dhcp_enabled, and the addresses fit the network",
+		description: "the DHCP attributes go with dhcp_enabled, wan_isolation goes with the guest network, and the addresses fit the network",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
 			var config lanResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
@@ -234,7 +259,12 @@ func (r *lanResource) ConfigValidators(context.Context) []resource.ConfigValidat
 					forbid(diags, "dhcp_lease_time", config.DHCPLeaseTime, reason)
 					forbid(diags, "dhcp_gateway", config.DHCPGateway, reason)
 					forbid(diags, "dhcp_dns", config.DHCPDNS, reason)
+					forbid(diags, "dhcp_lpr_servers", config.DHCPLPR, reason)
 				}
+			}
+
+			if config.Name.ValueString() == "lan" {
+				forbid(diags, "wan_isolation", config.WANIsolation, "for the lan network")
 			}
 
 			validateLANAddresses(config, diags)
@@ -350,13 +380,14 @@ func (r *lanResource) Update(ctx context.Context, req resource.UpdateRequest, re
 }
 
 func addressChanged(plan, prior lanResourceModel) bool {
-	return !plan.IP.Equal(prior.IP) || !plan.Netmask.Equal(prior.Netmask) || !plan.APIsolation.Equal(prior.APIsolation)
+	return !plan.IP.Equal(prior.IP) || !plan.Netmask.Equal(prior.Netmask) || !plan.APIsolation.Equal(prior.APIsolation) ||
+		!plan.WANIsolation.Equal(prior.WANIsolation)
 }
 
 func dhcpChanged(plan, prior lanResourceModel) bool {
 	return !plan.DHCPEnabled.Equal(prior.DHCPEnabled) || !plan.DHCPStart.Equal(prior.DHCPStart) || !plan.DHCPEnd.Equal(prior.DHCPEnd) ||
 		plan.DHCPLeaseTime.IsNull() != prior.DHCPLeaseTime.IsNull() || !sameLeaseTime(plan.DHCPLeaseTime.ValueString(), prior.DHCPLeaseTime.ValueString()) ||
-		!plan.DHCPGateway.Equal(prior.DHCPGateway) || !plan.DHCPDNS.Equal(prior.DHCPDNS)
+		!plan.DHCPGateway.Equal(prior.DHCPGateway) || !plan.DHCPDNS.Equal(prior.DHCPDNS) || !plan.DHCPLPR.Equal(prior.DHCPLPR)
 }
 
 func (r *lanResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
@@ -375,9 +406,9 @@ func (r *lanResource) ImportState(ctx context.Context, req resource.ImportStateR
 }
 
 // write sends the address group and the DHCP group of plan, each one only when one of its attributes differs
-// from prior, or on create (prior is nil) from the router values. The DHCP write sends back the lpr values of
-// the router, which the provider does not manage, as the web UI does. When the DHCP write of an update fails
-// after the address write, the state gets the new address.
+// from prior, or on create (prior is nil) from the router values. An unknown wan_isolation or dhcp_lpr_servers,
+// which is not in the configuration, gets the router value, so that a write sends it back unchanged. When the
+// DHCP write of an update fails after the address write, the state gets the new address.
 func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *lanResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	iface := plan.Name.ValueString()
 
@@ -394,6 +425,16 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 		return
 	}
 
+	if plan.WANIsolation.IsUnknown() {
+		plan.WANIsolation = wanIsolationValue(current)
+	}
+	if plan.DHCPLPR.IsUnknown() {
+		plan.DHCPLPR = types.ListNull(types.StringType)
+		if plan.DHCPEnabled.ValueBool() && len(current.LPR) > 0 {
+			plan.DHCPLPR = stringList(ctx, current.LPR, diags)
+		}
+	}
+
 	compared := prior
 	if compared == nil {
 		compared = lanModel(ctx, current, plan.DHCPLeaseTime, diags)
@@ -405,10 +446,11 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 
 	if address {
 		err := r.client.LAN.SetAddress(ctx, glinet.LANAddress{
-			Interface: iface,
-			IP:        plan.IP.ValueString(),
-			Netmask:   plan.Netmask.ValueString(),
-			APIsolate: boolInt(plan.APIsolation.ValueBool()),
+			Interface:  iface,
+			IP:         plan.IP.ValueString(),
+			Netmask:    plan.Netmask.ValueString(),
+			APIsolate:  boolInt(plan.APIsolation.ValueBool()),
+			WANIsolate: boolInt(plan.WANIsolation.ValueBool()),
 		})
 		if err != nil {
 			diags.AddError("Unable to Set LAN Address", err.Error())
@@ -428,7 +470,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 				LeaseTime: fmt.Sprintf("%dm", minutes),
 				Gateway:   plan.DHCPGateway.ValueString(),
 				DNS:       listStrings(ctx, plan.DHCPDNS, diags),
-				LPR:       current.LPR,
+				LPR:       listStrings(ctx, plan.DHCPLPR, diags),
 			}
 		}
 		if diags.HasError() {
@@ -438,7 +480,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 			diags.AddError("Unable to Set LAN DHCP Server", err.Error())
 			if address && prior != nil {
 				written := *prior
-				written.IP, written.Netmask, written.APIsolation = plan.IP, plan.Netmask, plan.APIsolation
+				written.IP, written.Netmask, written.APIsolation, written.WANIsolation = plan.IP, plan.Netmask, plan.APIsolation, plan.WANIsolation
 				diags.Append(state.Set(ctx, &written)...)
 			}
 			return
@@ -470,6 +512,15 @@ func boolInt(b bool) int {
 	return 0
 }
 
+// wanIsolationValue returns wan_isolation of the network config: null for the lan network, and false for a
+// guest network that has no wan_isolate, as the web UI shows it.
+func wanIsolationValue(config *glinet.LANConfig) types.Bool {
+	if config.Interface != "guest" {
+		return types.BoolNull()
+	}
+	return types.BoolValue(config.WANIsolate != 0)
+}
+
 // lanModel returns the model of the network config. It keeps the lease time prior when it is the same
 // duration as that of the router. The DHCP attributes are null while the DHCP server is disabled.
 func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String, diags *diag.Diagnostics) *lanResourceModel {
@@ -478,12 +529,14 @@ func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String,
 		IP:            types.StringValue(config.IP),
 		Netmask:       types.StringValue(config.Netmask),
 		APIsolation:   types.BoolValue(config.APIsolate != 0),
+		WANIsolation:  wanIsolationValue(config),
 		DHCPEnabled:   types.BoolValue(config.Enable != 0),
 		DHCPStart:     types.StringNull(),
 		DHCPEnd:       types.StringNull(),
 		DHCPLeaseTime: types.StringNull(),
 		DHCPGateway:   types.StringNull(),
 		DHCPDNS:       types.ListNull(types.StringType),
+		DHCPLPR:       types.ListNull(types.StringType),
 	}
 	if config.Enable == 0 {
 		return model
@@ -498,6 +551,9 @@ func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String,
 	model.DHCPGateway = stringOrNull(config.Gateway)
 	if len(config.DNS) > 0 {
 		model.DHCPDNS = stringList(ctx, config.DNS, diags)
+	}
+	if len(config.LPR) > 0 {
+		model.DHCPLPR = stringList(ctx, config.LPR, diags)
 	}
 	return model
 }

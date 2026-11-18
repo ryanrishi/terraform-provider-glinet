@@ -23,12 +23,15 @@ const (
 )
 
 // lanNetwork is the configuration of a glinet_lan resource. Fields with their zero value are not in the configuration.
+// The router value of wan_isolation and dhcp_lpr_servers is that of the configuration, or false and none when they
+// are not in the configuration.
 type lanNetwork struct {
 	label, iface, ip, netmask string
 	isolation, dhcp           bool
+	wanIsolation              *bool
 	start, end, lease         string
 	gateway                   string
-	dns                       []string
+	dns, lpr                  []string
 }
 
 func (c lanNetwork) config() string {
@@ -52,6 +55,12 @@ resource "glinet_lan" %q {
 	if c.dns != nil {
 		res += fmt.Sprintf("  dhcp_dns = [%s]\n", quoteList(c.dns))
 	}
+	if c.lpr != nil {
+		res += fmt.Sprintf("  dhcp_lpr_servers = [%s]\n", quoteList(c.lpr))
+	}
+	if c.wanIsolation != nil {
+		res += fmt.Sprintf("  wan_isolation = %t\n", *c.wanIsolation)
+	}
 	return res + "}\n"
 }
 
@@ -70,31 +79,45 @@ func stringOrNullCheck(s string) knownvalue.Check {
 	return knownvalue.StringExact(s)
 }
 
+func stringListOrNullCheck(values []string) knownvalue.Check {
+	if values == nil {
+		return knownvalue.Null()
+	}
+	return stringListExact(values...)
+}
+
+// routerWANIsolation returns the wan_isolation of the router for c.
+func (c lanNetwork) routerWANIsolation() bool {
+	return c.wanIsolation != nil && *c.wanIsolation
+}
+
 func (c lanNetwork) state(address string) []statecheck.StateCheck {
-	var dns knownvalue.Check = knownvalue.Null()
-	if c.dns != nil {
-		var checks []knownvalue.Check
-		for _, d := range c.dns {
-			checks = append(checks, knownvalue.StringExact(d))
-		}
-		dns = knownvalue.ListExact(checks)
+	var wanIsolation knownvalue.Check = knownvalue.Null()
+	if c.iface == "guest" {
+		wanIsolation = knownvalue.Bool(c.routerWANIsolation())
 	}
 	return expectAttributes(address, map[string]knownvalue.Check{
-		"name":            knownvalue.StringExact(c.iface),
-		"ip":              knownvalue.StringExact(c.ip),
-		"netmask":         knownvalue.StringExact(c.netmask),
-		"ap_isolation":    knownvalue.Bool(c.isolation),
-		"dhcp_enabled":    knownvalue.Bool(c.dhcp),
-		"dhcp_start":      stringOrNullCheck(c.start),
-		"dhcp_end":        stringOrNullCheck(c.end),
-		"dhcp_lease_time": stringOrNullCheck(c.lease),
-		"dhcp_gateway":    stringOrNullCheck(c.gateway),
-		"dhcp_dns":        dns,
+		"name":             knownvalue.StringExact(c.iface),
+		"ip":               knownvalue.StringExact(c.ip),
+		"netmask":          knownvalue.StringExact(c.netmask),
+		"ap_isolation":     knownvalue.Bool(c.isolation),
+		"wan_isolation":    wanIsolation,
+		"dhcp_enabled":     knownvalue.Bool(c.dhcp),
+		"dhcp_start":       stringOrNullCheck(c.start),
+		"dhcp_end":         stringOrNullCheck(c.end),
+		"dhcp_lease_time":  stringOrNullCheck(c.lease),
+		"dhcp_gateway":     stringOrNullCheck(c.gateway),
+		"dhcp_dns":         stringListOrNullCheck(c.dns),
+		"dhcp_lpr_servers": stringListOrNullCheck(c.lpr),
 	})
 }
 
-// addressParams returns the params of the address write of c.
+// addressParams returns the params of the address write of c. Only the guest network has wan_isolate.
 func (c lanNetwork) addressParams() string {
+	if c.iface == "guest" {
+		return fmt.Sprintf(`{"interface":%q,"ip":%q,"netmask":%q,"ap_isolate":%d,"wan_isolate":%d}`,
+			c.iface, c.ip, c.netmask, boolInt(c.isolation), boolInt(c.routerWANIsolation()))
+	}
 	return fmt.Sprintf(`{"interface":%q,"ip":%q,"netmask":%q,"ap_isolate":%d}`, c.iface, c.ip, c.netmask, boolInt(c.isolation))
 }
 
@@ -104,8 +127,13 @@ func (c lanNetwork) dhcpParams(minutes string) string {
 		return fmt.Sprintf(`{"interface":%q,"enable":0}`, c.iface)
 	}
 	dns, _ := json.Marshal(append([]string{}, c.dns...))
-	return fmt.Sprintf(`{"interface":%q,"enable":1,"start":%q,"end":%q,"leasetime":%q,"gateway":%q,"dns":%s}`,
-		c.iface, c.start, c.end, minutes, c.gateway, dns)
+	lpr := ""
+	if c.lpr != nil {
+		list, _ := json.Marshal(c.lpr)
+		lpr = fmt.Sprintf(`,"lpr":%s`, list)
+	}
+	return fmt.Sprintf(`{"interface":%q,"enable":1,"start":%q,"end":%q,"leasetime":%q,"gateway":%q,"dns":%s%s}`,
+		c.iface, c.start, c.end, minutes, c.gateway, dns, lpr)
 }
 
 // lanItem returns the item of the network iface in the get_config_list result of the fake router.
@@ -189,22 +217,32 @@ func TestLANResource(t *testing.T) {
 	wideMask.netmask = "255.255.0.0"
 	oneDNS := wideMask
 	oneDNS.dns, oneDNS.gateway, oneDNS.lease = []string{"1.1.1.1"}, "", "30m"
-	disabled := oneDNS
-	disabled.dhcp, disabled.start, disabled.end, disabled.lease, disabled.dns = false, "", "", "", nil
+	blocked := oneDNS
+	blocked.wanIsolation = new(true)
+	printers := blocked
+	printers.lpr = []string{"192.168.10.5", "192.168.10.6"}
+	unblocked := printers
+	unblocked.wanIsolation, unblocked.lpr = new(false), []string{"192.168.10.6"}
+	disabled := unblocked
+	disabled.dhcp, disabled.start, disabled.end, disabled.lease, disabled.dns, disabled.lpr = false, "", "", "", nil, nil
 
 	steps := []struct {
-		c     lanNetwork
-		calls []string
+		c           lanNetwork
+		calls       []string
+		importAfter bool
 	}{
-		{guestDisabled, nil},
-		{guestDHCP, []string{guestDHCP.dhcpParams("120m")}},
-		{withDNS, []string{withDNS.dhcpParams("120m")}},
-		{sameDuration, nil},
-		{noIsolation, []string{noIsolation.addressParams()}},
-		{moved, []string{moved.addressParams(), moved.dhcpParams("120m")}},
-		{wideMask, []string{wideMask.addressParams()}},
-		{oneDNS, []string{oneDNS.dhcpParams("30m")}},
-		{disabled, []string{disabled.dhcpParams("")}},
+		{guestDisabled, nil, false},
+		{guestDHCP, []string{guestDHCP.dhcpParams("120m")}, false},
+		{withDNS, []string{withDNS.dhcpParams("120m")}, false},
+		{sameDuration, nil, true},
+		{noIsolation, []string{noIsolation.addressParams()}, false},
+		{moved, []string{moved.addressParams(), moved.dhcpParams("120m")}, false},
+		{wideMask, []string{wideMask.addressParams()}, false},
+		{oneDNS, []string{oneDNS.dhcpParams("30m")}, false},
+		{blocked, []string{blocked.addressParams()}, false},
+		{printers, []string{printers.dhcpParams("30m")}, true},
+		{unblocked, []string{unblocked.addressParams(), unblocked.dhcpParams("30m")}, false},
+		{disabled, []string{disabled.dhcpParams("")}, false},
 	}
 
 	var testSteps []resource.TestStep
@@ -223,7 +261,7 @@ func TestLANResource(t *testing.T) {
 			ts.ConfigPlanChecks = expectResourceAction(lanAddress, plancheck.ResourceActionUpdate)
 		}
 		testSteps = append(testSteps, ts)
-		if s.c.lease == "120m" && s.c.isolation {
+		if s.importAfter {
 			testSteps = append(testSteps, resource.TestStep{
 				ResourceName:                         lanAddress,
 				ImportState:                          true,
@@ -249,8 +287,12 @@ func TestLANResource(t *testing.T) {
 		Steps: testSteps,
 	})
 
-	if got := lanItem(t, srv, "guest"); got["leasetime"] != "30m" {
+	got := lanItem(t, srv, "guest")
+	if got["leasetime"] != "30m" {
 		t.Errorf("router guest lease time is %v, want 30m: a disabled DHCP write must not send it", got["leasetime"])
+	}
+	if lpr := mustJSON(t, got["lpr"]); lpr != `["192.168.10.6"]` {
+		t.Errorf("router guest lpr is %s, want [\"192.168.10.6\"]: a disabled DHCP write must not send it", lpr)
 	}
 }
 
@@ -353,6 +395,12 @@ func TestLANResourceCreate(t *testing.T) {
 	sameDuration.lease = "720m"
 	isolated := lanDefault
 	isolated.isolation = true
+	guestBlocked := guestDisabled
+	guestBlocked.wanIsolation = new(true)
+	guestNotBlocked := guestDisabled
+	guestNotBlocked.wanIsolation = new(false)
+	lanPrinters := lanDefault
+	lanPrinters.lpr = []string{"192.168.8.5"}
 
 	tests := []struct {
 		name  string
@@ -364,6 +412,9 @@ func TestLANResourceCreate(t *testing.T) {
 		{"guest equal", guestDisabled, nil},
 		{"dhcp differs", guestDHCP, []string{guestDHCP.dhcpParams("120m")}},
 		{"address differs", isolated, []string{isolated.addressParams()}},
+		{"wan_isolation false, no wan_isolate on the router", guestNotBlocked, nil},
+		{"wan_isolation differs", guestBlocked, []string{guestBlocked.addressParams()}},
+		{"dhcp_lpr_servers differs", lanPrinters, []string{lanPrinters.dhcpParams("720m")}},
 	}
 
 	for _, tt := range tests {
@@ -440,22 +491,61 @@ func TestLANResourceLANAddressChange(t *testing.T) {
 	})
 }
 
-// TestLANResourceLPR sends back the lpr values of the router in a DHCP write.
-func TestLANResourceLPR(t *testing.T) {
+// TestLANResourceNotConfigured sends back the wan_isolate and lpr values of the router when wan_isolation and
+// dhcp_lpr_servers are not in the configuration, also after the router values change.
+func TestLANResourceNotConfigured(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	setLANItem(t, srv, "lan", map[string]any{"lpr": []string{"lpr-1"}})
+	setLANItem(t, srv, "guest", map[string]any{"wan_isolate": 1, "lpr": []string{"192.168.9.5"}})
 	calls := recordCalls(t, srv, "lan", "set_config")
-	c := lanDefault
-	c.lease = "1h"
+	wideMask := guestDHCP
+	wideMask.netmask = "255.255.0.0"
+	longLease := wideMask
+	longLease.lease = "3h"
+	disabled := guestDisabled
+	disabled.netmask = wideMask.netmask
+	twoServers := []string{"192.168.9.6", "192.168.9.7"}
+	routerValues := func(c lanNetwork, lpr []string) []statecheck.StateCheck {
+		c.wanIsolation, c.lpr = new(true), lpr
+		return c.state(lanAddress)
+	}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: fakeRouterConfig(srv) + c.config(),
+				Config:            fakeRouterConfig(srv) + guestDHCP.config(),
+				ConfigStateChecks: routerValues(guestDHCP, []string{"192.168.9.5"}),
 				Check: calls.expect(
-					`{"interface":"lan","enable":1,"start":"192.168.8.100","end":"192.168.8.249","leasetime":"60m","gateway":"","dns":[],"lpr":["lpr-1"]}`),
+					`{"interface":"guest","enable":1,"start":"192.168.9.100","end":"192.168.9.200","leasetime":"120m","gateway":"","dns":[],"lpr":["192.168.9.5"]}`),
+			},
+			{
+				PreConfig:         func() { setLANItem(t, srv, "guest", map[string]any{"lpr": twoServers}) },
+				Config:            fakeRouterConfig(srv) + guestDHCP.config(),
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: routerValues(guestDHCP, twoServers),
+			},
+			{
+				Config:           fakeRouterConfig(srv) + wideMask.config(),
+				ConfigPlanChecks: expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+				Check:            calls.expect(`{"interface":"guest","ip":"192.168.9.1","netmask":"255.255.0.0","ap_isolate":1,"wan_isolate":1}`),
+			},
+			{
+				Config:           fakeRouterConfig(srv) + longLease.config(),
+				ConfigPlanChecks: expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+				Check: calls.expect(
+					`{"interface":"guest","enable":1,"start":"192.168.9.100","end":"192.168.9.200","leasetime":"180m","gateway":"","dns":[],"lpr":["192.168.9.6","192.168.9.7"]}`),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + disabled.config(),
+				ConfigStateChecks: routerValues(disabled, nil),
+				Check:             calls.expect(`{"interface":"guest","enable":0}`),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + longLease.config(),
+				ConfigStateChecks: routerValues(longLease, twoServers),
+				Check: calls.expect(
+					`{"interface":"guest","enable":1,"start":"192.168.9.100","end":"192.168.9.200","leasetime":"180m","gateway":"","dns":[],"lpr":["192.168.9.6","192.168.9.7"]}`),
 			},
 		},
 	})
@@ -586,6 +676,12 @@ func TestLANResourceDrift(t *testing.T) {
 	parallel(t)
 	withDNS := guestDHCP
 	withDNS.gateway, withDNS.dns = "192.168.9.2", []string{"1.1.1.1"}
+	blocked := guestDHCP
+	blocked.wanIsolation = new(true)
+	notBlocked := guestDHCP
+	notBlocked.wanIsolation = new(false)
+	printers := guestDHCP
+	printers.lpr = []string{"192.168.9.5", "192.168.9.6"}
 
 	tests := []struct {
 		name   string
@@ -604,6 +700,10 @@ func TestLANResourceDrift(t *testing.T) {
 		{"dhcp_gateway", withDNS, map[string]any{"gateway": ""}, dhcpCall},
 		{"dhcp_dns", withDNS, map[string]any{"dns": []string{"1.1.1.1", "8.8.8.8"}}, dhcpCall},
 		{"dhcp_dns removed", withDNS, map[string]any{"dns": []string{}}, dhcpCall},
+		{"wan_isolation false", blocked, map[string]any{"wan_isolate": 0}, addressCall},
+		{"wan_isolation true", notBlocked, map[string]any{"wan_isolate": 1}, addressCall},
+		{"dhcp_lpr_servers", printers, map[string]any{"lpr": []string{"192.168.9.6", "192.168.9.5"}}, dhcpCall},
+		{"dhcp_lpr_servers removed", printers, map[string]any{"lpr": []string{}}, dhcpCall},
 	}
 
 	for _, tt := range tests {
@@ -739,6 +839,17 @@ func TestLANResourceInvalidConfig(t *testing.T) {
 		{disabledWith("dhcp_lease_time", `"12h"`), `dhcp_lease_time cannot be set when dhcp_enabled is false`},
 		{disabledWith("dhcp_gateway", `"192.168.9.2"`), `dhcp_gateway cannot be set when dhcp_enabled is false`},
 		{disabledWith("dhcp_dns", `["1.1.1.1"]`), `dhcp_dns cannot be set when dhcp_enabled is false`},
+		{disabledWith("dhcp_lpr_servers", `["192.168.9.5"]`), `dhcp_lpr_servers cannot be set when dhcp_enabled is false`},
+		{with(func(c *lanNetwork) { c.lpr = []string{} }), `dhcp_lpr_servers list must contain at least 1 elements`},
+		{with(func(c *lanNetwork) {
+			c.lpr = []string{"192.168.9.5", "192.168.9.6", "192.168.9.7", "192.168.9.8", "192.168.9.9", "192.168.9.10"}
+		}), `at most\s+5\s+elements, got: 6`},
+		{with(func(c *lanNetwork) { c.lpr = []string{"192.168.9.5", "192.168.9.5"} }), `(?s)Duplicate List Value.*dhcp_lpr_servers.*duplicate values of: "192.168.9.5"`},
+		{with(func(c *lanNetwork) { c.lpr = []string{"printer.example.com"} }), `must be an IPv4 address`},
+		{with(func(c *lanNetwork) { c.lpr = []string{"2001:db8::5"} }), `must be an IPv4 address`},
+		{with(func(c *lanNetwork) {
+			c.iface, c.ip, c.start, c.end, c.wanIsolation = "lan", "192.168.8.1", "192.168.8.100", "192.168.8.200", new(false)
+		}), `wan_isolation cannot be set for the lan network`},
 		{strings.Replace(guestDisabled.config(), "  ap_isolation = true\n", "", 1), `The argument "ap_isolation" is required`},
 	}
 
