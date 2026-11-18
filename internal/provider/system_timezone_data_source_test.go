@@ -27,17 +27,17 @@ func TestSystemTimezoneDataSource(t *testing.T) {
 	} else {
 		srv := glinettest.NewServer(t)
 		srv.System.SetTimezoneConfig(glinettest.TimezoneConfig{
-			Zonename:            "America/New York",
-			Timezone:            "EST5EDT,M3.2.0,M11.1.0",
-			TZOffset:            "-0500",
+			Zonename:            "Europe/Berlin",
+			Timezone:            "CET-1CEST,M3.5.0,M10.5.0/3",
+			TZOffset:            "+0100",
 			AutoTimezoneEnabled: true,
 			Localtime:           1794499485,
 		})
 		config = fakeRouterConfig(srv) + timezoneDataSourceConfig
 		checks = []statecheck.StateCheck{
-			expectTimezoneDataSource("zonename", knownvalue.StringExact("America/New York")),
-			expectTimezoneDataSource("timezone", knownvalue.StringExact("EST5EDT,M3.2.0,M11.1.0")),
-			expectTimezoneDataSource("tzoffset", knownvalue.StringExact("-0500")),
+			expectTimezoneDataSource("zonename", knownvalue.StringExact("Europe/Berlin")),
+			expectTimezoneDataSource("timezone", knownvalue.StringExact("CET-1CEST,M3.5.0,M10.5.0/3")),
+			expectTimezoneDataSource("tzoffset", knownvalue.StringExact("+0100")),
 			expectTimezoneDataSource("auto_timezone_enabled", knownvalue.Bool(true)),
 			expectTimezoneDataSource("localtime", knownvalue.Int64Exact(1794499485)),
 		}

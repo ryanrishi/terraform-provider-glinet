@@ -372,7 +372,7 @@ func TestCheckRequest(t *testing.T) {
 		{`{"jsonrpc":"2.0","id":3,"method":"call","params":["sid","timer","get_reboot",{}]}`, true},
 		{`{"jsonrpc":"2.0","id":3,"method":"call","params":["sid","timer","get_reboot"]}`, true},
 		{`{"jsonrpc":"2.0","id":4,"method":"call","params":["sid","timer","set_reboot",{"enable":false}]}`, true},
-		{`{"jsonrpc":"2.0","id":5,"method":"call","params":["sid","timer","set_reboot",{"enable":true,"hour":"03","min":"00","week":[1]}]}`, false},
+		{`{"jsonrpc":"2.0","id":5,"method":"call","params":["sid","timer","set_reboot",{"enable":true,"hour":"04","min":"00","week":[1]}]}`, false},
 		{`{"jsonrpc":"2.0","id":6,"method":"call","params":["sid","timer","set_reboot","enable"]}`, false},
 		{`{"jsonrpc":"2.0","id":7,"method":"call","params":["sid","timer"]}`, false},
 		{`{"jsonrpc":"2.0","id":8,"method":"call","params":{"module":"timer"}}`, false},

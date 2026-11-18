@@ -33,7 +33,7 @@ func TestWifiStatusDataSource(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	srv.Wifi.SetStatus(json.RawMessage(`{
 		"res": [
-			{"channel": 48, "name": "radio0", "state": "ready"},
+			{"channel": 44, "name": "radio0", "state": "ready"},
 			{"name": "radio1", "state": "disabled"}
 		]
 	}`))
@@ -43,7 +43,7 @@ func TestWifiStatusDataSource(t *testing.T) {
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"name":    knownvalue.StringExact("radio0"),
 				"state":   knownvalue.StringExact("ready"),
-				"channel": knownvalue.Int64Exact(48),
+				"channel": knownvalue.Int64Exact(44),
 			}),
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"name":    knownvalue.StringExact("radio1"),

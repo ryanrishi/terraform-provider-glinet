@@ -33,20 +33,20 @@ func TestARPEntriesDataSource(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	srv.Network.SetARPList(json.RawMessage(`{
 		"entries": [
-			{"device": "br-lan", "ip": "192.168.8.193", "mac": "02:00:00:00:00:16"},
-			{"device": "sta0", "ip": "192.168.0.1", "mac": "02:00:00:00:00:37"}
+			{"device": "br-lan", "ip": "192.168.8.130", "mac": "02:00:00:00:00:16"},
+			{"device": "sta0", "ip": "192.168.100.1", "mac": "02:00:00:00:00:37"}
 		]
 	}`))
 
 	readDataSource(t, fakeRouterConfig(srv)+arpEntriesDataSourceConfig, expectAttributes(arpEntriesAddress, map[string]knownvalue.Check{
 		"entries": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"ip":     knownvalue.StringExact("192.168.8.193"),
+				"ip":     knownvalue.StringExact("192.168.8.130"),
 				"mac":    knownvalue.StringExact("02:00:00:00:00:16"),
 				"device": knownvalue.StringExact("br-lan"),
 			}),
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"ip":     knownvalue.StringExact("192.168.0.1"),
+				"ip":     knownvalue.StringExact("192.168.100.1"),
 				"mac":    knownvalue.StringExact("02:00:00:00:00:37"),
 				"device": knownvalue.StringExact("sta0"),
 			}),

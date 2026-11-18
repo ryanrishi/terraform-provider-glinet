@@ -1,4 +1,4 @@
 resource "glinet_system_timezone" "this" {
-  zonename = "America/New York"
-  timezone = "EST5EDT,M3.2.0,M11.1.0"
+  zonename = "Europe/Berlin"
+  timezone = "CET-1CEST,M3.5.0,M10.5.0/3"
 }
