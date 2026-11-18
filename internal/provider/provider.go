@@ -48,7 +48,7 @@ func (p *GLiNetProvider) Metadata(ctx context.Context, req provider.MetadataRequ
 func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages GL.iNet routers that run v4 firmware. " +
-			"The provider is tested on a GL-AXT1800 with firmware 4.7.0. Other models and firmware versions can have different API methods.\n\n" +
+			"The provider is tested on a GL-AXT1800 with firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.\n\n" +
 			"~> **Warning:** some resources can cut the access to the router: " +
 			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
 			"[`glinet_lan`](" + registryDocs + "resources/lan) and " +
