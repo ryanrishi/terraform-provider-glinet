@@ -183,6 +183,7 @@ func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewWANStatusDataSource,
 		NewARPEntriesDataSource,
 		NewWifiStatusDataSource,
+		NewDNSSecureServersDataSource,
 	}
 }
 

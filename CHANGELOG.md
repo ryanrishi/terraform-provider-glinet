@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+FEATURES:
+
+* **New data source:** `glinet_dns_secure_servers` (the encrypted DNS protocols and servers of the router)
+
+ENHANCEMENTS:
+
+* `glinet_dns`: The resource supports all DNS modes: `auto`, `manual`, `proxy` and `secure`. `servers` can be set in the modes `manual`, `proxy` and `secure`. The new attributes `protocol`, `dot_provider` and `dot_resolver_id` set encrypted DNS (DoT, DNSCrypt, DoH, oDoH).
+* The client is `glinet-client-go` v0.11.0.
+
+NOTES:
+
+* `glinet_dns`: The writes of the modes `manual`, `proxy` and `secure` come from the web UI code of firmware 4.8.3. They are tested only on a fake router, not on a real router.
+
 ## 0.1.0 (2026-11-18)
 
 This release is a full rework of the provider. Version 0.0.4 had one data source. Version 0.1.0 has 8 data sources and 21 resources, and each resource has import.

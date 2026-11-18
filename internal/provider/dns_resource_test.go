@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 
@@ -42,7 +43,7 @@ resource "glinet_dns" "test" {
 `, mode, s.forceDNS, s.rebindProtection, s.overrideVPN)
 }
 
-// expectDNSState checks the state for the router configuration c.
+// expectDNSState checks the state for the router configuration c in a mode other than secure.
 func expectDNSState(c glinet.DNSConfig) []statecheck.StateCheck {
 	expect := func(attribute string, value knownvalue.Check) statecheck.StateCheck {
 		return statecheck.ExpectKnownValue(dnsAddress, tfjsonpath.New(attribute), value)
@@ -58,6 +59,9 @@ func expectDNSState(c glinet.DNSConfig) []statecheck.StateCheck {
 		expect("rebind_protection", knownvalue.Bool(c.RebindProtection)),
 		expect("override_vpn", knownvalue.Bool(c.OverrideVPN)),
 		expect("servers", knownvalue.ListExact(servers)),
+		expect("protocol", knownvalue.Null()),
+		expect("dot_provider", knownvalue.Null()),
+		expect("dot_resolver_id", knownvalue.Null()),
 	}
 }
 
@@ -381,6 +385,9 @@ func TestDNSResourceDrift(t *testing.T) {
 		with(func(c *glinet.DNSConfig) { c.OverrideVPN = !c.OverrideVPN }),
 	} {
 		fixed := router
+		if router.Mode != want.Mode {
+			fixed.Server = want.Server
+		}
 		fixed.Mode = want.Mode
 		fixed.ForceDNS, fixed.RebindProtection, fixed.OverrideVPN = want.ForceDNS, want.RebindProtection, want.OverrideVPN
 		steps = append(steps, resource.TestStep{
@@ -420,15 +427,13 @@ func TestDNSResourceInvalidConfig(t *testing.T) {
 		config string
 		error  string
 	}{
-		{"mode manual", dnsSettings{"manual", false, false, true}.config(), `mode value must be one of: \["auto"\]`},
-		{"mode secure", dnsSettings{"secure", false, false, true}.config(), `mode value must be one of: \["auto"\]`},
-		{"mode proxy", dnsSettings{"proxy", false, false, true}.config(), `mode value must be one of: \["auto"\]`},
 		{"mode empty", `resource "glinet_dns" "test" {
   mode              = ""
   force_dns         = false
   rebind_protection = false
   override_vpn      = true
-}`, `mode value must be one of: \["auto"\]`},
+}`, `mode value must be one of: \["auto" "manual" "proxy" "secure"\]`},
+		{"mode unknown", dnsSettings{"custom", false, false, true}.config(), `mode value must be one of`},
 		{"no force_dns", `resource "glinet_dns" "test" {
   rebind_protection = false
   override_vpn      = true
@@ -441,12 +446,50 @@ func TestDNSResourceInvalidConfig(t *testing.T) {
   force_dns         = false
   rebind_protection = false
 }`, `The argument "override_vpn" is required`},
-		{"servers", `resource "glinet_dns" "test" {
-  force_dns         = false
-  rebind_protection = false
-  override_vpn      = true
-  servers           = ["wan 192.168.100.1"]
-}`, `Invalid Configuration for Read-Only Attribute`},
+		{"servers without mode", dnsModeConfig(`servers = ["192.0.2.1"]`), wrapped("servers cannot be set when mode is not set.")},
+		{"protocol without mode", dnsModeConfig(`protocol = "DoH"`), wrapped("protocol cannot be set when mode is not set.")},
+		{"servers in auto", dnsModeConfig(`mode = "auto"`, `servers = ["wan 192.168.100.1"]`), wrapped("servers cannot be set when mode is auto.")},
+		{"protocol in auto", dnsModeConfig(`mode = "auto"`, `protocol = "DoT"`), wrapped("protocol cannot be set when mode is auto.")},
+		{"dot_provider in auto", dnsModeConfig(`mode = "auto"`, `dot_provider = "cloudflare"`), wrapped("dot_provider cannot be set when mode is auto.")},
+		{"dot_resolver_id in auto", dnsModeConfig(`mode = "auto"`, `dot_resolver_id = "p0"`), wrapped("dot_resolver_id cannot be set when mode is auto.")},
+		{"manual without servers", dnsModeConfig(`mode = "manual"`), wrapped("servers is required when mode is manual.")},
+		{"manual empty servers", dnsModeConfig(`mode = "manual"`, `servers = []`), `servers list must contain at least 1 elements`},
+		{"manual 5 servers", dnsModeConfig(`mode = "manual"`, `servers = ["192.0.2.1", "192.0.2.2", "192.0.2.3", "192.0.2.4", "192.0.2.5"]`),
+			wrapped("servers must have 1 to 4 items when mode is manual, got: 5.")},
+		{"manual no IPv4", dnsModeConfig(`mode = "manual"`, `servers = ["2001:db8::1"]`), wrapped("servers must have at least one IPv4 address when mode is manual.")},
+		{"manual not an address", dnsModeConfig(`mode = "manual"`, `servers = ["192.0.2.1", "dns.example.com"]`),
+			wrapped(`Each item of servers must be an IPv4 or IPv6 address when mode is manual, got: "dns.example.com".`)},
+		{"manual with port", dnsModeConfig(`mode = "manual"`, `servers = ["192.0.2.1#53"]`), wrapped(`must be an IPv4 or IPv6 address when mode is manual`)},
+		{"manual empty item", dnsModeConfig(`mode = "manual"`, `servers = ["192.0.2.1", ""]`), `string length must be at least 1`},
+		{"manual protocol", dnsModeConfig(`mode = "manual"`, `servers = ["192.0.2.1"]`, `protocol = "DoH"`), wrapped("protocol cannot be set when mode is manual.")},
+		{"proxy without servers", dnsModeConfig(`mode = "proxy"`), wrapped("servers is required when mode is proxy.")},
+		{"proxy 2 servers", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1#53", "192.0.2.2#53"]`), wrapped("servers must have exactly 1 item when mode is proxy, got: 2.")},
+		{"proxy no port", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1"]`), wrapped(`must be <ip>#<port> with a port from 1 to 65535 when mode is proxy`)},
+		{"proxy port 0", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1#0"]`), wrapped(`must be <ip>#<port>`)},
+		{"proxy port 65536", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1#65536"]`), wrapped(`must be <ip>#<port>`)},
+		{"proxy port leading zero", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1#053"]`), wrapped(`must be <ip>#<port>`)},
+		{"proxy host name", dnsModeConfig(`mode = "proxy"`, `servers = ["dns.example.com#53"]`), wrapped(`must be <ip>#<port>`)},
+		{"proxy dot_provider", dnsModeConfig(`mode = "proxy"`, `servers = ["192.0.2.1#53"]`, `dot_provider = "nextdns"`),
+			wrapped("dot_provider cannot be set when mode is proxy.")},
+		{"secure without protocol", dnsModeConfig(`mode = "secure"`), wrapped("protocol is required when mode is secure.")},
+		{"secure protocol unknown", dnsModeConfig(`mode = "secure"`, `protocol = "doh"`), `protocol value must be one of`},
+		{"DoH without servers", dnsModeConfig(`mode = "secure"`, `protocol = "DoH"`), wrapped("servers is required when protocol is DoH.")},
+		{"DNSCrypt dot_provider", dnsModeConfig(`mode = "secure"`, `protocol = "DNSCrypt"`, `servers = ["example-dnscrypt"]`, `dot_provider = "cloudflare"`),
+			wrapped("dot_provider cannot be set when protocol is DNSCrypt.")},
+		{"oDoH dot_resolver_id", dnsModeConfig(`mode = "secure"`, `protocol = "oDoH"`, `servers = ["example-odoh"]`, `dot_resolver_id = "p0"`),
+			wrapped("dot_resolver_id cannot be set when protocol is oDoH.")},
+		{"DoT servers", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "cloudflare"`, `servers = ["example-doh"]`),
+			wrapped("servers cannot be set when protocol is DoT.")},
+		{"DoT without dot_provider", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`), wrapped("dot_provider is required when protocol is DoT.")},
+		{"dot_provider unknown", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "2"`), `dot_provider value must be one of`},
+		{"cloudflare dot_resolver_id", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "cloudflare"`, `dot_resolver_id = "abc123"`),
+			wrapped("dot_resolver_id cannot be set when dot_provider is cloudflare.")},
+		{"controld without dot_resolver_id", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld"`),
+			wrapped("dot_resolver_id is required when dot_provider is controld.")},
+		{"controld_free without dot_resolver_id", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld_free"`),
+			wrapped("dot_resolver_id is required when dot_provider is controld_free.")},
+		{"nextdns empty dot_resolver_id", dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "nextdns"`, `dot_resolver_id = ""`),
+			`string length must be at least 1`},
 	}
 
 	for _, tt := range tests {
@@ -567,5 +610,391 @@ func TestAllowDNSRebindProtection(t *testing.T) {
 		if err := allow("dns", tt.method, params); (err == nil) != tt.allow {
 			t.Errorf("dns.%s %s: error %v, want allowed %t", tt.method, tt.params, err, tt.allow)
 		}
+	}
+}
+
+// dnsModeConfig returns a glinet_dns configuration with force_dns false, rebind_protection false, override_vpn true
+// and the attribute lines.
+func dnsModeConfig(lines ...string) string {
+	return fmt.Sprintf(`
+resource "glinet_dns" "test" {
+  force_dns         = false
+  rebind_protection = false
+  override_vpn      = true
+  %s
+}
+`, strings.Join(lines, "\n  "))
+}
+
+// dnsWrite returns the set_config params of a dnsModeConfig configuration with the JSON fields of the mode.
+func dnsWrite(fields string) string {
+	return `{"force_dns":false,"rebind_protection":false,"override_vpn":true` + fields + `}`
+}
+
+func stringsExact(values []string) knownvalue.Check {
+	checks := make([]knownvalue.Check, len(values))
+	for i, v := range values {
+		checks[i] = knownvalue.StringExact(v)
+	}
+	return knownvalue.ListExact(checks)
+}
+
+// expectDNSModeState checks the state of a dnsModeConfig configuration. servers is not checked when it is nil.
+// An empty protocol, provider or resolverID must be null.
+func expectDNSModeState(mode string, servers []string, protocol, provider, resolverID string) []statecheck.StateCheck {
+	stringOrNull := func(s string) knownvalue.Check {
+		if s == "" {
+			return knownvalue.Null()
+		}
+		return knownvalue.StringExact(s)
+	}
+	checks := map[string]knownvalue.Check{
+		"id":                knownvalue.StringExact("dns"),
+		"mode":              knownvalue.StringExact(mode),
+		"force_dns":         knownvalue.Bool(false),
+		"rebind_protection": knownvalue.Bool(false),
+		"override_vpn":      knownvalue.Bool(true),
+		"protocol":          stringOrNull(protocol),
+		"dot_provider":      stringOrNull(provider),
+		"dot_resolver_id":   stringOrNull(resolverID),
+	}
+	if servers != nil {
+		checks["servers"] = stringsExact(servers)
+	}
+	return expectAttributes(dnsAddress, checks)
+}
+
+// TestDNSResourceModes goes through each mode and each DoT provider, and imports after each step.
+func TestDNSResourceModes(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	writes := recordCalls(t, srv, "dns", "set_config")
+	upstream := srv.DNS.Config().Server
+
+	tests := []struct {
+		config []string
+		write  string
+		state  []statecheck.StateCheck
+	}{
+		{
+			[]string{`mode = "auto"`},
+			`,"mode":"auto"`,
+			expectDNSModeState("auto", upstream, "", "", ""),
+		},
+		{
+			[]string{`mode = "manual"`, `servers = ["192.0.2.1", "2001:db8::1"]`},
+			`,"mode":"manual","server":["192.0.2.1","2001:db8::1"]`,
+			expectDNSModeState("manual", []string{"192.0.2.1", "2001:db8::1"}, "", "", ""),
+		},
+		{
+			[]string{`mode = "manual"`, `servers = ["2001:db8::2", "198.51.100.1", "192.0.2.1", "192.0.2.2"]`},
+			`,"mode":"manual","server":["2001:db8::2","198.51.100.1","192.0.2.1","192.0.2.2"]`,
+			expectDNSModeState("manual", []string{"2001:db8::2", "198.51.100.1", "192.0.2.1", "192.0.2.2"}, "", "", ""),
+		},
+		{
+			[]string{`mode = "proxy"`, `servers = ["192.0.2.10#5353"]`},
+			`,"mode":"proxy","server":["192.0.2.10#5353"]`,
+			expectDNSModeState("proxy", []string{"192.0.2.10#5353"}, "", "", ""),
+		},
+		{
+			[]string{`mode = "proxy"`, `servers = ["2001:db8::53#65535"]`},
+			`,"mode":"proxy","server":["2001:db8::53#65535"]`,
+			expectDNSModeState("proxy", []string{"2001:db8::53#65535"}, "", "", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoH"`, `servers = ["example-doh", "example-doh-ipv6"]`},
+			`,"mode":"secure","proto":"DoH","server":["example-doh","example-doh-ipv6"]`,
+			expectDNSModeState("secure", []string{"example-doh", "example-doh-ipv6"}, "DoH", "", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DNSCrypt"`, `servers = ["example-dnscrypt"]`},
+			`,"mode":"secure","proto":"DNSCrypt","server":["example-dnscrypt"]`,
+			expectDNSModeState("secure", []string{"example-dnscrypt"}, "DNSCrypt", "", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "oDoH"`, `servers = ["example-odoh"]`},
+			`,"mode":"secure","proto":"oDoH","server":["example-odoh"]`,
+			expectDNSModeState("secure", []string{"example-odoh"}, "oDoH", "", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "cloudflare"`},
+			`,"mode":"secure","proto":"DoT","dot_provider":"0"`,
+			expectDNSModeState("secure", nil, "DoT", "cloudflare", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "nextdns"`},
+			`,"mode":"secure","proto":"DoT","dot_provider":"1","nextdns_id":""`,
+			expectDNSModeState("secure", nil, "DoT", "nextdns", ""),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "nextdns"`, `dot_resolver_id = "abc123"`},
+			`,"mode":"secure","proto":"DoT","dot_provider":"1","nextdns_id":"abc123"`,
+			expectDNSModeState("secure", nil, "DoT", "nextdns", "abc123"),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld"`, `dot_resolver_id = "a1b2c3d4"`},
+			`,"mode":"secure","proto":"DoT","dot_provider":"2","controld_id":"a1b2c3d4"`,
+			expectDNSModeState("secure", nil, "DoT", "controld", "a1b2c3d4"),
+		},
+		{
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld_free"`, `dot_resolver_id = "p0"`},
+			`,"mode":"secure","proto":"DoT","dot_provider":"3","free_controld_id":"p0"`,
+			expectDNSModeState("secure", nil, "DoT", "controld_free", "p0"),
+		},
+		{
+			[]string{`mode = "manual"`, `servers = ["192.0.2.1"]`},
+			`,"mode":"manual","server":["192.0.2.1"]`,
+			expectDNSModeState("manual", []string{"192.0.2.1"}, "", "", ""),
+		},
+		{
+			[]string{`mode = "auto"`},
+			`,"mode":"auto"`,
+			expectDNSModeState("auto", upstream, "", "", ""),
+		},
+	}
+
+	var steps []resource.TestStep
+	for _, tt := range tests {
+		steps = append(steps,
+			resource.TestStep{
+				Config:            fakeRouterConfig(srv) + dnsModeConfig(tt.config...),
+				ConfigStateChecks: tt.state,
+				Check:             writes.expect(dnsWrite(tt.write)),
+			},
+			resource.TestStep{
+				ResourceName:      dnsAddress,
+				ImportState:       true,
+				ImportStateId:     "dns",
+				ImportStateVerify: true,
+			},
+		)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps:                    steps,
+	})
+}
+
+func TestDNSResourceServersDrift(t *testing.T) {
+	parallel(t)
+
+	tests := []struct {
+		name   string
+		config []string
+		router []string
+		write  string
+	}{
+		{"manual", []string{`mode = "manual"`, `servers = ["192.0.2.1", "192.0.2.2"]`}, []string{"192.0.2.1"},
+			`,"mode":"manual","server":["192.0.2.1","192.0.2.2"]`},
+		{"manual order", []string{`mode = "manual"`, `servers = ["192.0.2.1", "192.0.2.2"]`}, []string{"192.0.2.2", "192.0.2.1"},
+			`,"mode":"manual","server":["192.0.2.1","192.0.2.2"]`},
+		{"proxy", []string{`mode = "proxy"`, `servers = ["192.0.2.10#5353"]`}, []string{"192.0.2.10#53"},
+			`,"mode":"proxy","server":["192.0.2.10#5353"]`},
+		{"DoH", []string{`mode = "secure"`, `protocol = "DoH"`, `servers = ["example-doh"]`}, []string{"example-doh", "example-doh-ipv6"},
+			`,"mode":"secure","proto":"DoH","server":["example-doh"]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			writes := recordCalls(t, srv, "dns", "set_config")
+			config := fakeRouterConfig(srv) + dnsModeConfig(tt.config...)
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config: config,
+						Check:  writes.expect(dnsWrite(tt.write)),
+					},
+					{
+						PreConfig: func() {
+							c := srv.DNS.Config()
+							c.Server = tt.router
+							srv.DNS.SetConfig(c)
+						},
+						Config:           config,
+						ConfigPlanChecks: expectResourceAction(dnsAddress, plancheck.ResourceActionUpdate),
+						Check:            writes.expect(dnsWrite(tt.write)),
+					},
+				},
+			})
+		})
+	}
+}
+
+func TestDNSResourceSecureDrift(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	writes := recordCalls(t, srv, "dns", "set_config")
+	config := fakeRouterConfig(srv) + dnsModeConfig(`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "nextdns"`)
+	write := dnsWrite(`,"mode":"secure","proto":"DoT","dot_provider":"1","nextdns_id":""`)
+	state := expectDNSModeState("secure", nil, "DoT", "nextdns", "")
+	change := func(change func(*glinettest.DNSConfig)) func() {
+		return func() {
+			c := srv.DNS.Config()
+			change(&c)
+			srv.DNS.SetConfig(c)
+		}
+	}
+	drift := func(router func(*glinettest.DNSConfig)) resource.TestStep {
+		return resource.TestStep{
+			PreConfig:         change(router),
+			Config:            config,
+			ConfigPlanChecks:  expectResourceAction(dnsAddress, plancheck.ResourceActionUpdate),
+			ConfigStateChecks: state,
+			Check:             writes.expect(write),
+		}
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            config,
+				ConfigStateChecks: state,
+				Check:             writes.expect(write),
+			},
+			drift(func(c *glinettest.DNSConfig) { c.NextDNSID = "abc123" }),
+			drift(func(c *glinettest.DNSConfig) { c.DoTProvider = "0" }),
+			drift(func(c *glinettest.DNSConfig) { c.DoTProvider = "" }),
+			drift(func(c *glinettest.DNSConfig) { c.DoTProvider = "7" }),
+			drift(func(c *glinettest.DNSConfig) { c.Proto = "DoH" }),
+			drift(func(c *glinettest.DNSConfig) { c.Proto = "" }),
+			drift(func(c *glinettest.DNSConfig) { c.Mode, c.Proto, c.Server = "manual", "", []string{"192.0.2.1"} }),
+			{
+				PreConfig: change(func(c *glinettest.DNSConfig) {
+					c.ControlDID, c.FreeControlDID, c.Server = "a1b2c3d4", "p0", []string{"203.0.113.53"}
+				}),
+				Config:            config,
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: append(state, statecheck.ExpectKnownValue(dnsAddress, tfjsonpath.New("servers"), stringsExact([]string{"203.0.113.53"}))),
+				Check:             writes.expect(),
+			},
+		},
+	})
+}
+
+// TestDNSResourceNoModeSecure checks that without mode, the secure attributes of the router are in the state and
+// do not make a plan diff.
+func TestDNSResourceNoModeSecure(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	writes := recordCalls(t, srv, "dns", "set_config")
+	router := srv.DNS.Config()
+	router.Mode, router.Proto, router.DoTProvider, router.ControlDID, router.Server = "secure", "DoT", "2", "a1b2c3d4", []string{}
+	srv.DNS.SetConfig(router)
+	config := fakeRouterConfig(srv) + dnsModeConfig()
+	state := expectDNSModeState("secure", []string{}, "DoT", "controld", "a1b2c3d4")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            config,
+				ConfigStateChecks: state,
+				Check:             writes.expect(dnsWrite("")),
+			},
+			{
+				PreConfig: func() {
+					c := srv.DNS.Config()
+					c.ControlDID, c.Server = "e5f6a7b8", []string{"203.0.113.53"}
+					srv.DNS.SetConfig(c)
+				},
+				Config:            config,
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: expectDNSModeState("secure", []string{"203.0.113.53"}, "DoT", "controld", "e5f6a7b8"),
+				Check:             writes.expect(),
+			},
+			{
+				ResourceName:      dnsAddress,
+				ImportState:       true,
+				ImportStateId:     "dns",
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestDNSResourceImportModes(t *testing.T) {
+	parallel(t)
+
+	tests := []struct {
+		name   string
+		router glinettest.DNSConfig
+		config []string
+		state  []statecheck.StateCheck
+	}{
+		{
+			"manual",
+			glinettest.DNSConfig{Mode: "manual", OverrideVPN: true, Server: []string{"192.0.2.1", "2001:db8::1"}, DoTProvider: "0"},
+			[]string{`mode = "manual"`, `servers = ["192.0.2.1", "2001:db8::1"]`},
+			expectDNSModeState("manual", []string{"192.0.2.1", "2001:db8::1"}, "", "", ""),
+		},
+		{
+			"proxy",
+			glinettest.DNSConfig{Mode: "proxy", OverrideVPN: true, Server: []string{"192.0.2.10#5353"}, DoTProvider: "0"},
+			[]string{`mode = "proxy"`, `servers = ["192.0.2.10#5353"]`},
+			expectDNSModeState("proxy", []string{"192.0.2.10#5353"}, "", "", ""),
+		},
+		{
+			"DoH",
+			glinettest.DNSConfig{Mode: "secure", OverrideVPN: true, Proto: "DoH", Server: []string{"example-doh"}, DoTProvider: "0"},
+			[]string{`mode = "secure"`, `protocol = "DoH"`, `servers = ["example-doh"]`},
+			expectDNSModeState("secure", []string{"example-doh"}, "DoH", "", ""),
+		},
+		{
+			"cloudflare",
+			glinettest.DNSConfig{Mode: "secure", OverrideVPN: true, Proto: "DoT", Server: []string{}, DoTProvider: "0", NextDNSID: "abc123"},
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "cloudflare"`},
+			expectDNSModeState("secure", []string{}, "DoT", "cloudflare", ""),
+		},
+		{
+			"nextdns",
+			glinettest.DNSConfig{Mode: "secure", OverrideVPN: true, Proto: "DoT", Server: []string{}, DoTProvider: "1", NextDNSID: "abc123", FreeControlDID: "p0"},
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "nextdns"`, `dot_resolver_id = "abc123"`},
+			expectDNSModeState("secure", []string{}, "DoT", "nextdns", "abc123"),
+		},
+		{
+			"controld",
+			glinettest.DNSConfig{Mode: "secure", OverrideVPN: true, Proto: "DoT", Server: []string{}, DoTProvider: "2", ControlDID: "a1b2c3d4"},
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld"`, `dot_resolver_id = "a1b2c3d4"`},
+			expectDNSModeState("secure", []string{}, "DoT", "controld", "a1b2c3d4"),
+		},
+		{
+			"controld_free",
+			glinettest.DNSConfig{Mode: "secure", OverrideVPN: true, Proto: "DoT", Server: []string{}, DoTProvider: "3", ControlDID: "a1b2c3d4", FreeControlDID: "p0"},
+			[]string{`mode = "secure"`, `protocol = "DoT"`, `dot_provider = "controld_free"`, `dot_resolver_id = "p0"`},
+			expectDNSModeState("secure", []string{}, "DoT", "controld_free", "p0"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			srv.DNS.SetConfig(tt.router)
+			writes := recordCalls(t, srv, "dns", "set_config")
+			config := fakeRouterConfig(srv) + dnsModeConfig(tt.config...)
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:             config,
+						ResourceName:       dnsAddress,
+						ImportState:        true,
+						ImportStateId:      "dns",
+						ImportStatePersist: true,
+					},
+					{
+						Config:            config,
+						ConfigPlanChecks:  expectEmptyPlan,
+						ConfigStateChecks: tt.state,
+						Check:             writes.expect(),
+					},
+				},
+			})
+		})
 	}
 }
