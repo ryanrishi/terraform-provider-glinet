@@ -121,3 +121,10 @@ func invalidImportID(resp *resource.ImportStateResponse, typeName, format, examp
 	resp.Diagnostics.AddError("Invalid Import ID",
 		fmt.Sprintf("The import ID of %s must be %s, for example %s. Got %q.", typeName, format, example, id))
 }
+
+// addCreateError adds the error of AddGroup or AddPeer. The client reads the list after the add call to get the new ID,
+// and its error does not tell whether the add call or that read failed, so the router may have created the object.
+func addCreateError(diags *diag.Diagnostics, summary, object string, err error) {
+	diags.AddError(summary, fmt.Sprintf("%s\n\nThe router may have created the %s before the error. "+
+		"Check the router in the web UI, and remove or import the %s before the next apply.", err, object, object))
+}

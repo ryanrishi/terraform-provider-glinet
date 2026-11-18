@@ -332,3 +332,26 @@ func TestWireGuardClientGroupResourceRouterErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestWireGuardClientGroupResourceCreateListError fails the read of the groups after add_group, so that the router
+// has a group that is not in the state.
+func TestWireGuardClientGroupResourceCreateListError(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	failNthCall(srv, "wg-client", "get_group_list", 2)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      fakeRouterConfig(srv) + wgGroupConfig("test-group"),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Create WireGuard Client Group.*` + createErrorNote("group")),
+			},
+		},
+	})
+
+	if err := expectRouterGroups(client, "test-group")(nil); err != nil {
+		t.Error(err)
+	}
+}

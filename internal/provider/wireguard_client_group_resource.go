@@ -85,7 +85,7 @@ func (r *wireGuardClientGroupResource) Create(ctx context.Context, req resource.
 
 	id, err := r.client.WireGuardClient.AddGroup(ctx, plan.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to Create WireGuard Client Group", err.Error())
+		addCreateError(&resp.Diagnostics, "Unable to Create WireGuard Client Group", "group", err)
 		return
 	}
 

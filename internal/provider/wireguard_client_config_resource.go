@@ -58,7 +58,7 @@ func (r *wireGuardClientConfigResource) Metadata(_ context.Context, req resource
 func (r *wireGuardClientConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages a WireGuard client configuration in a group of the user (`wg-client.add_config` in the router API, a peer in the API). " +
-			"Create and update fail when the group is not a group of the user (Manual in the web UI). " +
+			"Create, read, update, import and destroy fail when the group is not a group of the user (Manual in the web UI). " +
 			"The resource does not start or stop the tunnel. " +
 			"**Warning:** the web UI shows the configuration of the running tunnel as read only. " +
 			"An update or destroy of the configuration that the tunnel uses can stop or restart the tunnel; this is not tested on a router. " +
@@ -204,7 +204,7 @@ func (r *wireGuardClientConfigResource) Create(ctx context.Context, req resource
 	}
 	id, err := r.client.WireGuardClient.AddPeer(ctx, groupID, peer)
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to Create WireGuard Client Configuration", err.Error())
+		addCreateError(&resp.Diagnostics, "Unable to Create WireGuard Client Configuration", "configuration", err)
 		return
 	}
 
@@ -221,9 +221,8 @@ func (r *wireGuardClientConfigResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	peer, err := r.find(ctx, int(state.GroupID.ValueInt64()), int(state.ID.ValueInt64()))
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read WireGuard Client Configuration", err.Error())
+	peer := r.find(ctx, int(state.GroupID.ValueInt64()), int(state.ID.ValueInt64()), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	if peer == nil {
@@ -274,9 +273,8 @@ func (r *wireGuardClientConfigResource) Delete(ctx context.Context, req resource
 	defer routerWrites.Unlock()
 
 	groupID, id := int(state.GroupID.ValueInt64()), int(state.ID.ValueInt64())
-	peer, err := r.find(ctx, groupID, id)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read WireGuard Client Configuration", err.Error())
+	peer := r.find(ctx, groupID, id, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 	if peer == nil {
@@ -322,12 +320,27 @@ func (r *wireGuardClientConfigResource) checkGroup(ctx context.Context, groupID 
 
 // find returns the configuration id of the group groupID, or nil when the router has no such group or configuration.
 // It reads the groups first, because the router API has no documented result for the configurations of a group that does not exist.
-func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id int) (*glinet.WireGuardPeer, error) {
+// It adds an error when the group is not a group of the user, so that the resource does not import or remove a configuration
+// of a preset group.
+func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id int, diags *diag.Diagnostics) *glinet.WireGuardPeer {
 	group, err := findWireGuardGroup(ctx, r.client, groupID)
-	if err != nil || group == nil {
-		return nil, err
+	if err != nil {
+		diags.AddError("Unable to Read WireGuard Client Groups", err.Error())
+		return nil
 	}
-	return r.client.WireGuardClient.FindPeer(ctx, groupID, id)
+	if group == nil {
+		return nil
+	}
+	if group.Type != glinet.WireGuardGroupCustom {
+		diags.AddAttributeError(path.Root("group_id"), "Not a Custom WireGuard Client Group", notCustomGroup(group))
+		return nil
+	}
+
+	peer, err := r.client.WireGuardClient.FindPeer(ctx, groupID, id)
+	if err != nil {
+		diags.AddError("Unable to Read WireGuard Client Configuration", err.Error())
+	}
+	return peer
 }
 
 func (r *wireGuardClientConfigResource) readBack(ctx context.Context, groupID, id int, state *tfsdk.State, diags *diag.Diagnostics) {

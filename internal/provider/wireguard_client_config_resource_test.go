@@ -627,15 +627,8 @@ func TestWireGuardClientConfigResourceReadErrorAfterCreate(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
-	next := srv.Handler("wg-client", "get_config_list")
-	var calls atomic.Int32
-	srv.Handle("wg-client", "get_config_list", func(params json.RawMessage) (any, error) {
-		// add_config is between the first and the second call; the third call is the read-back.
-		if calls.Add(1) == 3 {
-			return nil, glinettest.ErrMethodNotFound
-		}
-		return next(params)
-	})
+	// add_config is between the first and the second call; the third call is the read-back.
+	failNthCall(srv, "wg-client", "get_config_list", 3)
 	config := fakeRouterConfig(srv) + minimalWGClientConfig.config()
 
 	resource.UnitTest(t, resource.TestCase{
@@ -653,4 +646,146 @@ func TestWireGuardClientConfigResourceReadErrorAfterCreate(t *testing.T) {
 			},
 		},
 	})
+}
+
+// failNthCall makes the nth call of module.method on srv return "Method not found".
+// The other calls go to the method that served it before.
+func failNthCall(srv *glinettest.Server, module, method string, n int32) {
+	next := srv.Handler(module, method)
+	var calls atomic.Int32
+	srv.Handle(module, method, func(params json.RawMessage) (any, error) {
+		if calls.Add(1) == n {
+			return nil, glinettest.ErrMethodNotFound
+		}
+		return next(params)
+	})
+}
+
+// createErrorNote is the pattern of the note of a create error after which the router may have the object.
+func createErrorNote(object string) string {
+	return `(?s)Method not found.*` + wrapped("The router may have created the "+object+" before the error. "+
+		"Check the router in the web UI, and remove or import the "+object+" before the next apply.")
+}
+
+// TestWireGuardClientConfigResourceCreateListError fails the read of the configurations after add_config, so that
+// the router has a configuration that is not in the state.
+func TestWireGuardClientConfigResourceCreateListError(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	failNthCall(srv, "wg-client", "get_config_list", 2)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      fakeRouterConfig(srv) + minimalWGClientConfig.config(),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Create WireGuard Client Configuration.*` + createErrorNote("configuration")),
+			},
+			{
+				Config: fakeRouterConfig(srv) + wgGroupConfig("test-group"),
+				Check:  expectRouterWGConfigs(client, "test-config"),
+			},
+			{
+				PreConfig: func() {
+					groups, err := client.WireGuardClient.ListGroups(context.Background())
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, g := range groups {
+						if g.Name == "test-group" {
+							if err := client.WireGuardClient.RemoveAllPeers(context.Background(), g.ID); err != nil {
+								t.Fatal(err)
+							}
+						}
+					}
+				},
+				Config: fakeRouterConfig(srv),
+			},
+		},
+	})
+}
+
+// reportGroupAsPreset makes get_group_list of srv report the group name as a preset of a VPN service provider while preset is true.
+func reportGroupAsPreset(t *testing.T, srv *glinettest.Server, name string, preset *atomic.Bool) {
+	next := srv.Handler("wg-client", "get_group_list")
+	srv.Handle("wg-client", "get_group_list", func(params json.RawMessage) (any, error) {
+		res, err := next(params)
+		if err != nil || !preset.Load() {
+			return res, err
+		}
+		var list struct {
+			Groups []map[string]any `json:"groups"`
+		}
+		raw, ok := res.(json.RawMessage)
+		if !ok {
+			t.Fatalf("get_group_list result is %T", res)
+		}
+		if err := json.Unmarshal(raw, &list); err != nil {
+			t.Fatal(err)
+		}
+		for _, g := range list.Groups {
+			if g["group_name"] == name {
+				g["group_type"] = glinet.WireGuardGroupProvider
+			}
+		}
+		return list, nil
+	})
+}
+
+func TestWireGuardClientConfigResourcePresetGroupOnRefresh(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	removes := recordCalls(t, srv, "wg-client", "remove_config")
+	var preset atomic.Bool
+	reportGroupAsPreset(t, srv, "test-group", &preset)
+	config := fakeRouterConfig(srv) + minimalWGClientConfig.config()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+			},
+			{
+				PreConfig:   func() { preset.Store(true) },
+				Config:      config,
+				ExpectError: regexp.MustCompile(`(?s)Not a Custom WireGuard Client Group.*"test-group"`),
+			},
+			{
+				PreConfig: func() {
+					if got := removes.take(); len(got) != 0 {
+						t.Errorf("wg-client.remove_config was called with %q", got)
+					}
+					preset.Store(false)
+				},
+				Config: config,
+			},
+		},
+	})
+}
+
+func TestWireGuardClientConfigResourceImportPresetGroup(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	removes := recordCalls(t, srv, "wg-client", "remove_config")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + minimalWGClientConfig.with(func(c *wgClientConfig) {
+					c.group = "9859"
+				}).config(),
+				ResourceName:  wgConfigAddress,
+				ImportState:   true,
+				ImportStateId: "9859/8913",
+				ExpectError:   regexp.MustCompile(`(?s)Not a Custom WireGuard Client Group.*"group-1"`),
+			},
+		},
+	})
+
+	if got := removes.take(); len(got) != 0 {
+		t.Errorf("wg-client.remove_config was called with %q", got)
+	}
 }
