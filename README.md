@@ -21,11 +21,20 @@ terraform {
 provider "glinet" {
   host     = "http://192.168.8.1" # default
   username = "root"               # default
-  password = "password"
+  password = var.glinet_password
+}
+
+variable "glinet_password" {
+  type      = string
+  sensitive = true
 }
 ```
 
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
+
+> [!WARNING]
+> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan_config`](docs/resources/lan_config.md) and [`glinet_wifi_iface`](docs/resources/wifi_iface.md).
+> Read the warnings on their pages before you apply them.
 
 | Type | Name | Documentation |
 |---|---|---|

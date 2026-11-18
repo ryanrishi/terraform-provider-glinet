@@ -49,7 +49,8 @@ func (r *lanStaticLeaseResource) Schema(_ context.Context, _ resource.SchemaRequ
 	resp.Schema = schema.Schema{
 		Description: "Manages a DHCP static IP binding of the LAN. " +
 			"The router keeps one binding for each MAC address and one for each IP address, " +
-			"so create and update fail when another binding has the same MAC address or IP address.",
+			"so create and update fail when another binding has the same MAC address or IP address. " +
+			"Destroy removes the binding from the router.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
 				Description: "MAC address of the client, in lower case, for example `02:00:00:00:00:01`. Changing it replaces the binding.",

@@ -3,12 +3,12 @@
 page_title: "glinet_firewall_port_forward Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.
+  Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected. Destroy removes the port forward from the router.
 ---
 
 # glinet_firewall_port_forward (Resource)
 
-Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.
+Manages a port forward of the firewall. The external zone, the protocol and the external port identify the port forward, so a change to one of them replaces it. The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, a common protocol and a common external port. When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected. Destroy removes the port forward from the router.
 
 ## Example Usage
 
@@ -39,10 +39,10 @@ resource "glinet_firewall_port_forward" "game" {
 
 ### Required
 
-- `external_port` (String) External port, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.
+- `external_port` (String) External port, from 1 to 65535, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.
 - `external_zone` (String) Firewall zone that the traffic comes from, for example `wan` (`src` in the router API). Changing it replaces the port forward.
 - `internal_ip` (String) IPv4 address of the destination (`dest_ip` in the router API).
-- `internal_port` (String) Port of the destination, or a range of ports such as `8000-8010` (`dest_port` in the router API).
+- `internal_port` (String) Port of the destination, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API).
 - `internal_zone` (String) Firewall zone of the destination, for example `lan` (`dest` in the router API).
 - `protocol` (String) Protocol: `tcp`, `udp` or `tcp udp` (`proto` in the router API). Changing it replaces the port forward.
 

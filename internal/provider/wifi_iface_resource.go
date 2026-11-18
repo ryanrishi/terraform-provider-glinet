@@ -79,7 +79,7 @@ func (r *wifiIfaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"**Danger:** a write can restart the Wi-Fi of the radio, which disconnects its clients; it is not known whether it also restarts the other radio. " +
 			"When the uplink of the router is a Wi-Fi repeater on the same radio, a write can cut the uplink. " +
 			"A write to the LAN configuration (`glinet_lan_config`) restarted the Wi-Fi of a GL-AXT1800 with firmware 4.7.0 and cut its repeater uplink until a reboot; " +
-			"a Wi-Fi write can restart the radios and cut a repeater uplink in the same way. This was not tested on a router. " +
+			"a Wi-Fi write can probably do the same. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{

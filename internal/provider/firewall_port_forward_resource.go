@@ -173,7 +173,8 @@ func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.Schem
 			"The router does not check port forwards and accepts duplicates, so create fails when a port forward on the router has the same external zone, " +
 			"a common protocol and a common external port. " +
 			"When the router has more than one port forward with the identity of this resource, the resource uses the first one, as the firewall does, and shows a warning. " +
-			"The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected.",
+			"The provider runs the check and the write of one port forward at a time, but a change by another client of the router between them is not detected. " +
+			"Destroy removes the port forward from the router.",
 		Attributes: map[string]schema.Attribute{
 			"protocol": schema.StringAttribute{
 				Description: "Protocol: `tcp`, `udp` or `tcp udp` (`proto` in the router API). Changing it replaces the port forward.",
@@ -196,7 +197,7 @@ func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.Schem
 				},
 			},
 			"external_port": schema.StringAttribute{
-				Description: "External port, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.",
+				Description: "External port, from 1 to 65535, or a range of ports such as `8000-8010` (`src_dport` in the router API). Changing it replaces the port forward.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -218,7 +219,7 @@ func (r *firewallPortForwardResource) Schema(_ context.Context, _ resource.Schem
 				},
 			},
 			"internal_port": schema.StringAttribute{
-				Description: "Port of the destination, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
+				Description: "Port of the destination, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
 				Required:    true,
 				Validators:  []validator.String{portValidator},
 			},

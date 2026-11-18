@@ -132,7 +132,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, " +
 			"so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule " +
 			"to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.\n\n" +
-			"The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to " +
+			"Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to " +
 			"`" + removablePort + "`, then removes it. When the remove fails, the provider writes the original values to the rule again.\n\n" +
 			"The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
@@ -141,7 +141,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 				ipValidator),
 			"source_mac": matchField("MAC address that the traffic comes from, in lower case, for example `02:00:00:00:00:01` (`src_mac` in the router API).",
 				stringvalidator.RegexMatches(lowerCaseMAC, "must be a MAC address in lower case, for example 02:00:00:00:00:01")),
-			"source_port": matchField("Port that the traffic comes from, or a range of ports such as `8000-8010` (`src_port` in the router API).",
+			"source_port": matchField("Port that the traffic comes from, from 1 to 65535, or a range of ports such as `8000-8010` (`src_port` in the router API).",
 				portValidator),
 			"protocol": matchField("Protocol: `tcp`, `udp`, `tcp udp`, `icmp` or `all` (`proto` in the router API). "+
 				"With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`.",
@@ -151,7 +151,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 				stringvalidator.LengthAtLeast(1)),
 			"destination_ip": matchField("IPv4 address or CIDR block that the traffic goes to (`dest_ip` in the router API).",
 				ipValidator),
-			"destination_port": matchField("Port that the traffic goes to, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
+			"destination_port": matchField("Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
 				portValidator),
 			"action": schema.StringAttribute{
 				Description: "What the firewall does with the traffic that the rule matches: `ACCEPT`, `DROP` or `REJECT` (`target` in the router API).",
