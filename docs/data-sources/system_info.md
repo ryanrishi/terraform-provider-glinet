@@ -71,11 +71,14 @@ Read-Only:
 - `radio` (String) Wi-Fi radios, for example `radio0 radio1`.
 - `reset_button` (String) Reset button, for example `gpio-50`.
 - `rs485` (Boolean) Whether the device has RS-485.
+- `screen` (Boolean) Whether the device has a screen. Firmware before 4.8 does not report it, and the value is then `false`.
+- `simo` (Boolean) Whether the device has SIMO. Firmware before 4.8 does not report it, and the value is then `false`.
 - `slot` (String) Slot value, as the router gives it, for example `single`.
 - `submodel` (String) Submodel.
 - `switch_button` (String) Switch button.
 - `usb` (String) USB ports.
 - `usb3` (String) USB 3 ports.
+- `usb_power` (String) USB power control. Firmware before 4.8 does not report it, and the value is then empty.
 - `usb_reset` (String) USB power reset.
 - `wan` (String) WAN interface.
 
