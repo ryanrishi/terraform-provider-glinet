@@ -11,7 +11,7 @@ resource "glinet_wireguard_client_config" "home" {
   public_key    = "FAKE+SERVER+PUBLIC+KEY+FOR+DOCS+0000000000A="
   preshared_key = "FAKE+PRESHARED+KEY+FOR+DOCS+00000000000000A="
   endpoint      = "vpn.example.com:51820"
-  allowed_ips   = ["10.0.0.0/24", "192.168.1.0/24"]
+  allowed_ips   = ["10.0.0.0/24", "10.66.1.0/24"]
   dns           = ["10.0.0.1"]
 
   persistent_keepalive = 25

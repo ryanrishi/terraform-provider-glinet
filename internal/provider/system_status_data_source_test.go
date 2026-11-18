@@ -52,11 +52,11 @@ func TestSystemStatusDataSource(t *testing.T) {
 			"mode": 0,
 			"netnat_enabled": true,
 			"timestamp": 1794517485,
-			"tzoffset": "-0500",
+			"tzoffset": "+0000",
 			"uptime": 835.31
 		},
 		"wifi": [
-			{"band": "5G", "channel": 153, "encryption": "psk2", "guest": false, "hidden": false, "mld": false, "name": "default_radio0", "passwd": "secret-1", "ssid": "ssid-1", "up": true},
+			{"band": "5G", "channel": 149, "encryption": "psk2", "guest": false, "hidden": false, "mld": false, "name": "default_radio0", "passwd": "secret-1", "ssid": "ssid-1", "up": true},
 			{"band": "2G", "encryption": "psk2", "guest": true, "hidden": false, "mld": false, "name": "guest2g", "passwd": "secret-2", "ssid": "ssid-2", "up": false}
 		]
 	}`))
@@ -109,7 +109,7 @@ func TestSystemStatusDataSource(t *testing.T) {
 				"name":    knownvalue.StringExact("default_radio0"),
 				"band":    knownvalue.StringExact("5G"),
 				"ssid":    knownvalue.StringExact("ssid-1"),
-				"channel": knownvalue.Int64Exact(153),
+				"channel": knownvalue.Int64Exact(149),
 				"up":      knownvalue.Bool(true),
 				"guest":   knownvalue.Bool(false),
 			}),

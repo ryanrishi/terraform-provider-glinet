@@ -39,11 +39,11 @@ func (d *systemTimezoneDataSource) Schema(_ context.Context, _ datasource.Schema
 		Description: "Get the time zone configuration of the router (`system.get_timezone_config`). To change it, use `glinet_system_timezone`.",
 		Attributes: map[string]schema.Attribute{
 			"zonename": schema.StringAttribute{
-				Description: "Time zone name as the router shows it, for example `America/New York`. Empty when the router gives none.",
+				Description: "Time zone name as the router shows it, for example `Europe/Berlin`. Empty when the router gives none.",
 				Computed:    true,
 			},
 			"tzoffset": schema.StringAttribute{
-				Description: "Current offset from UTC, for example `-0500`. It changes with daylight saving time.",
+				Description: "Current offset from UTC, for example `+0100`. It changes with daylight saving time.",
 				Computed:    true,
 			},
 			"auto_timezone_enabled": schema.BoolAttribute{
@@ -55,7 +55,7 @@ func (d *systemTimezoneDataSource) Schema(_ context.Context, _ datasource.Schema
 				Computed:    true,
 			},
 			"timezone": schema.StringAttribute{
-				Description: "POSIX TZ string, for example `EST5EDT,M3.2.0,M11.1.0`.",
+				Description: "POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.",
 				Computed:    true,
 			},
 		},

@@ -85,7 +85,7 @@ func (r *dnsResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				Required: true,
 			},
 			"servers": schema.ListAttribute{
-				Description: "Upstream DNS servers that the router uses, each as `<interface> <ip>`, for example `wwan 192.168.4.253` (`server` in the router API). " +
+				Description: "Upstream DNS servers that the router uses, each as `<interface> <ip>`, for example `wwan 192.168.100.53` (`server` in the router API). " +
 					"In mode `auto` the router learns them from the uplink and the VPN, so they can change at any time. A change does not make a plan diff.",
 				ElementType: types.StringType,
 				Computed:    true,

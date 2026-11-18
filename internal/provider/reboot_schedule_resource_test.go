@@ -250,17 +250,17 @@ func TestRebootScheduleResourceImport(t *testing.T) {
 			glinet.RebootSchedule{Enabled: true, Hour: "04", Min: "30", Week: []int{0, 6}},
 			rebootSchedule{true, "04:30", []int{0, 6}}},
 		{"disabled",
-			glinet.RebootSchedule{Enabled: false, Hour: "03", Min: "00", Week: []int{1, 4}},
-			rebootSchedule{false, "03:00", []int{1, 4}}},
+			glinet.RebootSchedule{Enabled: false, Hour: "01", Min: "20", Week: []int{2, 6}},
+			rebootSchedule{false, "01:20", []int{2, 6}}},
 		{"one digit times",
-			glinet.RebootSchedule{Enabled: true, Hour: "3", Min: "5", Week: []int{1}},
-			rebootSchedule{true, "03:05", []int{1}}},
+			glinet.RebootSchedule{Enabled: true, Hour: "7", Min: "5", Week: []int{1}},
+			rebootSchedule{true, "07:05", []int{1}}},
 		{"unsorted and duplicate days",
-			glinet.RebootSchedule{Enabled: true, Hour: "03", Min: "00", Week: []int{4, 1, 4}},
-			rebootSchedule{true, "03:00", []int{1, 4}}},
+			glinet.RebootSchedule{Enabled: true, Hour: "01", Min: "20", Week: []int{6, 2, 6}},
+			rebootSchedule{true, "01:20", []int{2, 6}}},
 		{"all days",
-			glinet.RebootSchedule{Enabled: true, Hour: "03", Min: "00", Week: allWeekDays},
-			rebootSchedule{true, "03:00", allWeekDays}},
+			glinet.RebootSchedule{Enabled: true, Hour: "01", Min: "20", Week: allWeekDays},
+			rebootSchedule{true, "01:20", allWeekDays}},
 	}
 
 	for _, tt := range tests {
@@ -332,7 +332,7 @@ func TestRebootScheduleResourceImportInvalidID(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:        fakeRouterConfig(srv) + rebootSchedule{false, "03:00", []int{1, 4}}.config(),
+				Config:        fakeRouterConfig(srv) + rebootSchedule{false, "04:00", []int{1}}.config(),
 				ResourceName:  rebootScheduleAddress,
 				ImportState:   true,
 				ImportStateId: "reboot",
@@ -427,12 +427,12 @@ func TestRebootScheduleResourceInvalidConfig(t *testing.T) {
 		config rebootSchedule
 		error  string
 	}{
-		{"one digit hour", rebootSchedule{false, "3:00", []int{1}}, `time must be a time from 00:00 to 23:59`},
+		{"one digit hour", rebootSchedule{false, "7:00", []int{1}}, `time must be a time from 00:00 to 23:59`},
 		{"hour 24", rebootSchedule{true, "24:00", []int{1}}, `time must be a time from 00:00 to 23:59`},
-		{"minute 60", rebootSchedule{true, "03:60", []int{1}}, `time must be a time from 00:00 to 23:59`},
+		{"minute 60", rebootSchedule{true, "07:60", []int{1}}, `time must be a time from 00:00 to 23:59`},
 		{"empty", rebootSchedule{false, "", []int{1}}, `time must be a time from 00:00 to 23:59`},
-		{"no days", rebootSchedule{false, "03:00", []int{}}, `days set must contain at least 1 elements`},
-		{"day 7", rebootSchedule{true, "03:00", []int{7}}, `value must be between 0 and 6, got: 7`},
+		{"no days", rebootSchedule{false, "04:00", []int{}}, `days set must contain at least 1 elements`},
+		{"day 7", rebootSchedule{true, "04:00", []int{7}}, `value must be between 0 and 6, got: 7`},
 	}
 
 	for _, tt := range tests {
@@ -576,8 +576,8 @@ func TestAllowRebootScheduleDisabled(t *testing.T) {
 	}{
 		{"get_reboot", `{}`, true},
 		{"set_reboot", `{"enable":false}`, true},
-		{"set_reboot", `{"enable":true,"hour":"03","min":"00","week":[1]}`, false},
-		{"set_reboot", `{"enable":false,"hour":"03"}`, false},
+		{"set_reboot", `{"enable":true,"hour":"04","min":"00","week":[1]}`, false},
+		{"set_reboot", `{"enable":false,"hour":"04"}`, false},
 		{"set_reboot", `{"enable":0}`, false},
 		{"set_reboot", `{}`, false},
 		{"set_led", `{"enable":false}`, false},

@@ -149,17 +149,17 @@ func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: fakeRouterConfig(srv) + timezoneConfig("America/New York", "EST5EDT,M3.2.0,M11.1.0"),
+				Config: fakeRouterConfig(srv) + timezoneConfig("America/Sao Paulo", "<-03>3"),
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezone("zonename", knownvalue.StringExact("America/New York")),
-					expectTimezone("tzoffset", knownvalue.StringExact("-0500")),
+					expectTimezone("zonename", knownvalue.StringExact("America/Sao Paulo")),
+					expectTimezone("tzoffset", knownvalue.StringExact("-0300")),
 				},
 			},
 		},
 	})
 
-	if got := srv.System.TimezoneConfig().Zonename; got != "America/New York" {
-		t.Errorf("router zonename is %q, want %q", got, "America/New York")
+	if got := srv.System.TimezoneConfig().Zonename; got != "America/Sao Paulo" {
+		t.Errorf("router zonename is %q, want %q", got, "America/Sao Paulo")
 	}
 }
 

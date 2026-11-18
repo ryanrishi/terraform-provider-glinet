@@ -363,7 +363,7 @@ func TestDNSResourceDrift(t *testing.T) {
 	config := fakeRouterConfig(srv) + dnsSettings{"auto", want.ForceDNS, want.RebindProtection, want.OverrideVPN}.config()
 	with := func(change func(*glinet.DNSConfig)) glinet.DNSConfig {
 		c := want
-		c.Server = []string{"wwan 192.168.4.253"}
+		c.Server = []string{"wwan 192.168.100.53"}
 		change(&c)
 		return c
 	}
@@ -392,8 +392,8 @@ func TestDNSResourceDrift(t *testing.T) {
 		})
 	}
 	for _, router := range []glinet.DNSConfig{
-		withServers("wwan 192.168.4.253", "wg 192.168.5.1"),
-		withServers("wan 192.168.1.1"),
+		withServers("wwan 192.168.100.53", "wg 10.66.0.1"),
+		withServers("wan 192.168.100.1"),
 		withServers([]string{}...),
 	} {
 		steps = append(steps, resource.TestStep{
@@ -445,7 +445,7 @@ func TestDNSResourceInvalidConfig(t *testing.T) {
   force_dns         = false
   rebind_protection = false
   override_vpn      = true
-  servers           = ["wan 192.168.1.1"]
+  servers           = ["wan 192.168.100.1"]
 }`, `Invalid Configuration for Read-Only Attribute`},
 	}
 

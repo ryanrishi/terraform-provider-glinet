@@ -57,15 +57,15 @@ func (r *systemTimezoneResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"zonename": schema.StringAttribute{
-				Description: "Time zone name as the router shows it, for example `America/New York`.",
+				Description: "Time zone name as the router shows it, for example `Europe/Berlin`.",
 				Required:    true,
 			},
 			"timezone": schema.StringAttribute{
-				Description: "POSIX TZ string, for example `EST5EDT,M3.2.0,M11.1.0`.",
+				Description: "POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.",
 				Required:    true,
 			},
 			"tzoffset": schema.StringAttribute{
-				Description: "Current offset from UTC, for example `-0500`. It changes with daylight saving time.",
+				Description: "Current offset from UTC, for example `+0100`. It changes with daylight saving time.",
 				Computed:    true,
 			},
 			"auto_timezone_enabled": schema.BoolAttribute{

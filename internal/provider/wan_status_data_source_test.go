@@ -44,7 +44,7 @@ func TestWANStatusDataSource(t *testing.T) {
 	srv.LAN.SetWANInfo(json.RawMessage(`{
 		"wan_info": [
 			{"interface": "wan", "info": {"broadcast": "10.0.0.255", "ipaddr": "10.0.0.2", "netmask": "255.255.255.0", "network": "10.0.0.0", "prefix": 24}},
-			{"interface": "wwan", "info": {"broadcast": "192.168.0.255", "ipaddr": "192.168.0.210", "netmask": "255.255.255.0", "network": "192.168.0.0", "prefix": 24}}
+			{"interface": "wwan", "info": {"broadcast": "192.168.100.255", "ipaddr": "192.168.100.20", "netmask": "255.255.255.0", "network": "192.168.100.0", "prefix": 24}}
 		]
 	}`))
 
@@ -65,11 +65,11 @@ func TestWANStatusDataSource(t *testing.T) {
 			}),
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"interface": knownvalue.StringExact("wwan"),
-				"ip":        knownvalue.StringExact("192.168.0.210"),
+				"ip":        knownvalue.StringExact("192.168.100.20"),
 				"netmask":   knownvalue.StringExact("255.255.255.0"),
 				"prefix":    knownvalue.Int64Exact(24),
-				"network":   knownvalue.StringExact("192.168.0.0"),
-				"broadcast": knownvalue.StringExact("192.168.0.255"),
+				"network":   knownvalue.StringExact("192.168.100.0"),
+				"broadcast": knownvalue.StringExact("192.168.100.255"),
 			}),
 		}),
 	}))
