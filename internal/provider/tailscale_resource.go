@@ -92,9 +92,6 @@ func (r *tailscaleResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"lan_ip": schema.StringAttribute{
 				Description: "The LAN subnet that the router advertises to the tailnet, for example `192.168.8.0/24` (`lan_ip` in the router API).",
 				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}

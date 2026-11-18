@@ -422,13 +422,6 @@ func orNone(s string) string {
 	return s
 }
 
-func optionalString(s string) types.String {
-	if s == "" {
-		return types.StringNull()
-	}
-	return types.StringValue(s)
-}
-
 func (m firewallRuleResourceModel) identity() ruleIdentity {
 	return identityOfRule(m.rule(""))
 }
@@ -452,16 +445,16 @@ func (m firewallRuleResourceModel) rule(id string) glinet.Rule {
 
 func ruleModel(r *glinet.Rule) *firewallRuleResourceModel {
 	return &firewallRuleResourceModel{
-		SourceZone:      optionalString(r.Src),
-		SourceIP:        optionalString(r.SrcIP),
-		SourceMAC:       optionalString(r.SrcMAC),
-		SourcePort:      optionalString(r.SrcPort),
-		Protocol:        optionalString(r.Proto),
-		DestinationZone: optionalString(r.Dest),
-		DestinationIP:   optionalString(r.DestIP),
-		DestinationPort: optionalString(r.DestPort),
-		Action:          optionalString(r.Target),
-		Name:            optionalString(r.Name),
+		SourceZone:      stringOrNull(r.Src),
+		SourceIP:        stringOrNull(r.SrcIP),
+		SourceMAC:       stringOrNull(r.SrcMAC),
+		SourcePort:      stringOrNull(r.SrcPort),
+		Protocol:        stringOrNull(r.Proto),
+		DestinationZone: stringOrNull(r.Dest),
+		DestinationIP:   stringOrNull(r.DestIP),
+		DestinationPort: stringOrNull(r.DestPort),
+		Action:          stringOrNull(r.Target),
+		Name:            stringOrNull(r.Name),
 		Enabled:         types.BoolValue(r.Enabled),
 	}
 }

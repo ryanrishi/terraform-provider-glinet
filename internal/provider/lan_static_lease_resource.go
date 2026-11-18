@@ -65,6 +65,9 @@ func (r *lanStaticLeaseResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"ip": schema.StringAttribute{
 				Description: "IPv4 address that the router gives to the client.",
 				Required:    true,
+				Validators: []validator.String{
+					stringCheck{description: "must be an IPv4 address", valid: validIPv4},
+				},
 			},
 			"name": schema.StringAttribute{
 				Description: "Name of the binding.",
@@ -182,7 +185,13 @@ func (r *lanStaticLeaseResource) Delete(ctx context.Context, req resource.Delete
 }
 
 func (r *lanStaticLeaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("mac"), req, resp)
+	mac := strings.ToLower(req.ID)
+	if !lowerCaseMAC.MatchString(mac) {
+		resp.Diagnostics.AddError("Invalid Import ID", fmt.Sprintf("The import ID must be a MAC address, for example 02:00:00:00:00:01, got %q.", req.ID))
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("mac"), mac)...)
 }
 
 // find returns the binding with exactly the MAC address mac, because the router compares MAC addresses with letter case.
