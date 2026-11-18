@@ -55,6 +55,9 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
+| Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
+| Resource | `glinet_wireguard_client_group` | [docs/resources/wireguard_client_group.md](docs/resources/wireguard_client_group.md) |
+| Resource | `glinet_wireguard_server_peer` | [docs/resources/wireguard_server_peer.md](docs/resources/wireguard_server_peer.md) |
 | Resource | `glinet_zerotier` | [docs/resources/zerotier.md](docs/resources/zerotier.md) |
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
