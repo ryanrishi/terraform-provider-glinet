@@ -49,15 +49,15 @@ func TestSystemStatusDataSource(t *testing.T) {
 			"memory_buff_cache": 104353792,
 			"memory_free": 155758592,
 			"memory_total": 8589934592,
-			"mode": 0,
+			"mode": 2,
 			"netnat_enabled": true,
 			"timestamp": 1794517485,
-			"tzoffset": "+0000",
+			"tzoffset": "+0100",
 			"uptime": 835.31
 		},
 		"wifi": [
-			{"band": "5G", "channel": 149, "encryption": "psk2", "guest": false, "hidden": false, "mld": false, "name": "default_radio0", "passwd": "secret-1", "ssid": "ssid-1", "up": true},
-			{"band": "2G", "encryption": "psk2", "guest": true, "hidden": false, "mld": false, "name": "guest2g", "passwd": "secret-2", "ssid": "ssid-2", "up": false}
+			{"band": "5G", "channel": 149, "encryption": "psk2", "guest": false, "hidden": false, "mld": true, "name": "default_radio0", "passwd": "secret-1", "ssid": "ssid-1", "up": true},
+			{"band": "2G", "encryption": "none", "guest": true, "hidden": true, "mld": false, "name": "guest2g", "passwd": "secret-2", "ssid": "ssid-2", "up": false}
 		]
 	}`))
 
@@ -82,6 +82,15 @@ func TestSystemStatusDataSource(t *testing.T) {
 		"ddns_enabled":      knownvalue.Bool(true),
 		"ipv6_enabled":      knownvalue.Bool(false),
 		"nat_enabled":       knownvalue.Bool(true),
+		"mode":              knownvalue.Int64Exact(2),
+		"timestamp":         knownvalue.Int64Exact(1794517485),
+		"tzoffset":          knownvalue.StringExact("+0100"),
+		"client_counts": knownvalue.ListExact([]knownvalue.Check{
+			knownvalue.ObjectExact(map[string]knownvalue.Check{
+				"cable_total":    knownvalue.Int64Exact(1),
+				"wireless_total": knownvalue.Int64Exact(2),
+			}),
+		}),
 		"networks": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"interface": knownvalue.StringExact("wwan"),
@@ -96,30 +105,40 @@ func TestSystemStatusDataSource(t *testing.T) {
 		}),
 		"services": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":   knownvalue.StringExact("wgclient"),
-				"status": knownvalue.Int64Exact(1),
+				"name":     knownvalue.StringExact("wgclient"),
+				"status":   knownvalue.Int64Exact(1),
+				"peer_id":  knownvalue.Int64Exact(2004),
+				"group_id": knownvalue.Int64Exact(2082),
 			}),
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":   knownvalue.StringExact("adguard"),
-				"status": knownvalue.Int64Exact(0),
+				"name":     knownvalue.StringExact("adguard"),
+				"status":   knownvalue.Int64Exact(0),
+				"peer_id":  knownvalue.Null(),
+				"group_id": knownvalue.Null(),
 			}),
 		}),
 		"wifi_interfaces": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":    knownvalue.StringExact("default_radio0"),
-				"band":    knownvalue.StringExact("5G"),
-				"ssid":    knownvalue.StringExact("ssid-1"),
-				"channel": knownvalue.Int64Exact(149),
-				"up":      knownvalue.Bool(true),
-				"guest":   knownvalue.Bool(false),
+				"name":       knownvalue.StringExact("default_radio0"),
+				"band":       knownvalue.StringExact("5G"),
+				"ssid":       knownvalue.StringExact("ssid-1"),
+				"channel":    knownvalue.Int64Exact(149),
+				"up":         knownvalue.Bool(true),
+				"guest":      knownvalue.Bool(false),
+				"encryption": knownvalue.StringExact("psk2"),
+				"hidden":     knownvalue.Bool(false),
+				"mld":        knownvalue.Bool(true),
 			}),
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":    knownvalue.StringExact("guest2g"),
-				"band":    knownvalue.StringExact("2G"),
-				"ssid":    knownvalue.StringExact("ssid-2"),
-				"channel": knownvalue.Null(),
-				"up":      knownvalue.Bool(false),
-				"guest":   knownvalue.Bool(true),
+				"name":       knownvalue.StringExact("guest2g"),
+				"band":       knownvalue.StringExact("2G"),
+				"ssid":       knownvalue.StringExact("ssid-2"),
+				"channel":    knownvalue.Null(),
+				"up":         knownvalue.Bool(false),
+				"guest":      knownvalue.Bool(true),
+				"encryption": knownvalue.StringExact("none"),
+				"hidden":     knownvalue.Bool(true),
+				"mld":        knownvalue.Bool(false),
 			}),
 		}),
 	}))
@@ -136,6 +155,10 @@ func TestSystemStatusDataSourceAbsentFields(t *testing.T) {
 		"uptime":          knownvalue.Float64Exact(0),
 		"load_average":    knownvalue.ListExact([]knownvalue.Check{}),
 		"cpu_temperature": knownvalue.Null(),
+		"mode":            knownvalue.Int64Exact(0),
+		"timestamp":       knownvalue.Int64Exact(0),
+		"tzoffset":        knownvalue.StringExact(""),
+		"client_counts":   knownvalue.ListExact([]knownvalue.Check{}),
 		"networks":        knownvalue.ListExact([]knownvalue.Check{}),
 		"services":        knownvalue.ListExact([]knownvalue.Check{}),
 		"wifi_interfaces": knownvalue.ListExact([]knownvalue.Check{}),
@@ -171,6 +194,15 @@ func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 		"ddns_enabled":      anyBool,
 		"ipv6_enabled":      anyBool,
 		"nat_enabled":       anyBool,
+		"mode":              anyInt64,
+		"timestamp":         positiveInt64,
+		"tzoffset":          nonEmptyString,
+		"client_counts": knownvalue.ListPartial(map[int]knownvalue.Check{
+			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
+				"cable_total":    anyInt64,
+				"wireless_total": anyInt64,
+			}),
+		}),
 		"networks": knownvalue.ListPartial(map[int]knownvalue.Check{
 			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"interface": nonEmptyString,
@@ -180,18 +212,23 @@ func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 		}),
 		"services": knownvalue.ListPartial(map[int]knownvalue.Check{
 			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":   nonEmptyString,
-				"status": anyInt64,
+				"name":     nonEmptyString,
+				"status":   anyInt64,
+				"peer_id":  orNull(anyInt64),
+				"group_id": orNull(anyInt64),
 			}),
 		}),
 		"wifi_interfaces": knownvalue.ListPartial(map[int]knownvalue.Check{
 			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
-				"name":    nonEmptyString,
-				"band":    nonEmptyString,
-				"ssid":    anyString,
-				"channel": orNull(anyInt64),
-				"up":      anyBool,
-				"guest":   anyBool,
+				"name":       nonEmptyString,
+				"band":       nonEmptyString,
+				"ssid":       anyString,
+				"channel":    orNull(anyInt64),
+				"up":         anyBool,
+				"guest":      anyBool,
+				"encryption": anyString,
+				"hidden":     anyBool,
+				"mld":        anyBool,
 			}),
 		}),
 	}

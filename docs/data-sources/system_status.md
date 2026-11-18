@@ -25,6 +25,7 @@ output "online_interfaces" {
 
 ### Read-Only
 
+- `client_counts` (Attributes List) Numbers of connected clients (`client`). (see [below for nested schema](#nestedatt--client_counts))
 - `cpu_temperature` (Number) CPU temperature in degrees Celsius (`cpu.temperature`). Null when the router gives none.
 - `ddns_enabled` (Boolean) Whether the GL.iNet DDNS service is enabled.
 - `flash_app` (Number) Flash used by applications, in bytes, as the router gives it.
@@ -39,11 +40,23 @@ output "online_interfaces" {
 - `memory_buff_cache` (Number) Memory used for buffers and cache, in bytes.
 - `memory_free` (Number) Free memory, in bytes.
 - `memory_total` (Number) Total memory, in bytes.
+- `mode` (Number) Operation mode of the router, as the router gives it. `0` is the router mode.
 - `nat_enabled` (Boolean) Whether NAT is enabled (`netnat_enabled`).
 - `networks` (Attributes List) Network interfaces (`network`). (see [below for nested schema](#nestedatt--networks))
 - `services` (Attributes List) Services (`service`). (see [below for nested schema](#nestedatt--services))
+- `timestamp` (Number) Clock of the router, as a Unix time in seconds.
+- `tzoffset` (String) Current offset from UTC, for example `+0100`.
 - `uptime` (Number) Time since the start of the router, in seconds.
 - `wifi_interfaces` (Attributes List) Wi-Fi interfaces (`wifi`). (see [below for nested schema](#nestedatt--wifi_interfaces))
+
+<a id="nestedatt--client_counts"></a>
+### Nested Schema for `client_counts`
+
+Read-Only:
+
+- `cable_total` (Number) Number of clients on a cable.
+- `wireless_total` (Number) Number of clients on Wi-Fi.
+
 
 <a id="nestedatt--networks"></a>
 ### Nested Schema for `networks`
@@ -60,7 +73,9 @@ Read-Only:
 
 Read-Only:
 
+- `group_id` (Number) ID of the group of `peer_id`. Null when the router gives none.
 - `name` (String) Name of the service, for example `wgclient` or `adguard`.
+- `peer_id` (Number) ID of the peer that the service uses, for example the WireGuard client configuration of `wgclient`. Null when the router gives none.
 - `status` (Number) Status of the service, as the router gives it. `1` means that the service runs.
 
 
@@ -71,7 +86,10 @@ Read-Only:
 
 - `band` (String) Band, for example `2G` or `5G`.
 - `channel` (Number) Channel. Null when the router gives none.
+- `encryption` (String) Encryption, for example `psk2`.
 - `guest` (Boolean) Whether the interface is for the guest network.
+- `hidden` (Boolean) Whether the interface hides its SSID.
+- `mld` (Boolean) Whether the interface is a Wi-Fi 7 multi-link device (MLD).
 - `name` (String) Name of the interface, for example `default_radio0` or `guest5g`.
 - `ssid` (String) SSID.
 - `up` (Boolean) Whether the interface is up.

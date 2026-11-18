@@ -66,7 +66,7 @@ func TestSystemInfoDataSource(t *testing.T) {
 			"wan": "eth0"
 		},
 		"hardware_version": "",
-		"hidden_features": [],
+		"hidden_features": ["guestip"],
 		"mac": "02:00:00:00:00:01",
 		"model": "axt1800",
 		"sn": "serial",
@@ -135,6 +135,7 @@ func TestSystemInfoDataSource(t *testing.T) {
 			"usb_reset":      knownvalue.StringExact("usb_power,1"),
 			"wan":            knownvalue.StringExact("eth0"),
 		}),
+		"hidden_features": knownvalue.ListExact([]knownvalue.Check{knownvalue.StringExact("guestip")}),
 		"software_features": knownvalue.ObjectExact(map[string]knownvalue.Check{
 			"adguard":          knownvalue.Bool(true),
 			"bark":             knownvalue.Bool(false),
@@ -160,9 +161,10 @@ func TestSystemInfoDataSourceAbsentFields(t *testing.T) {
 	srv.System.SetInfo(json.RawMessage(`{"model": "axt1800"}`))
 
 	readDataSource(t, fakeRouterConfig(srv)+systemInfoDataSourceConfig, expectAttributes(systemInfoAddress, map[string]knownvalue.Check{
-		"model":     knownvalue.StringExact("axt1800"),
-		"vendor":    knownvalue.StringExact(""),
-		"cpu_count": knownvalue.Int64Exact(0),
+		"model":           knownvalue.StringExact("axt1800"),
+		"vendor":          knownvalue.StringExact(""),
+		"cpu_count":       knownvalue.Int64Exact(0),
+		"hidden_features": knownvalue.ListExact([]knownvalue.Check{}),
 		"board": knownvalue.ObjectPartial(map[string]knownvalue.Check{
 			"hostname": knownvalue.StringExact(""),
 		}),
@@ -224,6 +226,7 @@ func realRouterSystemInfoChecks() map[string]knownvalue.Check {
 			"usb_reset":      anyString,
 			"wan":            anyString,
 		}),
+		"hidden_features": knownvalue.ListPartial(map[int]knownvalue.Check{}),
 		"software_features": knownvalue.ObjectExact(map[string]knownvalue.Check{
 			"adguard":          anyBool,
 			"bark":             anyBool,

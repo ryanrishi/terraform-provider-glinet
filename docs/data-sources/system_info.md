@@ -34,6 +34,7 @@ output "firmware_version" {
 - `firmware_version` (String) Firmware version, for example `4.7.0`.
 - `hardware_features` (Attributes) Hardware of the device (`hardware_feature`). Most string values are names of devices or interfaces, for example `eth1 eth2` for `lan`. (see [below for nested schema](#nestedatt--hardware_features))
 - `hardware_version` (String) Hardware version. Empty when the router gives none.
+- `hidden_features` (List of String) Features that the web UI of the router hides, for example `guestip`.
 - `mac` (String) MAC address of the device.
 - `model` (String) Model, for example `axt1800`.
 - `software_features` (Attributes) Features of the firmware (`software_feature`). (see [below for nested schema](#nestedatt--software_features))

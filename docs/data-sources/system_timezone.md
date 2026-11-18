@@ -27,6 +27,7 @@ output "router_timezone" {
 
 - `auto_timezone_enabled` (Boolean) Whether the router sets the time zone automatically (`autotimezone_enabled`).
 - `localtime` (Number) Current time of the router, as a Unix time in seconds.
+- `timestamp` (Number) Clock of the router, as a Unix time in seconds.
 - `timezone` (String) POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.
 - `tzoffset` (String) Current offset from UTC, for example `+0100`. It changes with daylight saving time.
 - `zonename` (String) Time zone name as the router shows it, for example `Europe/Berlin`. Empty when the router gives none.
