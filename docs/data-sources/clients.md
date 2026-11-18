@@ -3,12 +3,12 @@
 page_title: "glinet_clients Data Source - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Get the client devices that the router knows, online and offline (clients.get_list). ip, interface and online change while the router runs.
+  Get the client devices that the router knows, online and offline (clients.get_list). ip, connection and online change while the router runs.
 ---
 
 # glinet_clients (Data Source)
 
-Get the client devices that the router knows, online and offline (`clients.get_list`). `ip`, `interface` and `online` change while the router runs.
+Get the client devices that the router knows, online and offline (`clients.get_list`). `ip`, `connection` and `online` change while the router runs.
 
 ## Example Usage
 
@@ -35,7 +35,7 @@ Read-Only:
 - `alias` (String) Name that is set for the client on the router. Null when none is set.
 - `blocked` (Boolean) Whether the router blocks the client.
 - `class` (String) Device class that is set for the client on the router, for example `laptop`. Null when none is set.
-- `interface` (String) Connection of the client (`iface`), for example `cable` or `5G`.
+- `connection` (String) Connection of the client (`iface`), for example `cable` or `5G`.
 - `ip` (String) IPv4 address of the client. The router also gives it for offline clients.
 - `limit_rx` (Number) Receive speed limit of the client (`limit_rx`), as the router gives it.
 - `limit_tx` (Number) Transmit speed limit of the client (`limit_tx`), as the router gives it.

@@ -26,16 +26,12 @@ const (
 )
 
 func dmzConfig(internalIP string, enabled bool) string {
-	var optional string
-	if !enabled {
-		optional = "  enabled     = false\n"
-	}
-
 	return fmt.Sprintf(`
 resource "glinet_firewall_dmz" "test" {
+  enabled     = %t
   internal_ip = %q
-%s}
-`, internalIP, optional)
+}
+`, enabled, internalIP)
 }
 
 func expectDMZ(attribute string, value knownvalue.Check) statecheck.StateCheck {
@@ -44,7 +40,7 @@ func expectDMZ(attribute string, value knownvalue.Check) statecheck.StateCheck {
 
 func expectDMZState(dmz glinet.DMZ) []statecheck.StateCheck {
 	return []statecheck.StateCheck{
-		expectDMZ("id", knownvalue.StringExact("dmz")),
+		expectDMZ("id", knownvalue.StringExact("firewall_dmz")),
 		expectDMZ("internal_ip", knownvalue.StringExact(dmz.DestIP)),
 		expectDMZ("enabled", knownvalue.Bool(dmz.Enabled)),
 	}
@@ -138,7 +134,7 @@ func TestFirewallDMZResource(t *testing.T) {
 			{
 				ResourceName:      dmzAddress,
 				ImportState:       true,
-				ImportStateId:     "dmz",
+				ImportStateId:     "firewall_dmz",
 				ImportStateVerify: true,
 			},
 		},
@@ -194,7 +190,7 @@ func TestFirewallDMZResourceImport(t *testing.T) {
 						Config:             config,
 						ResourceName:       dmzAddress,
 						ImportState:        true,
-						ImportStateId:      "dmz",
+						ImportStateId:      "firewall_dmz",
 						ImportStatePersist: true,
 					},
 					{
@@ -234,7 +230,7 @@ func TestFirewallDMZResourceImportNoHost(t *testing.T) {
 						Config:        fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
 						ResourceName:  dmzAddress,
 						ImportState:   true,
-						ImportStateId: "dmz",
+						ImportStateId: "firewall_dmz",
 						ExpectError:   regexp.MustCompile(`(?s)Firewall DMZ Host Not Found.*The router has no DMZ host`),
 					},
 				},
@@ -365,7 +361,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 					Config:        fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
 					ResourceName:  dmzAddress,
 					ImportState:   true,
-					ImportStateId: "dmz",
+					ImportStateId: "firewall_dmz",
 					ExpectError:   regexp.MustCompile(`(?s)Unable to Read Firewall DMZ.*Method not found`),
 				},
 			},

@@ -35,7 +35,7 @@ resource "glinet_tailscale" "this" {
 ### Read-Only
 
 - `id` (String) Always `tailscale`.
-- `lan_ip` (String) The LAN subnet that the router advertises to the tailnet, for example `192.168.8.0/24` (`lan_ip` in the router API).
+- `lan_subnet` (String) The LAN subnet that the router advertises to the tailnet, for example `192.168.8.0/24` (`lan_ip` in the router API).
 
 ## Import
 

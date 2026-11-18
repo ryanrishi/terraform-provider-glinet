@@ -16,7 +16,7 @@ import (
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-const systemTimezoneID = "timezone"
+const systemTimezoneID = "system_timezone"
 
 var (
 	_ resource.Resource                = &systemTimezoneResource{}

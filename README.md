@@ -33,7 +33,7 @@ variable "glinet_password" {
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
 
 > [!WARNING]
-> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan_config`](docs/resources/lan_config.md) and [`glinet_wifi_iface`](docs/resources/wifi_iface.md).
+> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md) and [`glinet_wifi_interface`](docs/resources/wifi_interface.md).
 > Read the warnings on their pages before you apply them.
 
 | Type | Name | Documentation |
@@ -46,7 +46,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
 | Resource | `glinet_ipv6` | [docs/resources/ipv6.md](docs/resources/ipv6.md) |
-| Resource | `glinet_lan_config` | [docs/resources/lan_config.md](docs/resources/lan_config.md) |
+| Resource | `glinet_lan` | [docs/resources/lan.md](docs/resources/lan.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
@@ -54,14 +54,14 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
-| Resource | `glinet_wifi_iface` | [docs/resources/wifi_iface.md](docs/resources/wifi_iface.md) |
+| Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
 | Resource | `glinet_zerotier` | [docs/resources/zerotier.md](docs/resources/zerotier.md) |
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
 | Data source | `glinet_system_status` | [docs/data-sources/system_status.md](docs/data-sources/system_status.md) |
-| Data source | `glinet_system_timezone_config` | [docs/data-sources/system_timezone_config.md](docs/data-sources/system_timezone_config.md) |
+| Data source | `glinet_system_timezone` | [docs/data-sources/system_timezone.md](docs/data-sources/system_timezone.md) |
 | Data source | `glinet_wan_status` | [docs/data-sources/wan_status.md](docs/data-sources/wan_status.md) |
 | Data source | `glinet_wifi_status` | [docs/data-sources/wifi_status.md](docs/data-sources/wifi_status.md) |
 

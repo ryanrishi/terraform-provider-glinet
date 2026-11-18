@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -17,7 +16,7 @@ import (
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-const firewallDMZID = "dmz"
+const firewallDMZID = "firewall_dmz"
 
 var (
 	_ resource.Resource                = &firewallDMZResource{}
@@ -57,10 +56,8 @@ func (r *firewallDMZResource) Schema(_ context.Context, _ resource.SchemaRequest
 				},
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the DMZ is enabled (`enabled` in the router API). Defaults to `true`.",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(true),
+				Description: "Whether the DMZ is enabled (`enabled` in the router API).",
+				Required:    true,
 			},
 			"internal_ip": schema.StringAttribute{
 				Description: "IPv4 address of the DMZ host (`dest_ip` in the router API).",

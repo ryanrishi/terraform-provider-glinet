@@ -10,16 +10,15 @@ import (
 )
 
 var (
-	_ datasource.DataSource              = &systemTimezoneConfigDataSource{}
-	_ datasource.DataSourceWithConfigure = &systemTimezoneConfigDataSource{}
+	_ datasource.DataSource              = &systemTimezoneDataSource{}
+	_ datasource.DataSourceWithConfigure = &systemTimezoneDataSource{}
 )
 
-func NewSystemTimezoneConfigDataSource() datasource.DataSource {
-	return &systemTimezoneConfigDataSource{}
+func NewSystemTimezoneDataSource() datasource.DataSource {
+	return &systemTimezoneDataSource{}
 }
 
-type systemTimezoneConfigModel struct {
-	Id                  types.String `tfsdk:"id"`
+type systemTimezoneDataSourceModel struct {
 	Zonename            types.String `tfsdk:"zonename"`
 	TZOffset            types.String `tfsdk:"tzoffset"`
 	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
@@ -27,22 +26,18 @@ type systemTimezoneConfigModel struct {
 	Timezone            types.String `tfsdk:"timezone"`
 }
 
-type systemTimezoneConfigDataSource struct {
+type systemTimezoneDataSource struct {
 	client *glinet.Client
 }
 
-func (d *systemTimezoneConfigDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_system_timezone_config"
+func (d *systemTimezoneDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_system_timezone"
 }
 
-func (d *systemTimezoneConfigDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *systemTimezoneDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Get the time zone configuration of the router (`system.get_timezone_config`). To change it, use `glinet_system_timezone`.",
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Description: "The POSIX TZ string, the same as `timezone`.",
-				Computed:    true,
-			},
 			"zonename": schema.StringAttribute{
 				Description: "Time zone name as the router shows it, for example `America/New York`. Empty when the router gives none.",
 				Computed:    true,
@@ -67,19 +62,18 @@ func (d *systemTimezoneConfigDataSource) Schema(_ context.Context, _ datasource.
 	}
 }
 
-func (d *systemTimezoneConfigDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *systemTimezoneDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	d.client = dataSourceClient(req, resp)
 }
 
-func (d *systemTimezoneConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *systemTimezoneDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	config, err := d.client.System.GetTimezoneConfig(ctx)
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read System Timezone Config", err.Error())
+		resp.Diagnostics.AddError("Unable to Read System Timezone", err.Error())
 		return
 	}
 
-	state := systemTimezoneConfigModel{
-		Id:                  types.StringValue(config.Timezone),
+	state := systemTimezoneDataSourceModel{
 		Zonename:            types.StringValue(config.Zonename),
 		TZOffset:            types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),

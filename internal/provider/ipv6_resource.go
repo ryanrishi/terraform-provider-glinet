@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -42,8 +43,7 @@ type ipv6ResourceModel struct {
 	LANMode    types.String `tfsdk:"lan_mode"`
 	LANDNSAuto types.Bool   `tfsdk:"lan_dns_auto"`
 	LANIP      types.String `tfsdk:"lan_ip"`
-	LANDNS1    types.String `tfsdk:"lan_dns1"`
-	LANDNS2    types.String `tfsdk:"lan_dns2"`
+	LANDNS     types.List   `tfsdk:"lan_dns"`
 }
 
 // validLANIPv6 accepts an IPv6 address with a prefix length from 48 to 64, as the web UI does.
@@ -90,7 +90,7 @@ func (r *ipv6Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"lan_dns_auto": schema.BoolAttribute{
 				Description: "Whether the LAN clients get the IPv6 DNS servers automatically (`lan_dns_mode` in the router API). " +
-					"When it is `false`, the router gives `lan_dns1` and `lan_dns2`. Must be `true` when `lan_mode` is `relay`. Defaults to `true`.",
+					"When it is `false`, the router gives the servers of `lan_dns`. Must be `true` when `lan_mode` is `relay`. Defaults to `true`.",
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(true),
@@ -103,20 +103,17 @@ func (r *ipv6Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					stringCheck{description: "must be an IPv6 address with a prefix length from 48 to 64, such as fd00:1::1/64", valid: validLANIPv6},
 				},
 			},
-			"lan_dns1": schema.StringAttribute{
-				Description: "IPv6 address of the first DNS server for the LAN clients (`lan_dns1` in the router API). " +
-					"Required when `lan_dns_auto` is `false`, and can be set only then.",
-				Optional:   true,
-				Validators: []validator.String{ipv6Validator},
-			},
-			"lan_dns2": schema.StringAttribute{
-				Description: "IPv6 address of the second DNS server for the LAN clients (`lan_dns2` in the router API). " +
-					"Can be set only when `lan_dns_auto` is `false`. " +
-					"When it is not set, the provider does not send it, as the web UI does. It is not known whether the router then removes " +
-					"its second DNS server, so the value is computed: the state shows the second DNS server that the router reports.",
-				Optional:   true,
-				Computed:   true,
-				Validators: []validator.String{ipv6Validator},
+			"lan_dns": schema.ListAttribute{
+				Description: "One or two IPv6 addresses of the DNS servers for the LAN clients (`lan_dns1` and `lan_dns2` in the router API). " +
+					"Required when `lan_dns_auto` is `false`, and can be set only then. " +
+					"With one server, the provider sends only `lan_dns1`, as the web UI does. It is not known whether the router then removes " +
+					"its second DNS server. While the state has one server, the provider does not compare the second DNS server of the router.",
+				Optional:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.SizeBetween(1, 2),
+					listvalidator.ValueStringsAre(ipv6Validator),
+				},
 			},
 		},
 	}
@@ -124,7 +121,7 @@ func (r *ipv6Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 
 func (r *ipv6Resource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
-		description: "lan_mode is required when enabled is true, lan_ip goes with lan_mode static, and lan_dns1 and lan_dns2 go with lan_dns_auto false",
+		description: "lan_mode is required when enabled is true, lan_ip goes with lan_mode static, and lan_dns goes with lan_dns_auto false",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
 			var config ipv6ResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
@@ -148,11 +145,10 @@ func (r *ipv6Resource) ConfigValidators(context.Context) []resource.ConfigValida
 				return
 			}
 			if config.LANDNSAuto.IsNull() || config.LANDNSAuto.ValueBool() {
-				forbid(diags, "lan_dns1", config.LANDNS1, "when lan_dns_auto is true")
-				forbid(diags, "lan_dns2", config.LANDNS2, "when lan_dns_auto is true")
+				forbid(diags, "lan_dns", config.LANDNS, "when lan_dns_auto is true")
 				return
 			}
-			require(diags, "lan_dns1", config.LANDNS1, "when lan_dns_auto is false")
+			require(diags, "lan_dns", config.LANDNS, "when lan_dns_auto is false")
 			if config.LANMode.ValueString() == "relay" {
 				diags.AddAttributeError(path.Root("lan_dns_auto"), invalidCombination,
 					"lan_dns_auto must be true when lan_mode is relay: the web UI sets the DNS servers automatically in this mode.")
@@ -199,23 +195,29 @@ func (r *ipv6Resource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.St
 		return
 	}
 
-	err := r.client.IPv6.SetConfig(ctx, glinet.IPv6Config{
+	config := glinet.IPv6Config{
 		Enable:     model.Enabled.ValueBool(),
 		LANMode:    model.LANMode.ValueString(),
 		LANDNSMode: model.LANDNSAuto.ValueBool(),
 		LANIP:      model.LANIP.ValueString(),
-		LANDNS1:    model.LANDNS1.ValueString(),
-		LANDNS2:    model.LANDNS2.ValueString(),
-	})
-	if err != nil {
+	}
+	dns := listStrings(ctx, model.LANDNS, diags)
+	if diags.HasError() {
+		return
+	}
+	if len(dns) > 0 {
+		config.LANDNS1 = dns[0]
+	}
+	if len(dns) > 1 {
+		config.LANDNS2 = dns[1]
+	}
+
+	if err := r.client.IPv6.SetConfig(ctx, config); err != nil {
 		diags.AddError("Unable to Set IPv6 Configuration", err.Error())
 		return
 	}
 
 	model.ID = types.StringValue(ipv6ID)
-	if model.LANDNS2.IsUnknown() {
-		model.LANDNS2 = types.StringNull()
-	}
 	diags.Append(state.Set(ctx, &model)...)
 	if diags.HasError() {
 		return
@@ -227,7 +229,8 @@ func (r *ipv6Resource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.St
 // read keeps the attributes of the state while the router reports IPv6 as disabled, because a disabled write
 // sends only enable. After an import, the state has no values, so the read takes those of the router.
 // It takes lan_ip only for lan_mode static and the DNS servers only when they are not automatic, because
-// the router can keep the values of another mode.
+// the router can keep the values of another mode. When the state has one DNS server, it takes only the first
+// DNS server of the router, because a write with one server does not send lan_dns2.
 func (r *ipv6Resource) read(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
 	var prior ipv6ResourceModel
 	diags.Append(state.Get(ctx, &prior)...)
@@ -253,15 +256,24 @@ func (r *ipv6Resource) read(ctx context.Context, state *tfsdk.State, diags *diag
 		LANMode:    stringOrNull(config.LANMode),
 		LANDNSAuto: types.BoolValue(config.LANDNSMode),
 		LANIP:      types.StringNull(),
-		LANDNS1:    types.StringNull(),
-		LANDNS2:    types.StringNull(),
+		LANDNS:     types.ListNull(types.StringType),
 	}
 	if config.LANMode == "static" {
 		model.LANIP = stringOrNull(config.LANIP)
 	}
 	if !config.LANDNSMode {
-		model.LANDNS1 = stringOrNull(config.LANDNS1)
-		model.LANDNS2 = stringOrNull(config.LANDNS2)
+		var dns []string
+		for _, server := range []string{config.LANDNS1, config.LANDNS2} {
+			if server != "" {
+				dns = append(dns, server)
+			}
+		}
+		if len(dns) == 2 && len(prior.LANDNS.Elements()) == 1 {
+			dns = dns[:1]
+		}
+		if len(dns) > 0 {
+			model.LANDNS = stringList(ctx, dns, diags)
+		}
 	}
 
 	diags.Append(state.Set(ctx, &model)...)

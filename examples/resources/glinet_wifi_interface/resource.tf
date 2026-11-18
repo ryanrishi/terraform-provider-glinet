@@ -3,7 +3,7 @@ variable "guest_wifi_key" {
   sensitive = true
 }
 
-resource "glinet_wifi_iface" "guest" {
+resource "glinet_wifi_interface" "guest" {
   name       = "guest5g"
   ssid       = "guest"
   encryption = "sae-mixed"

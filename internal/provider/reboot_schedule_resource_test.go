@@ -169,6 +169,8 @@ func TestRebootScheduleResourceUpdate(t *testing.T) {
 	enabledChanged := rebootSchedule{enabled: true, time: "01:00", days: allWeekDays}
 	disabledRouter := otherDays.router()
 	disabledRouter.Enabled = false
+	destroyedRouter := enabledChanged.router()
+	destroyedRouter.Enabled = false
 
 	tests := []struct {
 		config rebootSchedule
@@ -197,7 +199,7 @@ func TestRebootScheduleResourceUpdate(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectRouterRebootSchedule(client, enabledChanged.router()),
+		CheckDestroy:             expectRouterRebootSchedule(client, destroyedRouter),
 		Steps:                    steps,
 	})
 }
@@ -228,6 +230,7 @@ func TestRebootScheduleResourceWrites(t *testing.T) {
 	want := []string{
 		`{"enable":false}`,
 		`{"enable":true,"hour":"04","min":"00","week":[1,3,6]}`,
+		`{"enable":false}`,
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -280,13 +283,10 @@ func TestRebootScheduleResourceImport(t *testing.T) {
 						Config:            config,
 						ConfigPlanChecks:  expectEmptyPlan,
 						ConfigStateChecks: expectRebootScheduleState(tt.config),
+						Check:             expectRouterRebootSchedule(testClient(t, srv.URL, srv.Username, srv.Password), tt.router),
 					},
 				},
 			})
-
-			if got := glinet.RebootSchedule(srv.Timer.RebootSchedule()); !reflect.DeepEqual(got, tt.router) {
-				t.Errorf("router reboot schedule is %+v, want %+v", got, tt.router)
-			}
 		})
 	}
 }
@@ -534,6 +534,33 @@ func TestRebootScheduleResourceRouterErrors(t *testing.T) {
 				{
 					Config:      fakeRouterConfig(srv) + s.config(),
 					ExpectError: regexp.MustCompile(`(?s)Unable to Set Reboot Schedule.*parameter missing`),
+				},
+			},
+		})
+	})
+
+	t.Run("set on delete", func(t *testing.T) {
+		srv := glinettest.NewServer(t)
+		client := testClient(t, srv.URL, srv.Username, srv.Password)
+		set := srv.Handler("timer", "set_reboot")
+		disabled := s.router()
+		disabled.Enabled = false
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config: fakeRouterConfig(srv) + s.config(),
+				},
+				{
+					PreConfig:   failRouterMethod(srv, "timer", "set_reboot"),
+					Config:      fakeRouterConfig(srv),
+					ExpectError: regexp.MustCompile(`(?s)Unable to Disable Reboot Schedule.*Method not found`),
+				},
+				{
+					PreConfig: func() { srv.Handle("timer", "set_reboot", set) },
+					Config:    fakeRouterConfig(srv),
+					Check:     expectRouterRebootSchedule(client, disabled),
 				},
 			},
 		})

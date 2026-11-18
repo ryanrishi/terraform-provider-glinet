@@ -51,9 +51,13 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"The provider is tested on a GL-AXT1800 with firmware 4.7.0. Other models and firmware versions can have different API methods.\n\n" +
 			"~> **Warning:** some resources can cut the access to the router: " +
 			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
-			"[`glinet_lan_config`](" + registryDocs + "resources/lan_config) and " +
-			"[`glinet_wifi_iface`](" + registryDocs + "resources/wifi_iface). " +
-			"Read the warnings on their pages before you apply them.",
+			"[`glinet_lan`](" + registryDocs + "resources/lan) and " +
+			"[`glinet_wifi_interface`](" + registryDocs + "resources/wifi_interface). " +
+			"Read the warnings on their pages before you apply them.\n\n" +
+			"Destroy of a resource disables a feature that exposes the router or acts on its own " +
+			"(`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), " +
+			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_firewall_port_forward`, `glinet_firewall_rule`), " +
+			"and leaves a plain setting unchanged on the router (the other resources).",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Description: "URL of the router, with the scheme, for example `http://192.168.8.1`. When it is not set, the provider uses the `GLINET_HOST` environment variable. Defaults to `" + defaultHost + "`.",
@@ -160,14 +164,14 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewZeroTierResource,
 		NewWANResource,
 		NewIPv6Resource,
-		NewLANConfigResource,
-		NewWifiIfaceResource,
+		NewLANResource,
+		NewWifiInterfaceResource,
 	}
 }
 
 func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewSystemTimezoneConfigDataSource,
+		NewSystemTimezoneDataSource,
 		NewSystemInfoDataSource,
 		NewSystemStatusDataSource,
 		NewClientsDataSource,

@@ -18,39 +18,39 @@ import (
 )
 
 const (
-	lanConfigAddress   = "glinet_lan_config.test"
-	guestConfigAddress = "glinet_lan_config.guest"
+	lanAddress   = "glinet_lan.test"
+	guestAddress = "glinet_lan.guest"
 )
 
-// lanConfig is the configuration of a glinet_lan_config resource. Fields with their zero value are not in the configuration.
-type lanConfig struct {
-	name, iface, ip, netmask string
-	isolation, dhcp          bool
-	start, end, lease        string
-	gateway                  string
-	dns                      []string
+// lanNetwork is the configuration of a glinet_lan resource. Fields with their zero value are not in the configuration.
+type lanNetwork struct {
+	label, iface, ip, netmask string
+	isolation, dhcp           bool
+	start, end, lease         string
+	gateway                   string
+	dns                       []string
 }
 
-func (c lanConfig) config() string {
-	name := c.name
-	if name == "" {
-		name = "test"
+func (c lanNetwork) config() string {
+	label := c.label
+	if label == "" {
+		label = "test"
 	}
 	res := fmt.Sprintf(`
-resource "glinet_lan_config" %q {
-  interface    = %q
+resource "glinet_lan" %q {
+  name         = %q
   ip           = %q
   netmask      = %q
   ap_isolation = %t
   dhcp_enabled = %t
-`, name, c.iface, c.ip, c.netmask, c.isolation, c.dhcp)
-	for attr, v := range map[string]string{"dhcp_start": c.start, "dhcp_end": c.end, "lease_time": c.lease, "gateway": c.gateway} {
+`, label, c.iface, c.ip, c.netmask, c.isolation, c.dhcp)
+	for attr, v := range map[string]string{"dhcp_start": c.start, "dhcp_end": c.end, "dhcp_lease_time": c.lease, "dhcp_gateway": c.gateway} {
 		if v != "" {
 			res += fmt.Sprintf("  %s = %q\n", attr, v)
 		}
 	}
 	if c.dns != nil {
-		res += fmt.Sprintf("  dns = [%s]\n", quoteList(c.dns))
+		res += fmt.Sprintf("  dhcp_dns = [%s]\n", quoteList(c.dns))
 	}
 	return res + "}\n"
 }
@@ -70,7 +70,7 @@ func stringOrNullCheck(s string) knownvalue.Check {
 	return knownvalue.StringExact(s)
 }
 
-func (c lanConfig) state(address string) []statecheck.StateCheck {
+func (c lanNetwork) state(address string) []statecheck.StateCheck {
 	var dns knownvalue.Check = knownvalue.Null()
 	if c.dns != nil {
 		var checks []knownvalue.Check
@@ -80,26 +80,26 @@ func (c lanConfig) state(address string) []statecheck.StateCheck {
 		dns = knownvalue.ListExact(checks)
 	}
 	return expectAttributes(address, map[string]knownvalue.Check{
-		"interface":    knownvalue.StringExact(c.iface),
-		"ip":           knownvalue.StringExact(c.ip),
-		"netmask":      knownvalue.StringExact(c.netmask),
-		"ap_isolation": knownvalue.Bool(c.isolation),
-		"dhcp_enabled": knownvalue.Bool(c.dhcp),
-		"dhcp_start":   stringOrNullCheck(c.start),
-		"dhcp_end":     stringOrNullCheck(c.end),
-		"lease_time":   stringOrNullCheck(c.lease),
-		"gateway":      stringOrNullCheck(c.gateway),
-		"dns":          dns,
+		"name":            knownvalue.StringExact(c.iface),
+		"ip":              knownvalue.StringExact(c.ip),
+		"netmask":         knownvalue.StringExact(c.netmask),
+		"ap_isolation":    knownvalue.Bool(c.isolation),
+		"dhcp_enabled":    knownvalue.Bool(c.dhcp),
+		"dhcp_start":      stringOrNullCheck(c.start),
+		"dhcp_end":        stringOrNullCheck(c.end),
+		"dhcp_lease_time": stringOrNullCheck(c.lease),
+		"dhcp_gateway":    stringOrNullCheck(c.gateway),
+		"dhcp_dns":        dns,
 	})
 }
 
 // addressParams returns the params of the address write of c.
-func (c lanConfig) addressParams() string {
+func (c lanNetwork) addressParams() string {
 	return fmt.Sprintf(`{"interface":%q,"ip":%q,"netmask":%q,"ap_isolate":%d}`, c.iface, c.ip, c.netmask, boolInt(c.isolation))
 }
 
 // dhcpParams returns the params of the DHCP write of c, with the lease time minutes.
-func (c lanConfig) dhcpParams(minutes string) string {
+func (c lanNetwork) dhcpParams(minutes string) string {
 	if !c.dhcp {
 		return fmt.Sprintf(`{"interface":%q,"enable":0}`, c.iface)
 	}
@@ -163,16 +163,16 @@ func expectLANItem(t *testing.T, srv *glinettest.Server, iface string, want map[
 }
 
 var (
-	guestDisabled = lanConfig{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true}
-	guestDHCP     = lanConfig{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true,
+	guestDisabled = lanNetwork{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true}
+	guestDHCP     = lanNetwork{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true,
 		dhcp: true, start: "192.168.9.100", end: "192.168.9.200", lease: "2h"}
-	lanDefault = lanConfig{iface: "lan", ip: "192.168.8.1", netmask: "255.255.255.0",
+	lanDefault = lanNetwork{iface: "lan", ip: "192.168.8.1", netmask: "255.255.255.0",
 		dhcp: true, start: "192.168.8.100", end: "192.168.8.249", lease: "12h"}
 )
 
-// TestLANConfigResource takes over the guest network, which has the configured values, and changes each
+// TestLANResource takes over the guest network, which has the configured values, and changes each
 // attribute. Each step checks which of the two writes are sent, with which params.
-func TestLANConfigResource(t *testing.T) {
+func TestLANResource(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
@@ -193,7 +193,7 @@ func TestLANConfigResource(t *testing.T) {
 	disabled.dhcp, disabled.start, disabled.end, disabled.lease, disabled.dns = false, "", "", "", nil
 
 	steps := []struct {
-		c     lanConfig
+		c     lanNetwork
 		calls []string
 	}{
 		{guestDisabled, nil},
@@ -211,7 +211,7 @@ func TestLANConfigResource(t *testing.T) {
 	for i, s := range steps {
 		ts := resource.TestStep{
 			Config:            fakeRouterConfig(srv) + s.c.config(),
-			ConfigStateChecks: s.c.state(lanConfigAddress),
+			ConfigStateChecks: s.c.state(lanAddress),
 			Check: resource.ComposeTestCheckFunc(
 				calls.expect(s.calls...),
 				expectLANItem(t, srv, "guest", map[string]any{
@@ -220,16 +220,16 @@ func TestLANConfigResource(t *testing.T) {
 			),
 		}
 		if i > 0 {
-			ts.ConfigPlanChecks = expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate)
+			ts.ConfigPlanChecks = expectResourceAction(lanAddress, plancheck.ResourceActionUpdate)
 		}
 		testSteps = append(testSteps, ts)
 		if s.c.lease == "120m" && s.c.isolation {
 			testSteps = append(testSteps, resource.TestStep{
-				ResourceName:                         lanConfigAddress,
+				ResourceName:                         lanAddress,
 				ImportState:                          true,
 				ImportStateId:                        "guest",
 				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "interface",
+				ImportStateVerifyIdentifierAttribute: "name",
 			})
 		}
 	}
@@ -254,8 +254,8 @@ func TestLANConfigResource(t *testing.T) {
 	}
 }
 
-// TestLANConfigResourceLeaseTime compares lease times by duration.
-func TestLANConfigResourceLeaseTime(t *testing.T) {
+// TestLANResourceLeaseTime compares lease times by duration.
+func TestLANResourceLeaseTime(t *testing.T) {
 	parallel(t)
 	t.Run("12h configured, 720m returned", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
@@ -267,7 +267,7 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 				{
 					PreConfig:         func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "6h"}) },
 					Config:            fakeRouterConfig(srv) + lanDefault.config(),
-					ConfigStateChecks: lanDefault.state(lanConfigAddress),
+					ConfigStateChecks: lanDefault.state(lanAddress),
 					Check: resource.ComposeTestCheckFunc(
 						calls.expect(lanDefault.dhcpParams("720m")),
 						expectLANItem(t, srv, "lan", map[string]any{"leasetime": "720m"}),
@@ -281,12 +281,12 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 					PreConfig:         func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "43200s"}) },
 					Config:            fakeRouterConfig(srv) + lanDefault.config(),
 					ConfigPlanChecks:  expectEmptyPlan,
-					ConfigStateChecks: lanDefault.state(lanConfigAddress),
+					ConfigStateChecks: lanDefault.state(lanAddress),
 				},
 				{
 					PreConfig:        func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "6h"}) },
 					Config:           fakeRouterConfig(srv) + lanDefault.config(),
-					ConfigPlanChecks: expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate),
+					ConfigPlanChecks: expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
 					Check:            calls.expect(lanDefault.dhcpParams("720m")),
 				},
 			},
@@ -308,7 +308,7 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 				{
 					PreConfig:         func() { setLANItem(t, srv, "lan", map[string]any{"leasetime": "6h"}) },
 					Config:            fakeRouterConfig(srv) + c.config(),
-					ConfigStateChecks: c.state(lanConfigAddress),
+					ConfigStateChecks: c.state(lanAddress),
 					Check:             expectLANItem(t, srv, "lan", map[string]any{"leasetime": "12h"}),
 				},
 				{
@@ -330,15 +330,15 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config:             fakeRouterConfig(srv) + c.config(),
-					ResourceName:       lanConfigAddress,
+					ResourceName:       lanAddress,
 					ImportState:        true,
 					ImportStateId:      "lan",
 					ImportStatePersist: true,
 				},
 				{
 					Config:            fakeRouterConfig(srv) + c.config(),
-					ConfigPlanChecks:  expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate),
-					ConfigStateChecks: c.state(lanConfigAddress),
+					ConfigPlanChecks:  expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+					ConfigStateChecks: c.state(lanAddress),
 					Check:             calls.expect(),
 				},
 			},
@@ -346,8 +346,8 @@ func TestLANConfigResourceLeaseTime(t *testing.T) {
 	})
 }
 
-// TestLANConfigResourceCreate takes over a network and sends only the groups that differ from the router values.
-func TestLANConfigResourceCreate(t *testing.T) {
+// TestLANResourceCreate takes over a network and sends only the groups that differ from the router values.
+func TestLANResourceCreate(t *testing.T) {
 	parallel(t)
 	sameDuration := lanDefault
 	sameDuration.lease = "720m"
@@ -356,7 +356,7 @@ func TestLANConfigResourceCreate(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		c     lanConfig
+		c     lanNetwork
 		calls []string
 	}{
 		{"lan equal", lanDefault, nil},
@@ -376,7 +376,7 @@ func TestLANConfigResourceCreate(t *testing.T) {
 				Steps: []resource.TestStep{
 					{
 						Config:            fakeRouterConfig(srv) + tt.c.config(),
-						ConfigStateChecks: tt.c.state(lanConfigAddress),
+						ConfigStateChecks: tt.c.state(lanAddress),
 						Check:             calls.expect(tt.calls...),
 					},
 				},
@@ -385,13 +385,13 @@ func TestLANConfigResourceCreate(t *testing.T) {
 	}
 }
 
-// TestLANConfigResourceBothNetworks applies the lan and the guest network in one apply.
-func TestLANConfigResourceBothNetworks(t *testing.T) {
+// TestLANResourceBothNetworks applies the lan and the guest network in one apply.
+func TestLANResourceBothNetworks(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
 	guest := guestDHCP
-	guest.name = "guest"
+	guest.label = "guest"
 	lan := lanDefault
 	lan.lease = "1h"
 
@@ -400,7 +400,7 @@ func TestLANConfigResourceBothNetworks(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:            fakeRouterConfig(srv) + lan.config() + guest.config(),
-				ConfigStateChecks: append(lan.state(lanConfigAddress), guest.state(guestConfigAddress)...),
+				ConfigStateChecks: append(lan.state(lanAddress), guest.state(guestAddress)...),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expectUnordered(lan.dhcpParams("60m"), guest.dhcpParams("120m")),
 					expectLANItem(t, srv, "lan", map[string]any{"leasetime": "60m", "enable": 1}),
@@ -411,9 +411,9 @@ func TestLANConfigResourceBothNetworks(t *testing.T) {
 	})
 }
 
-// TestLANConfigResourceLANAddressChange changes the address of the lan network. On a real router, the provider
+// TestLANResourceLANAddressChange changes the address of the lan network. On a real router, the provider
 // then loses its connection; the fake router stays at its URL, so the test proves only the calls.
-func TestLANConfigResourceLANAddressChange(t *testing.T) {
+func TestLANResourceLANAddressChange(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
@@ -429,8 +429,8 @@ func TestLANConfigResourceLANAddressChange(t *testing.T) {
 			},
 			{
 				Config:            fakeRouterConfig(srv) + moved.config(),
-				ConfigPlanChecks:  expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate),
-				ConfigStateChecks: moved.state(lanConfigAddress),
+				ConfigPlanChecks:  expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: moved.state(lanAddress),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(moved.addressParams(), moved.dhcpParams("720m")),
 					expectLANItem(t, srv, "lan", map[string]any{"ip": "10.0.0.1", "start": "10.0.0.100", "end": "10.0.0.200"}),
@@ -440,8 +440,8 @@ func TestLANConfigResourceLANAddressChange(t *testing.T) {
 	})
 }
 
-// TestLANConfigResourceLPR sends back the lpr values of the router in a DHCP write.
-func TestLANConfigResourceLPR(t *testing.T) {
+// TestLANResourceLPR sends back the lpr values of the router in a DHCP write.
+func TestLANResourceLPR(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	setLANItem(t, srv, "lan", map[string]any{"lpr": []string{"lpr-1"}})
@@ -461,9 +461,9 @@ func TestLANConfigResourceLPR(t *testing.T) {
 	})
 }
 
-func TestLANConfigResourceImport(t *testing.T) {
+func TestLANResourceImport(t *testing.T) {
 	parallel(t)
-	for _, c := range []lanConfig{lanDefault, guestDisabled} {
+	for _, c := range []lanNetwork{lanDefault, guestDisabled} {
 		t.Run(c.iface, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
 			calls := recordCalls(t, srv, "lan", "set_config")
@@ -474,7 +474,7 @@ func TestLANConfigResourceImport(t *testing.T) {
 				Steps: []resource.TestStep{
 					{
 						Config:             config,
-						ResourceName:       lanConfigAddress,
+						ResourceName:       lanAddress,
 						ImportState:        true,
 						ImportStateId:      c.iface,
 						ImportStatePersist: true,
@@ -482,7 +482,7 @@ func TestLANConfigResourceImport(t *testing.T) {
 					{
 						Config:            config,
 						ConfigPlanChecks:  expectEmptyPlan,
-						ConfigStateChecks: c.state(lanConfigAddress),
+						ConfigStateChecks: c.state(lanAddress),
 						Check:             calls.expect(),
 					},
 				},
@@ -491,7 +491,7 @@ func TestLANConfigResourceImport(t *testing.T) {
 	}
 }
 
-func TestLANConfigResourceImportInvalidID(t *testing.T) {
+func TestLANResourceImportInvalidID(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 
@@ -501,7 +501,7 @@ func TestLANConfigResourceImportInvalidID(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config:        fakeRouterConfig(srv) + lanDefault.config(),
-					ResourceName:  lanConfigAddress,
+					ResourceName:  lanAddress,
 					ImportState:   true,
 					ImportStateId: id,
 					ExpectError:   regexp.MustCompile(`Invalid Import ID`),
@@ -524,7 +524,7 @@ func mustJSON(t *testing.T, v any) string {
 	return string(b)
 }
 
-func TestLANConfigResourceUnknownInterface(t *testing.T) {
+func TestLANResourceUnknownInterface(t *testing.T) {
 	parallel(t)
 	t.Run("import", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
@@ -535,7 +535,7 @@ func TestLANConfigResourceUnknownInterface(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config:        fakeRouterConfig(srv) + guestDisabled.config(),
-					ResourceName:  lanConfigAddress,
+					ResourceName:  lanAddress,
 					ImportState:   true,
 					ImportStateId: "guest",
 					ExpectError:   regexp.MustCompile(`Cannot import non-existent remote object`),
@@ -582,16 +582,16 @@ func TestLANConfigResourceUnknownInterface(t *testing.T) {
 	})
 }
 
-func TestLANConfigResourceDrift(t *testing.T) {
+func TestLANResourceDrift(t *testing.T) {
 	parallel(t)
 	withDNS := guestDHCP
 	withDNS.gateway, withDNS.dns = "192.168.9.2", []string{"1.1.1.1"}
 
 	tests := []struct {
 		name   string
-		c      lanConfig
+		c      lanNetwork
 		fields map[string]any
-		calls  func(c lanConfig) []string
+		calls  func(c lanNetwork) []string
 	}{
 		{"ip", guestDHCP, map[string]any{"ip": "192.168.9.2"}, addressCall},
 		{"netmask", guestDHCP, map[string]any{"netmask": "255.255.0.0"}, addressCall},
@@ -600,10 +600,10 @@ func TestLANConfigResourceDrift(t *testing.T) {
 		{"dhcp enabled", guestDisabled, map[string]any{"enable": 1}, dhcpCall},
 		{"dhcp_start", guestDHCP, map[string]any{"start": "192.168.9.50"}, dhcpCall},
 		{"dhcp_end", guestDHCP, map[string]any{"end": "192.168.9.250"}, dhcpCall},
-		{"lease_time", guestDHCP, map[string]any{"leasetime": "3h"}, dhcpCall},
-		{"gateway", withDNS, map[string]any{"gateway": ""}, dhcpCall},
-		{"dns", withDNS, map[string]any{"dns": []string{"1.1.1.1", "8.8.8.8"}}, dhcpCall},
-		{"dns removed", withDNS, map[string]any{"dns": []string{}}, dhcpCall},
+		{"dhcp_lease_time", guestDHCP, map[string]any{"leasetime": "3h"}, dhcpCall},
+		{"dhcp_gateway", withDNS, map[string]any{"gateway": ""}, dhcpCall},
+		{"dhcp_dns", withDNS, map[string]any{"dns": []string{"1.1.1.1", "8.8.8.8"}}, dhcpCall},
+		{"dhcp_dns removed", withDNS, map[string]any{"dns": []string{}}, dhcpCall},
 	}
 
 	for _, tt := range tests {
@@ -624,8 +624,8 @@ func TestLANConfigResourceDrift(t *testing.T) {
 							setLANItem(t, srv, "guest", tt.fields)
 						},
 						Config:            config,
-						ConfigPlanChecks:  expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate),
-						ConfigStateChecks: tt.c.state(lanConfigAddress),
+						ConfigPlanChecks:  expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+						ConfigStateChecks: tt.c.state(lanAddress),
 						Check:             calls.expect(tt.calls(tt.c)...),
 					},
 				},
@@ -655,17 +655,17 @@ func TestLANConfigResourceDrift(t *testing.T) {
 	})
 }
 
-func addressCall(c lanConfig) []string {
+func addressCall(c lanNetwork) []string {
 	return []string{c.addressParams()}
 }
 
-func dhcpCall(c lanConfig) []string {
+func dhcpCall(c lanNetwork) []string {
 	minutes, _ := leaseMinutes(c.lease)
 	return []string{c.dhcpParams(fmt.Sprintf("%dm", minutes))}
 }
 
-// TestLANConfigResourceDestroy destroys the resource, which leaves the router unchanged.
-func TestLANConfigResourceDestroy(t *testing.T) {
+// TestLANResourceDestroy destroys the resource, which leaves the router unchanged.
+func TestLANResourceDestroy(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "lan", "set_config")
@@ -683,13 +683,13 @@ func TestLANConfigResourceDestroy(t *testing.T) {
 	})
 }
 
-func TestLANConfigResourceInvalidConfig(t *testing.T) {
+func TestLANResourceInvalidConfig(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	before := srv.LAN.ConfigList()
 	calls := recordCalls(t, srv, "lan", "set_config")
 
-	with := func(change func(*lanConfig)) string {
+	with := func(change func(*lanNetwork)) string {
 		c := guestDHCP
 		change(&c)
 		return c.config()
@@ -701,44 +701,44 @@ func TestLANConfigResourceInvalidConfig(t *testing.T) {
 	tests := []struct {
 		config, error string
 	}{
-		{with(func(c *lanConfig) { c.iface = "wan" }), `interface value must be one of`},
-		{with(func(c *lanConfig) { c.ip = "203.0.113.1" }), `ip must be a private IPv4 address`},
-		{with(func(c *lanConfig) { c.ip = "192.168.9" }), `ip must be a private IPv4 address`},
-		{with(func(c *lanConfig) { c.ip = "fd00::1" }), `ip must be a private IPv4 address`},
-		{with(func(c *lanConfig) { c.ip = "192.168.9.0" }), `ip cannot be the network or the broadcast address of 192.168.9.0/24`},
-		{with(func(c *lanConfig) { c.ip = "192.168.9.255" }), `ip cannot be the network or the broadcast address`},
-		{with(func(c *lanConfig) { c.netmask = "255.0.255.0" }), `netmask must be an IPv4 netmask`},
-		{with(func(c *lanConfig) { c.netmask = "255.255.255.254" }), `prefix length of netmask must be 16 to 30 for the address 192.168.9.1,\s+got 31`},
-		{with(func(c *lanConfig) { c.netmask = "255.254.0.0" }), `prefix length of netmask must be 16 to 30`},
-		{with(func(c *lanConfig) {
+		{with(func(c *lanNetwork) { c.iface = "wan" }), `name value must be one of`},
+		{with(func(c *lanNetwork) { c.ip = "203.0.113.1" }), `ip must be a private IPv4 address`},
+		{with(func(c *lanNetwork) { c.ip = "192.168.9" }), `ip must be a private IPv4 address`},
+		{with(func(c *lanNetwork) { c.ip = "fd00::1" }), `ip must be a private IPv4 address`},
+		{with(func(c *lanNetwork) { c.ip = "192.168.9.0" }), `ip cannot be the network or the broadcast address of 192.168.9.0/24`},
+		{with(func(c *lanNetwork) { c.ip = "192.168.9.255" }), `ip cannot be the network or the broadcast address`},
+		{with(func(c *lanNetwork) { c.netmask = "255.0.255.0" }), `netmask must be an IPv4 netmask`},
+		{with(func(c *lanNetwork) { c.netmask = "255.255.255.254" }), `prefix length of netmask must be 16 to 30 for the address 192.168.9.1,\s+got 31`},
+		{with(func(c *lanNetwork) { c.netmask = "255.254.0.0" }), `prefix length of netmask must be 16 to 30`},
+		{with(func(c *lanNetwork) {
 			c.ip, c.netmask, c.start, c.end = "172.16.0.1", "255.224.0.0", "172.16.0.10", "172.16.0.20"
 		}), `prefix length of netmask must be 12 to 30`},
-		{with(func(c *lanConfig) {
+		{with(func(c *lanNetwork) {
 			c.ip, c.netmask, c.start, c.end = "10.0.0.1", "254.0.0.0", "10.0.0.10", "10.0.0.20"
 		}), `prefix length of netmask must be 8 to 30`},
-		{with(func(c *lanConfig) { c.start = "192.168.8.100" }), `dhcp_start must be in the network 192.168.9.0/24`},
-		{with(func(c *lanConfig) { c.end = "192.168.10.200" }), `dhcp_end must be in the network 192.168.9.0/24`},
-		{with(func(c *lanConfig) { c.start, c.end = "192.168.9.200", "192.168.9.100" }), `dhcp_start must be less than dhcp_end`},
-		{with(func(c *lanConfig) { c.start, c.end = "192.168.9.100", "192.168.9.100" }), `dhcp_start must be less than dhcp_end`},
-		{with(func(c *lanConfig) { c.start = "8.8.8.8" }), `dhcp_start must be a private IPv4 address`},
-		{with(func(c *lanConfig) { c.start = "" }), `dhcp_start is required when dhcp_enabled is true`},
-		{with(func(c *lanConfig) { c.end = "" }), `dhcp_end is required when dhcp_enabled is true`},
-		{with(func(c *lanConfig) { c.lease = "" }), `lease_time is required when dhcp_enabled is true`},
-		{with(func(c *lanConfig) { c.lease = "1m" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.lease = "71582789m" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.lease = "1193047h" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.lease = "12" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.lease = "43200s" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.lease = "1d" }), `lease_time must be a number of hours or minutes`},
-		{with(func(c *lanConfig) { c.gateway = "gateway" }), `gateway must be an IPv4 address`},
-		{with(func(c *lanConfig) { c.dns = []string{} }), `dns list must contain at least 1 elements`},
-		{with(func(c *lanConfig) { c.dns = []string{"1.1.1.1", "1.0.0.1", "8.8.8.8"} }), `at most 2\s+elements`},
-		{with(func(c *lanConfig) { c.dns = []string{"2001:db8::1"} }), `must be an IPv4 address`},
+		{with(func(c *lanNetwork) { c.start = "192.168.8.100" }), `dhcp_start must be in the network 192.168.9.0/24`},
+		{with(func(c *lanNetwork) { c.end = "192.168.10.200" }), `dhcp_end must be in the network 192.168.9.0/24`},
+		{with(func(c *lanNetwork) { c.start, c.end = "192.168.9.200", "192.168.9.100" }), `dhcp_start must be less than dhcp_end`},
+		{with(func(c *lanNetwork) { c.start, c.end = "192.168.9.100", "192.168.9.100" }), `dhcp_start must be less than dhcp_end`},
+		{with(func(c *lanNetwork) { c.start = "8.8.8.8" }), `dhcp_start must be a private IPv4 address`},
+		{with(func(c *lanNetwork) { c.start = "" }), `dhcp_start is required when dhcp_enabled is true`},
+		{with(func(c *lanNetwork) { c.end = "" }), `dhcp_end is required when dhcp_enabled is true`},
+		{with(func(c *lanNetwork) { c.lease = "" }), `dhcp_lease_time is required when dhcp_enabled is true`},
+		{with(func(c *lanNetwork) { c.lease = "1m" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.lease = "71582789m" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.lease = "1193047h" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.lease = "12" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.lease = "43200s" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.lease = "1d" }), `dhcp_lease_time must be a number of hours or minutes`},
+		{with(func(c *lanNetwork) { c.gateway = "gateway" }), `dhcp_gateway must be an IPv4 address`},
+		{with(func(c *lanNetwork) { c.dns = []string{} }), `dhcp_dns list must contain at least 1 elements`},
+		{with(func(c *lanNetwork) { c.dns = []string{"1.1.1.1", "1.0.0.1", "8.8.8.8"} }), `at most 2\s+elements`},
+		{with(func(c *lanNetwork) { c.dns = []string{"2001:db8::1"} }), `must be an IPv4 address`},
 		{disabledWith("dhcp_start", `"192.168.9.100"`), `dhcp_start cannot be set when dhcp_enabled is false`},
 		{disabledWith("dhcp_end", `"192.168.9.200"`), `dhcp_end cannot be set when dhcp_enabled is false`},
-		{disabledWith("lease_time", `"12h"`), `lease_time cannot be set when dhcp_enabled is false`},
-		{disabledWith("gateway", `"192.168.9.2"`), `gateway cannot be set when dhcp_enabled is false`},
-		{disabledWith("dns", `["1.1.1.1"]`), `dns cannot be set when dhcp_enabled is false`},
+		{disabledWith("dhcp_lease_time", `"12h"`), `dhcp_lease_time cannot be set when dhcp_enabled is false`},
+		{disabledWith("dhcp_gateway", `"192.168.9.2"`), `dhcp_gateway cannot be set when dhcp_enabled is false`},
+		{disabledWith("dhcp_dns", `["1.1.1.1"]`), `dhcp_dns cannot be set when dhcp_enabled is false`},
 		{strings.Replace(guestDisabled.config(), "  ap_isolation = true\n", "", 1), `The argument "ap_isolation" is required`},
 	}
 
@@ -760,26 +760,26 @@ func TestLANConfigResourceInvalidConfig(t *testing.T) {
 	expectJSONEqual(t, srv.LAN.ConfigList(), string(before))
 }
 
-// TestLANConfigResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
-func TestLANConfigResourceUnknownValues(t *testing.T) {
+// TestLANResourceUnknownValues sets attributes from variables, which are unknown while Terraform validates the configuration.
+func TestLANResourceUnknownValues(t *testing.T) {
 	parallel(t)
 	const resourceBlock = `
-resource "glinet_lan_config" "test" {
-  interface    = "guest"
-  ip           = var.ip
-  netmask      = var.netmask
-  ap_isolation = true
-  dhcp_enabled = var.dhcp
-  dhcp_start   = var.start
-  dhcp_end     = var.end
-  lease_time   = var.lease
-  gateway      = var.gateway
-  dns          = var.dns
+resource "glinet_lan" "test" {
+  name            = "guest"
+  ip              = var.ip
+  netmask         = var.netmask
+  ap_isolation    = true
+  dhcp_enabled    = var.dhcp
+  dhcp_start      = var.start
+  dhcp_end        = var.end
+  dhcp_lease_time = var.lease
+  dhcp_gateway    = var.gateway
+  dhcp_dns        = var.dns
 }
 `
 	tests := []struct {
 		name, variables string
-		c               lanConfig
+		c               lanNetwork
 	}{
 		{
 			"enabled",
@@ -793,7 +793,7 @@ variable "lease" { default = "2h" }
 variable "gateway" { default = "192.168.9.2" }
 variable "dns" { default = ["1.1.1.1"] }
 `,
-			lanConfig{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true, dhcp: true,
+			lanNetwork{iface: "guest", ip: "192.168.9.1", netmask: "255.255.255.0", isolation: true, dhcp: true,
 				start: "192.168.9.100", end: "192.168.9.200", lease: "2h", gateway: "192.168.9.2", dns: []string{"1.1.1.1"}},
 		},
 		{
@@ -821,7 +821,7 @@ variable "dns" { default = null }
 				Steps: []resource.TestStep{
 					{
 						Config:            fakeRouterConfig(srv) + tt.variables + resourceBlock,
-						ConfigStateChecks: tt.c.state(lanConfigAddress),
+						ConfigStateChecks: tt.c.state(lanAddress),
 					},
 				},
 			})
@@ -838,14 +838,14 @@ variable "dns" { default = null }
 					Config: fakeRouterConfig(srv) + `
 variable "start" { default = null }
 ` + strings.Replace(guestDisabled.config(), "}\n", "dhcp_start = var.start\n}\n", 1),
-					ConfigStateChecks: guestDisabled.state(lanConfigAddress),
+					ConfigStateChecks: guestDisabled.state(lanAddress),
 				},
 			},
 		})
 	})
 }
 
-func TestLANConfigResourceRouterErrors(t *testing.T) {
+func TestLANResourceRouterErrors(t *testing.T) {
 	parallel(t)
 	config := guestDHCP.config()
 
@@ -869,8 +869,8 @@ func TestLANConfigResourceRouterErrors(t *testing.T) {
 				},
 				{
 					Config:            fakeRouterConfig(srv) + config,
-					ConfigPlanChecks:  expectResourceAction(lanConfigAddress, plancheck.ResourceActionDestroyBeforeCreate),
-					ConfigStateChecks: guestDHCP.state(lanConfigAddress),
+					ConfigPlanChecks:  expectResourceAction(lanAddress, plancheck.ResourceActionDestroyBeforeCreate),
+					ConfigStateChecks: guestDHCP.state(lanAddress),
 				},
 			},
 		})
@@ -968,12 +968,12 @@ func TestLANConfigResourceRouterErrors(t *testing.T) {
 					PreConfig:         func() { srv.Handle("lan", "set_config", set) },
 					Config:            fakeRouterConfig(srv) + addressOnly.config(),
 					ConfigPlanChecks:  expectEmptyPlan,
-					ConfigStateChecks: addressOnly.state(lanConfigAddress),
+					ConfigStateChecks: addressOnly.state(lanAddress),
 				},
 				{
 					Config:            fakeRouterConfig(srv) + moved.config(),
-					ConfigPlanChecks:  expectResourceAction(lanConfigAddress, plancheck.ResourceActionUpdate),
-					ConfigStateChecks: moved.state(lanConfigAddress),
+					ConfigPlanChecks:  expectResourceAction(lanAddress, plancheck.ResourceActionUpdate),
+					ConfigStateChecks: moved.state(lanAddress),
 				},
 			},
 		})

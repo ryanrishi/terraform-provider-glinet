@@ -32,7 +32,7 @@ type wanStatusModel struct {
 
 type wanInterfaceModel struct {
 	Interface string `tfsdk:"interface"`
-	IPAddress string `tfsdk:"ip_address"`
+	IP        string `tfsdk:"ip"`
 	Netmask   string `tfsdk:"netmask"`
 	Prefix    int    `tfsdk:"prefix"`
 	Network   string `tfsdk:"network"`
@@ -56,12 +56,12 @@ func (d *wanStatusDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			"status": computedInt64("Status of the wired WAN, as the router gives it (`status` of `cable.get_status`). " +
 				"The 2023 API reference gives `0` failed, `1` connected, `2` connecting and `3` not connected physically."),
 			"interfaces": computedList("Uplink interfaces that have an IPv4 address (`wan_info` of `lan.get_wan_info`).", map[string]schema.Attribute{
-				"interface":  computedString("Name of the interface, for example `wan` or `wwan`."),
-				"ip_address": computedString("IPv4 address (`ipaddr`)."),
-				"netmask":    computedString("Netmask."),
-				"prefix":     computedInt64("Prefix length of the network."),
-				"network":    computedString("Network address."),
-				"broadcast":  computedString("Broadcast address."),
+				"interface": computedString("Name of the interface, for example `wan` or `wwan`."),
+				"ip":        computedString("IPv4 address (`ipaddr`)."),
+				"netmask":   computedString("Netmask."),
+				"prefix":    computedInt64("Prefix length of the network."),
+				"network":   computedString("Network address."),
+				"broadcast": computedString("Broadcast address."),
 			}),
 		},
 	}
@@ -101,7 +101,7 @@ func (d *wanStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequest
 	for _, u := range uplinks {
 		state.Interfaces = append(state.Interfaces, wanInterfaceModel{
 			Interface: u.Interface,
-			IPAddress: u.Info.IPAddr,
+			IP:        u.Info.IPAddr,
 			Netmask:   u.Info.Netmask,
 			Prefix:    u.Info.Prefix,
 			Network:   u.Info.Network,

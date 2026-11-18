@@ -30,7 +30,7 @@ resource "glinet_system_timezone" "this" {
 ### Read-Only
 
 - `auto_timezone_enabled` (Boolean) Whether the router sets the time zone automatically. The router does not let this resource change it.
-- `id` (String) Always `timezone`.
+- `id` (String) Always `system_timezone`.
 - `tzoffset` (String) Current offset from UTC, for example `-0500`. It changes with daylight saving time.
 
 ## Import
@@ -40,6 +40,6 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is always "timezone".
-terraform import glinet_system_timezone.this timezone
+# The import ID is always "system_timezone".
+terraform import glinet_system_timezone.this system_timezone
 ```

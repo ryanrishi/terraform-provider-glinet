@@ -16,7 +16,7 @@ Get the state of the wired WAN port (`cable.get_status` and `network.check_wan_c
 data "glinet_wan_status" "wan" {}
 
 output "uplink_addresses" {
-  value = { for i in data.glinet_wan_status.wan.interfaces : i.interface => i.ip_address }
+  value = { for i in data.glinet_wan_status.wan.interfaces : i.interface => i.ip }
 }
 ```
 
@@ -39,7 +39,7 @@ Read-Only:
 
 - `broadcast` (String) Broadcast address.
 - `interface` (String) Name of the interface, for example `wan` or `wwan`.
-- `ip_address` (String) IPv4 address (`ipaddr`).
+- `ip` (String) IPv4 address (`ipaddr`).
 - `netmask` (String) Netmask.
 - `network` (String) Network address.
 - `prefix` (Number) Prefix length of the network.

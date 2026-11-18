@@ -1,2 +1,2 @@
-# The import ID is always "dmz". The router must have a DMZ host.
-terraform import glinet_firewall_dmz.this dmz
+# The import ID is always "firewall_dmz". The router must have a DMZ host.
+terraform import glinet_firewall_dmz.this firewall_dmz
