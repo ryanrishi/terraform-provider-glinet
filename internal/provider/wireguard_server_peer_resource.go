@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -44,6 +45,35 @@ type wireGuardServerPeerResourceModel struct {
 	PersistentKeepalive types.Int64  `tfsdk:"persistent_keepalive"`
 	MTU                 types.Int64  `tfsdk:"mtu"`
 	ClientIP            types.String `tfsdk:"client_ip"`
+	ClientConfig        types.Object `tfsdk:"client_config"`
+}
+
+type wireGuardServerPeerClientConfigModel struct {
+	Address             types.String `tfsdk:"address"`
+	PrivateKey          types.String `tfsdk:"private_key"`
+	DNS                 types.List   `tfsdk:"dns"`
+	MTU                 types.Int64  `tfsdk:"mtu"`
+	ListenPort          types.Int64  `tfsdk:"listen_port"`
+	PublicKey           types.String `tfsdk:"public_key"`
+	PresharedKey        types.String `tfsdk:"preshared_key"`
+	AllowedIPs          types.List   `tfsdk:"allowed_ips"`
+	PersistentKeepalive types.Int64  `tfsdk:"persistent_keepalive"`
+	DomainEndpoint      types.String `tfsdk:"domain_endpoint"`
+	IPEndpoint          types.String `tfsdk:"ip_endpoint"`
+}
+
+var wireGuardServerPeerClientConfigTypes = map[string]attr.Type{
+	"address":              types.StringType,
+	"private_key":          types.StringType,
+	"dns":                  types.ListType{ElemType: types.StringType},
+	"mtu":                  types.Int64Type,
+	"listen_port":          types.Int64Type,
+	"public_key":           types.StringType,
+	"preshared_key":        types.StringType,
+	"allowed_ips":          types.ListType{ElemType: types.StringType},
+	"persistent_keepalive": types.Int64Type,
+	"domain_endpoint":      types.StringType,
+	"ip_endpoint":          types.StringType,
 }
 
 func (r *wireGuardServerPeerResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -54,7 +84,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 	resp.Schema = schema.Schema{
 		Description: "Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). " +
 			"The router gives the peer its tunnel address and its keys. " +
-			"The resource does not give the configuration file of the client device; export it in the web UI. " +
+			"`client_config` gives the values of the configuration file of the client device. " +
 			"The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. " +
 			"Destroy removes the peer from the router. " +
 			"Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. " +
@@ -132,6 +162,71 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"client_config": schema.SingleNestedAttribute{
+				Description: "Values of the configuration file of the client device, which the web UI shows as a file and as a QR code (`wg-server.generate_peer` in the router API). " +
+					"The `[Interface]` section of the file has `address`, `private_key`, `dns`, `mtu` and `listen_port`; " +
+					"the `[Peer]` section has `public_key`, `preshared_key`, `allowed_ips`, `persistent_keepalive` and an endpoint. " +
+					"The web UI lets the user select the endpoint from the addresses of the router and adds the server port; " +
+					"`domain_endpoint` and `ip_endpoint` can be null. " +
+					"An attribute is null when the router gives no value. " +
+					"The provider calls `generate_peer` after create and after each update of the peer, as the web UI does, and in a read only when the state has no client configuration, for example after import. " +
+					"It does not call it in each refresh, because it is not known whether the router makes new keys in each call. " +
+					"Thus a change on the router that does not change the peer, for example a new key or port of the server, does not change this value. " +
+					"To get the value again, remove the resource from the state and import it. " +
+					"The state keeps the private key and the preshared key as clear text; protect the state. " +
+					"Not verified on a router: the fields come from the router's web UI and the API reference.",
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"address": schema.StringAttribute{
+						Description: "Address of the client device in the tunnel (`address` in the router API).",
+						Computed:    true,
+					},
+					"private_key": schema.StringAttribute{
+						Description: "Private key of the client device (`private_key` in the router API).",
+						Computed:    true,
+						Sensitive:   true,
+					},
+					"dns": schema.ListAttribute{
+						Description: "IP addresses of the DNS servers (`dns` in the router API).",
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"mtu": schema.Int64Attribute{
+						Description: "MTU of the tunnel (`mtu` in the router API).",
+						Computed:    true,
+					},
+					"listen_port": schema.Int64Attribute{
+						Description: "UDP port of the client device (`listen_port` in the router API).",
+						Computed:    true,
+					},
+					"public_key": schema.StringAttribute{
+						Description: "Public key of the WireGuard server (`public_key` in the router API).",
+						Computed:    true,
+					},
+					"preshared_key": schema.StringAttribute{
+						Description: "Preshared key (`presharedkey` in the router API).",
+						Computed:    true,
+						Sensitive:   true,
+					},
+					"allowed_ips": schema.ListAttribute{
+						Description: "IP networks that the client device sends through the tunnel (`allowed_ips` in the router API).",
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"persistent_keepalive": schema.Int64Attribute{
+						Description: "Interval of the keepalive packets in seconds (`persistent_keepalive` in the router API).",
+						Computed:    true,
+					},
+					"domain_endpoint": schema.StringAttribute{
+						Description: "Endpoint of the server with the DDNS name of the router, `host:port` (`domain_end_point` in the router API).",
+						Computed:    true,
+					},
+					"ip_endpoint": schema.StringAttribute{
+						Description: "Endpoint of the server with the WAN IP address of the router, `host:port` (`ip_end_point` in the router API).",
+						Computed:    true,
+					},
+				},
+			},
 		},
 	}
 }
@@ -175,6 +270,7 @@ func (r *wireGuardServerPeerResource) Create(ctx context.Context, req resource.C
 	plan.nullUnknown()
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
+	r.readClientConfig(ctx, id, &resp.State, &resp.Diagnostics)
 }
 
 func (r *wireGuardServerPeerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -194,7 +290,12 @@ func (r *wireGuardServerPeerResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, wireGuardServerPeerModel(ctx, peer, &resp.Diagnostics))...)
+	model := wireGuardServerPeerModel(ctx, peer, &resp.Diagnostics)
+	model.ClientConfig = state.ClientConfig
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
+	if state.ClientConfig.IsNull() {
+		r.readClientConfig(ctx, peer.ID, &resp.State, &resp.Diagnostics)
+	}
 }
 
 func (r *wireGuardServerPeerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -219,6 +320,7 @@ func (r *wireGuardServerPeerResource) Update(ctx context.Context, req resource.U
 	plan.nullUnknown()
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, peer.ID, &resp.State, &resp.Diagnostics)
+	r.readClientConfig(ctx, peer.ID, &resp.State, &resp.Diagnostics)
 }
 
 func (r *wireGuardServerPeerResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -284,6 +386,34 @@ func (r *wireGuardServerPeerResource) readBack(ctx context.Context, id int, stat
 	diags.Append(state.Set(ctx, wireGuardServerPeerModel(ctx, peer, diags))...)
 }
 
+// readClientConfig sets client_config in state to the result of generate_peer.
+func (r *wireGuardServerPeerResource) readClientConfig(ctx context.Context, id int, state *tfsdk.State, diags *diag.Diagnostics) {
+	if diags.HasError() {
+		return
+	}
+	config, err := r.client.WireGuardServer.GetPeerConfig(ctx, id)
+	if err != nil {
+		diags.AddError("Unable to Read WireGuard Server Peer Client Configuration", err.Error())
+		return
+	}
+
+	value, d := types.ObjectValueFrom(ctx, wireGuardServerPeerClientConfigTypes, wireGuardServerPeerClientConfigModel{
+		Address:             stringOrNull(config.Address),
+		PrivateKey:          stringOrNull(config.PrivateKey),
+		DNS:                 listOrNull(ctx, config.DNS, diags),
+		MTU:                 int64OrNull(config.MTU),
+		ListenPort:          int64OrNull(config.ListenPort),
+		PublicKey:           stringOrNull(config.PublicKey),
+		PresharedKey:        stringOrNull(config.PresharedKey),
+		AllowedIPs:          listOrNull(ctx, config.AllowedIPs, diags),
+		PersistentKeepalive: int64OrNull(config.PersistentKeepalive),
+		DomainEndpoint:      stringOrNull(config.DomainEndpoint),
+		IPEndpoint:          stringOrNull(config.IPEndpoint),
+	})
+	diags.Append(d...)
+	diags.Append(state.SetAttribute(ctx, path.Root("client_config"), value)...)
+}
+
 func (m wireGuardServerPeerResourceModel) peer(ctx context.Context, diags *diag.Diagnostics) glinet.WireGuardServerPeer {
 	return glinet.WireGuardServerPeer{
 		ID:                  int(m.ID.ValueInt64()),
@@ -313,6 +443,9 @@ func (m *wireGuardServerPeerResourceModel) nullUnknown() {
 	if m.ClientIP.IsUnknown() {
 		m.ClientIP = types.StringNull()
 	}
+	if m.ClientConfig.IsUnknown() {
+		m.ClientConfig = types.ObjectNull(wireGuardServerPeerClientConfigTypes)
+	}
 }
 
 // wireGuardServerPeerModel returns the model of peer. preshared_key is null while the preshared key is disabled,
@@ -327,6 +460,7 @@ func wireGuardServerPeerModel(ctx context.Context, peer *glinet.WireGuardServerP
 		PersistentKeepalive: int64OrNull(peer.PersistentKeepalive),
 		MTU:                 int64OrNull(peer.MTU),
 		ClientIP:            stringOrNull(peer.ClientIP),
+		ClientConfig:        types.ObjectNull(wireGuardServerPeerClientConfigTypes),
 	}
 	if peer.PresharedKeyEnable {
 		model.PresharedKey = stringOrNull(peer.PresharedKey)
