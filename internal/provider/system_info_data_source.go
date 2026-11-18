@@ -62,11 +62,14 @@ type hardwareFeatureModel struct {
 	Radio        string `tfsdk:"radio"`
 	ResetButton  string `tfsdk:"reset_button"`
 	RS485        bool   `tfsdk:"rs485"`
+	Screen       bool   `tfsdk:"screen"`
+	SIMO         bool   `tfsdk:"simo"`
 	Slot         string `tfsdk:"slot"`
 	Submodel     string `tfsdk:"submodel"`
 	SwitchButton string `tfsdk:"switch_button"`
 	USB          string `tfsdk:"usb"`
 	USB3         string `tfsdk:"usb3"`
+	USBPower     string `tfsdk:"usb_power"`
 	USBReset     string `tfsdk:"usb_reset"`
 	WAN          string `tfsdk:"wan"`
 }
@@ -132,11 +135,14 @@ func (d *systemInfoDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				"radio":          computedString("Wi-Fi radios, for example `radio0 radio1`."),
 				"reset_button":   computedString("Reset button, for example `gpio-50`."),
 				"rs485":          computedBool("Whether the device has RS-485."),
+				"screen":         computedBool("Whether the device has a screen. Firmware before 4.8 does not report it, and the value is then `false`."),
+				"simo":           computedBool("Whether the device has SIMO. Firmware before 4.8 does not report it, and the value is then `false`."),
 				"slot":           computedString("Slot value, as the router gives it, for example `single`."),
 				"submodel":       computedString("Submodel."),
 				"switch_button":  computedString("Switch button."),
 				"usb":            computedString("USB ports."),
 				"usb3":           computedString("USB 3 ports."),
+				"usb_power":      computedString("USB power control. Firmware before 4.8 does not report it, and the value is then empty."),
 				"usb_reset":      computedString("USB power reset."),
 				"wan":            computedString("WAN interface."),
 			}),
