@@ -32,6 +32,7 @@ func TestSystemTimezoneDataSource(t *testing.T) {
 			TZOffset:            "+0100",
 			AutoTimezoneEnabled: true,
 			Localtime:           1794499485,
+			Timestamp:           1794495885,
 		})
 		config = fakeRouterConfig(srv) + timezoneDataSourceConfig
 		checks = []statecheck.StateCheck{
@@ -40,6 +41,7 @@ func TestSystemTimezoneDataSource(t *testing.T) {
 			expectTimezoneDataSource("tzoffset", knownvalue.StringExact("+0100")),
 			expectTimezoneDataSource("auto_timezone_enabled", knownvalue.Bool(true)),
 			expectTimezoneDataSource("localtime", knownvalue.Int64Exact(1794499485)),
+			expectTimezoneDataSource("timestamp", knownvalue.Int64Exact(1794495885)),
 		}
 	}
 
@@ -121,11 +123,7 @@ func realRouterTimezoneDataSourceChecks() []statecheck.StateCheck {
 		expectTimezoneDataSource("timezone", notEmpty),
 		expectTimezoneDataSource("tzoffset", notEmpty),
 		expectTimezoneDataSource("auto_timezone_enabled", knownvalue.BoolFunc(func(bool) error { return nil })),
-		expectTimezoneDataSource("localtime", knownvalue.Int64Func(func(v int64) error {
-			if v <= 0 {
-				return errors.New("value is not positive")
-			}
-			return nil
-		})),
+		expectTimezoneDataSource("localtime", positiveInt64),
+		expectTimezoneDataSource("timestamp", positiveInt64),
 	}
 }

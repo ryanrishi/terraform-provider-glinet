@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/ryanrishi/glinet-client-go"
 )
 
@@ -36,6 +37,7 @@ type systemInfoModel struct {
 	Board            boardInfoModel       `tfsdk:"board"`
 	HardwareFeatures hardwareFeatureModel `tfsdk:"hardware_features"`
 	SoftwareFeatures softwareFeatureModel `tfsdk:"software_features"`
+	HiddenFeatures   []string             `tfsdk:"hidden_features"`
 }
 
 type boardInfoModel struct {
@@ -146,6 +148,11 @@ func (d *systemInfoDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				"usb_reset":      computedString("USB power reset."),
 				"wan":            computedString("WAN interface."),
 			}),
+			"hidden_features": schema.ListAttribute{
+				Description: "Features that the web UI of the router hides, for example `guestip`.",
+				ElementType: types.StringType,
+				Computed:    true,
+			},
 			"software_features": computedObject("Features of the firmware (`software_feature`).", map[string]schema.Attribute{
 				"adguard":          computedBool("AdGuard Home."),
 				"bark":             computedBool("Bark notifications."),
@@ -191,6 +198,7 @@ func (d *systemInfoDataSource) Read(ctx context.Context, _ datasource.ReadReques
 		Board:            boardInfoModel(info.BoardInfo),
 		HardwareFeatures: hardwareFeatureModel(info.HardwareFeature),
 		SoftwareFeatures: softwareFeatureModel(info.SoftwareFeature),
+		HiddenFeatures:   append([]string{}, info.HiddenFeatures...),
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

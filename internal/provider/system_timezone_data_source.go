@@ -23,6 +23,7 @@ type systemTimezoneDataSourceModel struct {
 	TZOffset            types.String `tfsdk:"tzoffset"`
 	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
 	Localtime           types.Int64  `tfsdk:"localtime"`
+	Timestamp           types.Int64  `tfsdk:"timestamp"`
 	Timezone            types.String `tfsdk:"timezone"`
 }
 
@@ -54,6 +55,10 @@ func (d *systemTimezoneDataSource) Schema(_ context.Context, _ datasource.Schema
 				Description: "Current time of the router, as a Unix time in seconds.",
 				Computed:    true,
 			},
+			"timestamp": schema.Int64Attribute{
+				Description: "Clock of the router, as a Unix time in seconds.",
+				Computed:    true,
+			},
 			"timezone": schema.StringAttribute{
 				Description: "POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.",
 				Computed:    true,
@@ -78,6 +83,7 @@ func (d *systemTimezoneDataSource) Read(ctx context.Context, req datasource.Read
 		TZOffset:            types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),
 		Localtime:           types.Int64Value(config.Localtime),
+		Timestamp:           types.Int64Value(config.Timestamp),
 		Timezone:            types.StringValue(config.Timezone),
 	}
 
