@@ -3,12 +3,12 @@
 page_title: "glinet_wireguard_server_peer Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a peer of the WireGuard server of the router: a client device that can connect (wg-server.add_peer in the router API). The router gives the peer its tunnel address and its keys. The resource does not give the configuration file of the client device; export it in the web UI. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example terraform import glinet_wireguard_server_peer.example 1234. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+  Manages a peer of the WireGuard server of the router: a client device that can connect (wg-server.add_peer in the router API). The router gives the peer its tunnel address and its keys. client_config gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example terraform import glinet_wireguard_server_peer.example 1234. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 ---
 
 # glinet_wireguard_server_peer (Resource)
 
-Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). The router gives the peer its tunnel address and its keys. The resource does not give the configuration file of the client device; export it in the web UI. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). The router gives the peer its tunnel address and its keys. `client_config` gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 
 ## Example Usage
 
@@ -19,6 +19,23 @@ resource "glinet_wireguard_server_peer" "phone" {
   preshared_key = "FAKE+PEER+PRESHARED+KEY+DOCS+0000000000000A="
   allowed_ips   = ["0.0.0.0/0", "::/0"]
   dns           = ["192.168.8.1"]
+}
+
+# The configuration file of the client device. vpn.example.com is the public name of the router.
+output "phone_wireguard_config" {
+  sensitive = true
+  value     = <<-EOT
+    [Interface]
+    Address = ${glinet_wireguard_server_peer.phone.client_config.address}
+    PrivateKey = ${glinet_wireguard_server_peer.phone.client_config.private_key}
+    DNS = ${join(", ", glinet_wireguard_server_peer.phone.client_config.dns)}
+
+    [Peer]
+    PublicKey = ${glinet_wireguard_server_peer.phone.client_config.public_key}
+    PresharedKey = ${glinet_wireguard_server_peer.phone.client_config.preshared_key}
+    AllowedIPs = ${join(", ", glinet_wireguard_server_peer.phone.client_config.allowed_ips)}
+    Endpoint = vpn.example.com:51820
+  EOT
 }
 ```
 
@@ -39,8 +56,26 @@ resource "glinet_wireguard_server_peer" "phone" {
 
 ### Read-Only
 
+- `client_config` (Attributes) Values of the configuration file of the client device, which the web UI shows as a file and as a QR code (`wg-server.generate_peer` in the router API). The `[Interface]` section of the file has `address`, `private_key`, `dns`, `mtu` and `listen_port`; the `[Peer]` section has `public_key`, `preshared_key`, `allowed_ips`, `persistent_keepalive` and an endpoint. The web UI lets the user select the endpoint from the addresses of the router and adds the server port; `domain_endpoint` and `ip_endpoint` can be null. An attribute is null when the router gives no value. The provider calls `generate_peer` after create and after each update of the peer, as the web UI does, and in a read only when the state has no client configuration, for example after import. It does not call it in each refresh, because it is not known whether the router makes new keys in each call. Thus a change on the router that does not change the peer, for example a new key or port of the server, does not change this value. To get the value again, remove the resource from the state and import it. The state keeps the private key and the preshared key as clear text; protect the state. Not verified on a router: the fields come from the router's web UI and the API reference. (see [below for nested schema](#nestedatt--client_config))
 - `client_ip` (String) Address of the client device in the tunnel, which the router gives (`client_ip` in the router API).
 - `id` (Number) ID of the peer, which the router gives (`peer_id` in the router API).
+
+<a id="nestedatt--client_config"></a>
+### Nested Schema for `client_config`
+
+Read-Only:
+
+- `address` (String) Address of the client device in the tunnel (`address` in the router API).
+- `allowed_ips` (List of String) IP networks that the client device sends through the tunnel (`allowed_ips` in the router API).
+- `dns` (List of String) IP addresses of the DNS servers (`dns` in the router API).
+- `domain_endpoint` (String) Endpoint of the server with the DDNS name of the router, `host:port` (`domain_end_point` in the router API).
+- `ip_endpoint` (String) Endpoint of the server with the WAN IP address of the router, `host:port` (`ip_end_point` in the router API).
+- `listen_port` (Number) UDP port of the client device (`listen_port` in the router API).
+- `mtu` (Number) MTU of the tunnel (`mtu` in the router API).
+- `persistent_keepalive` (Number) Interval of the keepalive packets in seconds (`persistent_keepalive` in the router API).
+- `preshared_key` (String, Sensitive) Preshared key (`presharedkey` in the router API).
+- `private_key` (String, Sensitive) Private key of the client device (`private_key` in the router API).
+- `public_key` (String) Public key of the WireGuard server (`public_key` in the router API).
 
 ## Import
 
