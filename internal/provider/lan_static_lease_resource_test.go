@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -320,6 +321,13 @@ resource "glinet_lan_static_lease" "test" {
 }
 `, `string length must be at least 1`},
 	}
+	for _, ip := range []string{"", "192.168.8.300", "192.168.8", " 192.168.8.201", "192.168.8.0/24", "fd00::1"} {
+		tests = append(tests, struct {
+			name   string
+			config string
+			error  string
+		}{"IP " + ip, leaseConfig(leaseMAC, ip, ""), `ip must be an IPv4 address`})
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -344,8 +352,9 @@ func TestLANStaticLeaseResourceRouterError(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:      fakeRouterConfig(srv) + leaseConfig(leaseMAC, "192.168.8.300", ""),
-				ExpectError: regexp.MustCompile(`(?s)Unable to Create LAN Static Lease.*Invalid params: invalid ip`),
+				PreConfig:   failRouterMethod(srv, "lan", "add_static_bind"),
+				Config:      fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, ""),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Create LAN Static Lease.*Method not found`),
 			},
 		},
 	})
@@ -422,6 +431,57 @@ func TestLANStaticLeaseResourceImportNotFound(t *testing.T) {
 			},
 		},
 	})
+}
+
+// TestLANStaticLeaseResourceImportUpperCase imports a lease with a MAC address in upper case in the import ID.
+func TestLANStaticLeaseResourceImportUpperCase(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	if err := client.LAN.AddStaticBind(context.Background(), glinet.StaticBind{MAC: leaseMAC, IP: leaseIP}); err != nil {
+		t.Fatal(err)
+	}
+	config := fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, "")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             config,
+				ResourceName:       leaseAddress,
+				ImportState:        true,
+				ImportStateId:      strings.ToUpper(leaseMAC),
+				ImportStatePersist: true,
+			},
+			{
+				Config:            config,
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: []statecheck.StateCheck{expectLease("mac", knownvalue.StringExact(leaseMAC))},
+			},
+		},
+	})
+}
+
+func TestLANStaticLeaseResourceInvalidImportID(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+
+	for _, id := range []string{"02-00-00-00-00-01", "02:00:00:00:00", "lease"} {
+		t.Run(id, func(t *testing.T) {
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:        fakeRouterConfig(srv) + leaseConfig(leaseMAC, leaseIP, ""),
+						ResourceName:  leaseAddress,
+						ImportState:   true,
+						ImportStateId: id,
+						ExpectError:   regexp.MustCompile(`(?s)Invalid Import ID.*must be a MAC address`),
+					},
+				},
+			})
+		})
+	}
 }
 
 // TestLANStaticLeaseResourceParallelSameIP creates two leases with the same IP address in one apply.

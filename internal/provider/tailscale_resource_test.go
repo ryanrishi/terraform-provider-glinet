@@ -375,6 +375,38 @@ func TestTailscaleResourceLANIPChanged(t *testing.T) {
 	})
 }
 
+// TestTailscaleResourceLANIPChangedInApply changes the LAN subnet of the router during an apply that updates
+// the resource, as a change of the LAN configuration in the same apply can do.
+func TestTailscaleResourceLANIPChangedInApply(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	enabled := tailscale{enabled: true}
+	withLAN := tailscale{enabled: true, lan: true}
+	set := srv.Handler("tailscale", "set_config")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + enabled.config(),
+			},
+			{
+				PreConfig: func() {
+					srv.Handle("tailscale", "set_config", func(params json.RawMessage) (any, error) {
+						config := srv.Tailscale.Config()
+						config.LANIP = "192.168.9.0/24"
+						srv.Tailscale.SetConfig(config)
+						return set(params)
+					})
+				},
+				Config:            fakeRouterConfig(srv) + withLAN.config(),
+				ConfigPlanChecks:  expectResourceAction(tailscaleAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectTailscaleState(withLAN, "192.168.9.0/24"),
+			},
+		},
+	})
+}
+
 func TestTailscaleResourceInvalidConfig(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
