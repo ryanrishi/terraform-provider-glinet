@@ -37,29 +37,30 @@ func (d *systemTimezoneConfigDataSource) Metadata(_ context.Context, req datasou
 
 func (d *systemTimezoneConfigDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Get the time zone information of the device.",
+		Description: "Get the time zone configuration of the router (`system.get_timezone_config`). To change it, use `glinet_system_timezone`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
+				Description: "The POSIX TZ string, the same as `timezone`.",
+				Computed:    true,
 			},
 			"zonename": schema.StringAttribute{
-				Description: "Time zone name of the device (It will return null when use UTC).",
+				Description: "Time zone name as the router shows it, for example `America/New York`. Empty when the router gives none.",
 				Computed:    true,
 			},
 			"tzoffset": schema.StringAttribute{
-				Description: "System time-zone offset.",
+				Description: "Current offset from UTC, for example `-0500`. It changes with daylight saving time.",
 				Computed:    true,
 			},
 			"auto_timezone_enabled": schema.BoolAttribute{
-				Description: "Whether the device is enabled for automatic time zone.",
+				Description: "Whether the router sets the time zone automatically (`autotimezone_enabled`).",
 				Computed:    true,
 			},
 			"localtime": schema.Int64Attribute{
-				Description: "The timestamp of the device (Unit: Seconds).",
+				Description: "Current time of the router, as a Unix time in seconds.",
 				Computed:    true,
 			},
 			"timezone": schema.StringAttribute{
-				Description: "Time zone of the device.",
+				Description: "POSIX TZ string, for example `EST5EDT,M3.2.0,M11.1.0`.",
 				Computed:    true,
 			},
 		},

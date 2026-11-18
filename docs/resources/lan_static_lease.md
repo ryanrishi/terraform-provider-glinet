@@ -3,12 +3,12 @@
 page_title: "glinet_lan_static_lease Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address.
+  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. Destroy removes the binding from the router.
 ---
 
 # glinet_lan_static_lease (Resource)
 
-Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address.
+Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. Destroy removes the binding from the router.
 
 ## Example Usage
 

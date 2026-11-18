@@ -62,7 +62,7 @@ func (r *ipv6Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	resp.Schema = schema.Schema{
 		Description: "Manages IPv6 on the router and on its LAN (`ipv6.set_ipv6` in the router API). " +
 			"The router has one IPv6 configuration, so use one instance of this resource. " +
-			"The web UI shows a note that IPv6 has limits together with the firewall, VPN and cloud features of the router. " +
+			"The web UI warns that some firewall, VPN and cloud features of the router have limits with IPv6. " +
 			"When `enabled` is `false`, the provider sends only `enable: false`, as the web UI does: " +
 			"the other attributes are kept in the Terraform state and get to the router only when IPv6 is enabled. " +
 			"While the router reports IPv6 as disabled, the provider does not compare the other attributes with the router. " +

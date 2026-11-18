@@ -19,6 +19,7 @@ import (
 const (
 	defaultHost     = "http://192.168.8.1"
 	defaultUsername = "root"
+	registryDocs    = "https://registry.terraform.io/providers/ryanrishi/glinet/latest/docs/"
 )
 
 var _ provider.Provider = &GLiNetProvider{}
@@ -46,18 +47,24 @@ func (p *GLiNetProvider) Metadata(ctx context.Context, req provider.MetadataRequ
 
 func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Interact with GL.iNet routers that run v4 firmware.",
+		Description: "Manages GL.iNet routers that run v4 firmware. " +
+			"The provider is tested on a GL-AXT1800 with firmware 4.7.0. Other models and firmware versions can have different API methods.\n\n" +
+			"~> **Warning:** some resources can cut the access to the router: " +
+			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
+			"[`glinet_lan_config`](" + registryDocs + "resources/lan_config) and " +
+			"[`glinet_wifi_iface`](" + registryDocs + "resources/wifi_iface). " +
+			"Read the warnings on their pages before you apply them.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Description: "URI for GL.iNet API. May also be provided via GLINET_HOST environment variable. Defaults to `" + defaultHost + "`.",
+				Description: "URL of the router, with the scheme, for example `http://192.168.8.1`. When it is not set, the provider uses the `GLINET_HOST` environment variable. Defaults to `" + defaultHost + "`.",
 				Optional:    true,
 			},
 			"username": schema.StringAttribute{
-				Description: "Username for GL.iNet API. May also be provided via GLINET_USERNAME environment variable. Defaults to `" + defaultUsername + "`.",
+				Description: "User name for the login to the router. When it is not set, the provider uses the `GLINET_USERNAME` environment variable. Defaults to `" + defaultUsername + "`.",
 				Optional:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "Password for GL.iNet API. May also be provided via GLINET_PASSWORD environment variable.",
+				Description: "Password for the login to the router, the same as for the web UI. When it is not set, the provider uses the `GLINET_PASSWORD` environment variable. One of the two is required.",
 				Optional:    true,
 				Sensitive:   true,
 			},

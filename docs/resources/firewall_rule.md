@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   Manages a traffic rule of the firewall. The match attributes (source_zone, source_ip, source_mac, source_port, protocol, destination_zone, destination_ip and destination_port) identify the rule, and a match attribute with no value is part of the identity. A change to a match attribute replaces the rule. The router does not check rules and accepts duplicates, so create fails when a rule on the router has exactly the same match attributes. Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.
   The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add replace_triggered_by with the earlier rule to the lifecycle block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
-  The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again.
+  Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again.
   The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 ---
 
@@ -15,7 +15,7 @@ Manages a traffic rule of the firewall. The match attributes (`source_zone`, `so
 
 The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
 
-The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again.
+Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again.
 
 The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 
@@ -61,14 +61,14 @@ resource "glinet_firewall_rule" "block_ssh" {
 ### Optional
 
 - `destination_ip` (String) IPv4 address or CIDR block that the traffic goes to (`dest_ip` in the router API). Changing it replaces the rule.
-- `destination_port` (String) Port that the traffic goes to, or a range of ports such as `8000-8010` (`dest_port` in the router API). Changing it replaces the rule.
+- `destination_port` (String) Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API). Changing it replaces the rule.
 - `destination_zone` (String) Firewall zone that the traffic goes to, for example `lan` (`dest` in the router API). With no value, the rule matches traffic to the router itself. Changing it replaces the rule.
 - `enabled` (Boolean) Whether the rule is enabled (`enabled` in the router API). Defaults to `true`.
 - `name` (String) Name of the rule (`name` in the router API). Import finds the rule by its name.
 - `protocol` (String) Protocol: `tcp`, `udp`, `tcp udp`, `icmp` or `all` (`proto` in the router API). With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`. Changing it replaces the rule.
 - `source_ip` (String) IPv4 address or CIDR block that the traffic comes from (`src_ip` in the router API). Changing it replaces the rule.
 - `source_mac` (String) MAC address that the traffic comes from, in lower case, for example `02:00:00:00:00:01` (`src_mac` in the router API). Changing it replaces the rule.
-- `source_port` (String) Port that the traffic comes from, or a range of ports such as `8000-8010` (`src_port` in the router API). Changing it replaces the rule.
+- `source_port` (String) Port that the traffic comes from, from 1 to 65535, or a range of ports such as `8000-8010` (`src_port` in the router API). Changing it replaces the rule.
 
 ## Import
 
