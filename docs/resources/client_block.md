@@ -3,12 +3,12 @@
 page_title: "glinet_client_block Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Blocks a client by its MAC address: the MAC address is an entry in the block list of the router (black_white_list). The router has one list for all clients. The resource does not manage the access control mode: it works only when the router is in block-list mode, and create and destroy fail when the router is in allow-list mode. While the router is not in block-list mode, refresh keeps the resource in the state and shows a warning. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. Destroy removes the MAC address in each letter case. It was not verified that the router blocks the traffic of a client in the list.
+  Blocks a client by its MAC address: the MAC address is an entry in the block list of the router (black_white_list). The router has one list for all clients. The resource does not manage the access control mode: it works only when the router is in block-list mode, and create and destroy fail when the router is in allow-list mode. While the router is not in block-list mode, refresh keeps the resource in the state and shows a warning. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps mac in the letter case of the configuration. Import sets mac in lower case. Destroy removes the MAC address in each letter case. It was not verified that the router blocks the traffic of a client in the list.
 ---
 
 # glinet_client_block (Resource)
 
-Blocks a client by its MAC address: the MAC address is an entry in the block list of the router (`black_white_list`). The router has one list for all clients. The resource does not manage the access control mode: it works only when the router is in block-list mode, and create and destroy fail when the router is in allow-list mode. While the router is not in block-list mode, refresh keeps the resource in the state and shows a warning. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. Destroy removes the MAC address in each letter case. It was not verified that the router blocks the traffic of a client in the list.
+Blocks a client by its MAC address: the MAC address is an entry in the block list of the router (`black_white_list`). The router has one list for all clients. The resource does not manage the access control mode: it works only when the router is in block-list mode, and create and destroy fail when the router is in allow-list mode. While the router is not in block-list mode, refresh keeps the resource in the state and shows a warning. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. Destroy removes the MAC address in each letter case. It was not verified that the router blocks the traffic of a client in the list.
 
 ## Example Usage
 
@@ -23,7 +23,7 @@ resource "glinet_client_block" "tablet" {
 
 ### Required
 
-- `mac` (String) MAC address of the client, in lower case, for example `02:00:00:00:00:01`. Changing it replaces the block.
+- `mac` (String) MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. A change of only the letter case changes only the state. Another change replaces the block.
 
 ## Import
 

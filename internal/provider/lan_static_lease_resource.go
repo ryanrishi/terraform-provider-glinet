@@ -12,14 +12,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-var lowerCaseMAC = regexp.MustCompile(`^[0-9a-f]{2}(:[0-9a-f]{2}){5}$`)
+var (
+	lowerCaseMAC = regexp.MustCompile(`^[0-9a-f]{2}(:[0-9a-f]{2}){5}$`)
+	macAddress   = regexp.MustCompile(`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`)
+)
 
 var (
 	_ resource.Resource                = &lanStaticLeaseResource{}
@@ -36,9 +38,9 @@ type lanStaticLeaseResource struct {
 }
 
 type lanStaticLeaseResourceModel struct {
-	MAC  types.String `tfsdk:"mac"`
-	IP   types.String `tfsdk:"ip"`
-	Name types.String `tfsdk:"name"`
+	MAC  caseInsensitiveString `tfsdk:"mac"`
+	IP   types.String          `tfsdk:"ip"`
+	Name types.String          `tfsdk:"name"`
 }
 
 func (r *lanStaticLeaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -50,16 +52,21 @@ func (r *lanStaticLeaseResource) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: "Manages a DHCP static IP binding of the LAN. " +
 			"The router keeps one binding for each MAC address and one for each IP address, " +
 			"so create and update fail when another binding has the same MAC address or IP address. " +
+			"The router keeps the MAC address in the letter case of the write. " +
+			"The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. " +
+			"Import sets `mac` in the letter case of the router. " +
 			"Destroy removes the binding from the router.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
-				Description: "MAC address of the client, in lower case, for example `02:00:00:00:00:01`. Changing it replaces the binding.",
-				Required:    true,
+				Description: "MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. " +
+					"A change of only the letter case changes only the state. Another change replaces the binding.",
+				Required:   true,
+				CustomType: caseInsensitiveStringType{},
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					requiresReplaceIfNotLetterCase(),
 				},
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(lowerCaseMAC, "must be a MAC address in lower case, for example 02:00:00:00:00:01"),
+					stringvalidator.RegexMatches(macAddress, "must be a MAC address, for example 02:00:00:00:00:01"),
 				},
 			},
 			"ip": schema.StringAttribute{
@@ -99,16 +106,14 @@ func (r *lanStaticLeaseResource) Create(ctx context.Context, req resource.Create
 		resp.Diagnostics.AddError("Unable to Read LAN Static Leases", err.Error())
 		return
 	}
-	for _, b := range binds {
-		if strings.EqualFold(b.MAC, plan.MAC.ValueString()) {
-			resp.Diagnostics.AddAttributeError(
-				path.Root("mac"),
-				"LAN Static Lease Already Exists",
-				fmt.Sprintf("The router already has a static lease for MAC address %s (IP address %s). "+
-					"Import it with the ID %q, or remove it from the router.", b.MAC, b.IP, b.MAC),
-			)
-			return
-		}
+	if b := findBind(binds, plan.MAC.ValueString()); b != nil {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("mac"),
+			"LAN Static Lease Already Exists",
+			fmt.Sprintf("The router already has a static lease for MAC address %s (IP address %s). "+
+				"Import it with the ID %q, or remove it from the router.", b.MAC, b.IP, b.MAC),
+		)
+		return
 	}
 	checkIPFree(binds, plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -164,7 +169,11 @@ func (r *lanStaticLeaseResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	if err := r.client.LAN.SetStaticBind(ctx, staticBind(plan)); err != nil {
+	bind := staticBind(plan)
+	if b := findBind(binds, bind.MAC); b != nil {
+		bind.MAC = b.MAC
+	}
+	if err := r.client.LAN.SetStaticBind(ctx, bind); err != nil {
 		resp.Diagnostics.AddError("Unable to Update LAN Static Lease", err.Error())
 		return
 	}
@@ -179,34 +188,62 @@ func (r *lanStaticLeaseResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	if err := r.client.LAN.RemoveStaticBind(ctx, state.MAC.ValueString()); err != nil {
+	bind, err := r.find(ctx, state.MAC.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read LAN Static Lease", err.Error())
+		return
+	}
+	if bind == nil {
+		return
+	}
+
+	if err := r.client.LAN.RemoveStaticBind(ctx, bind.MAC); err != nil {
 		resp.Diagnostics.AddError("Unable to Delete LAN Static Lease", err.Error())
 	}
 }
 
+// ImportState sets mac in the letter case of the router, so that a configuration in that letter case has no difference.
 func (r *lanStaticLeaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	mac := strings.ToLower(req.ID)
-	if !lowerCaseMAC.MatchString(mac) {
+	if !macAddress.MatchString(req.ID) {
 		resp.Diagnostics.AddError("Invalid Import ID", fmt.Sprintf("The import ID must be a MAC address, for example 02:00:00:00:00:01, got %q.", req.ID))
 		return
+	}
+
+	mac := req.ID
+	bind, err := r.find(ctx, mac)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read LAN Static Lease", err.Error())
+		return
+	}
+	if bind != nil {
+		mac = bind.MAC
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("mac"), mac)...)
 }
 
-// find returns the binding with exactly the MAC address mac, because the router compares MAC addresses with letter case.
 func (r *lanStaticLeaseResource) find(ctx context.Context, mac string) (*glinet.StaticBind, error) {
 	binds, err := r.client.LAN.ListStaticBinds(ctx)
 	if err != nil {
 		return nil, err
 	}
+	return findBind(binds, mac), nil
+}
 
+// findBind returns the binding with exactly the MAC address mac, else the first binding with mac in another letter case.
+// The router compares MAC addresses with letter case, so it can have a binding for each letter case.
+func findBind(binds []glinet.StaticBind, mac string) *glinet.StaticBind {
 	for _, b := range binds {
 		if b.MAC == mac {
-			return &b, nil
+			return &b
 		}
 	}
-	return nil, nil
+	for _, b := range binds {
+		if strings.EqualFold(b.MAC, mac) {
+			return &b
+		}
+	}
+	return nil
 }
 
 func (r *lanStaticLeaseResource) readBack(ctx context.Context, mac string, state *tfsdk.State, diags *diag.Diagnostics) {
@@ -227,7 +264,7 @@ func (r *lanStaticLeaseResource) readBack(ctx context.Context, mac string, state
 // The router would remove that binding without an error.
 func checkIPFree(binds []glinet.StaticBind, plan lanStaticLeaseResourceModel, diags *diag.Diagnostics) {
 	for _, b := range binds {
-		if b.IP == plan.IP.ValueString() && b.MAC != plan.MAC.ValueString() {
+		if b.IP == plan.IP.ValueString() && !strings.EqualFold(b.MAC, plan.MAC.ValueString()) {
 			diags.AddAttributeError(
 				path.Root("ip"),
 				"IP Address Already Has a LAN Static Lease",
@@ -254,7 +291,7 @@ func leaseModel(b *glinet.StaticBind) *lanStaticLeaseResourceModel {
 	}
 
 	return &lanStaticLeaseResourceModel{
-		MAC:  types.StringValue(b.MAC),
+		MAC:  caseInsensitiveStringValue(b.MAC),
 		IP:   types.StringValue(b.IP),
 		Name: name,
 	}

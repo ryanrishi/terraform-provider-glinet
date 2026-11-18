@@ -406,14 +406,14 @@ func TestClientBlockResourceInvalidConfig(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 
-	for _, mac := range []string{blockMACUpper, "02-00-00-00-00-a1", "02:00:00:00:00", "02:00:00:00:00:a1:ff", "02:00:00:00:00:g1"} {
+	for _, mac := range []string{"02-00-00-00-00-a1", "02:00:00:00:00", "02:00:00:00:00:a1:ff", "02:00:00:00:00:g1"} {
 		t.Run(mac, func(t *testing.T) {
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 				Steps: []resource.TestStep{
 					{
 						Config:      fakeRouterConfig(srv) + blockConfig(mac),
-						ExpectError: regexp.MustCompile(`must be a MAC address in lower case`),
+						ExpectError: regexp.MustCompile(`must be a MAC address`),
 					},
 				},
 			})
@@ -706,5 +706,139 @@ func TestAllowTestMACBlock(t *testing.T) {
 	}
 	if err := allowTestMACBlock("clients", "block_client", nil); err == nil {
 		t.Error("clients.block_client is allowed")
+	}
+}
+
+const (
+	upperCaseBlockMAC = "02:00:00:00:AB:CD"
+	lowerCaseBlockMAC = "02:00:00:00:ab:cd"
+	mixedCaseBlockMAC = "02:00:00:00:aB:Cd"
+)
+
+// countBlockListWrites returns the number of block-list writes to the fake router.
+func countBlockListWrites(srv *glinettest.Server) *atomic.Int32 {
+	var writes atomic.Int32
+	for _, method := range []string{"set_single_mac", "set_config"} {
+		next := srv.Handler("black_white_list", method)
+		srv.Handle("black_white_list", method, func(params json.RawMessage) (any, error) {
+			writes.Add(1)
+			return next(params)
+		})
+	}
+	return &writes
+}
+
+// TestClientBlockResourceLetterCase configures the MAC address in upper case and in mixed case.
+// The state keeps the configured letter case, also when the router has the MAC address in another letter case,
+// and a change of only the letter case does not write to the router.
+func TestClientBlockResourceLetterCase(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	setBlockList(srv, blockListMode, unrelatedBlockMAC)
+	writes := countBlockListWrites(srv)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + blockConfig(upperCaseBlockMAC),
+				ConfigStateChecks: expectBlockMAC(upperCaseBlockMAC),
+				Check: func(*terraform.State) error {
+					expectBlockList(t, srv, unrelatedBlockMAC, upperCaseBlockMAC)
+					return nil
+				},
+			},
+			{
+				PreConfig: func() {
+					setBlockList(srv, blockListMode, unrelatedBlockMAC, lowerCaseBlockMAC)
+				},
+				Config:            fakeRouterConfig(srv) + blockConfig(upperCaseBlockMAC),
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: expectBlockMAC(upperCaseBlockMAC),
+			},
+			{
+				PreConfig: func() {
+					writes.Store(0)
+				},
+				Config:            fakeRouterConfig(srv) + blockConfig(mixedCaseBlockMAC),
+				ConfigPlanChecks:  expectResourceAction(blockAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectBlockMAC(mixedCaseBlockMAC),
+				Check: func(*terraform.State) error {
+					if n := writes.Load(); n != 0 {
+						return fmt.Errorf("%d block-list writes for a change of the letter case, want none", n)
+					}
+					expectBlockList(t, srv, unrelatedBlockMAC, lowerCaseBlockMAC)
+					return nil
+				},
+			},
+			{
+				Config:           fakeRouterConfig(srv) + blockConfig(mixedCaseBlockMAC),
+				ConfigPlanChecks: expectEmptyPlan,
+			},
+			{
+				Config:            fakeRouterConfig(srv) + blockConfig(otherBlockMACUpper),
+				ConfigPlanChecks:  expectResourceAction(blockAddress, plancheck.ResourceActionReplace),
+				ConfigStateChecks: expectBlockMAC(otherBlockMACUpper),
+				Check: func(*terraform.State) error {
+					expectBlockList(t, srv, unrelatedBlockMAC, otherBlockMACUpper)
+					return nil
+				},
+			},
+		},
+	})
+
+	expectBlockList(t, srv, unrelatedBlockMAC)
+}
+
+// TestClientBlockResourceImportLetterCase imports with the import ID in each letter case for a configuration
+// in upper case. The import sets the MAC address in lower case, so the next apply changes only the state.
+func TestClientBlockResourceImportLetterCase(t *testing.T) {
+	parallel(t)
+	for _, id := range []string{upperCaseBlockMAC, lowerCaseBlockMAC, mixedCaseBlockMAC} {
+		t.Run(id, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			setBlockList(srv, blockListMode, unrelatedBlockMAC, upperCaseBlockMAC)
+			config := fakeRouterConfig(srv) + blockConfig(upperCaseBlockMAC)
+			var writes *atomic.Int32
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:             config,
+						ResourceName:       blockAddress,
+						ImportState:        true,
+						ImportStateId:      id,
+						ImportStatePersist: true,
+						ImportStateCheck: func(states []*terraform.InstanceState) error {
+							if len(states) != 1 || states[0].Attributes["mac"] != lowerCaseBlockMAC {
+								return fmt.Errorf("imported states are %v, want one with mac %s", states, lowerCaseBlockMAC)
+							}
+							return nil
+						},
+					},
+					{
+						PreConfig: func() {
+							writes = countBlockListWrites(srv)
+						},
+						Config:            config,
+						ConfigPlanChecks:  expectResourceAction(blockAddress, plancheck.ResourceActionUpdate),
+						ConfigStateChecks: expectBlockMAC(upperCaseBlockMAC),
+						Check: func(*terraform.State) error {
+							if n := writes.Load(); n != 0 {
+								return fmt.Errorf("%d block-list writes for a change of the letter case, want none", n)
+							}
+							return nil
+						},
+					},
+					{
+						Config:           config,
+						ConfigPlanChecks: expectEmptyPlan,
+					},
+				},
+			})
+
+			expectBlockList(t, srv, unrelatedBlockMAC)
+		})
 	}
 }
