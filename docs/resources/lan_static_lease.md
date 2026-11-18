@@ -3,12 +3,12 @@
 page_title: "glinet_lan_static_lease Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets mac in the letter case of the router. Destroy removes the binding from the router.
+  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets mac in the letter case of the router. When the router has a binding for more than one letter case of the MAC address, mac must be exactly the MAC address of one of them, and update fails when mac would select another binding. Destroy removes the binding from the router.
 ---
 
 # glinet_lan_static_lease (Resource)
 
-Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets `mac` in the letter case of the router. Destroy removes the binding from the router.
+Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets `mac` in the letter case of the router. When the router has a binding for more than one letter case of the MAC address, `mac` must be exactly the MAC address of one of them, and update fails when `mac` would select another binding. Destroy removes the binding from the router.
 
 ## Example Usage
 

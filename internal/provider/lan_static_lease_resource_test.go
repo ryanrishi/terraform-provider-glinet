@@ -671,3 +671,83 @@ func TestLANStaticLeaseResourceTwoLetterCases(t *testing.T) {
 		},
 	})
 }
+
+// TestLANStaticLeaseResourceTwoLetterCasesAmbiguousChange changes mac to a letter case that does not select
+// exactly one router binding. The update fails before a write, so the resource keeps its binding.
+func TestLANStaticLeaseResourceTwoLetterCasesAmbiguousChange(t *testing.T) {
+	const freeIP = "192.168.8.203"
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	other := glinettest.StaticBind{MAC: lowerCaseLeaseMAC, IP: otherIP, Name: "other"}
+	own := glinettest.StaticBind{MAC: upperCaseLeaseMAC, IP: leaseIP}
+	srv.LAN.SetStaticBinds([]glinettest.StaticBind{other, own})
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectRouterLeases(srv, other),
+		Steps: []resource.TestStep{
+			{
+				Config:             fakeRouterConfig(srv) + leaseConfig(upperCaseLeaseMAC, leaseIP, ""),
+				ResourceName:       leaseAddress,
+				ImportState:        true,
+				ImportStateId:      upperCaseLeaseMAC,
+				ImportStatePersist: true,
+			},
+			{
+				Config:      fakeRouterConfig(srv) + leaseConfig(mixedCaseLeaseMAC, freeIP, ""),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + leaseConfig(lowerCaseLeaseMAC, freeIP, ""),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				PreConfig: func() {
+					if got := srv.LAN.StaticBinds(); !slices.Equal(got, []glinettest.StaticBind{other, own}) {
+						t.Errorf("static leases after the failed updates are %v, want %v", got, []glinettest.StaticBind{other, own})
+					}
+				},
+				Config:            fakeRouterConfig(srv) + leaseConfig(upperCaseLeaseMAC, freeIP, ""),
+				ConfigPlanChecks:  expectResourceAction(leaseAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: []statecheck.StateCheck{expectLease("mac", knownvalue.StringExact(upperCaseLeaseMAC))},
+				Check:             expectRouterLeases(srv, other, glinettest.StaticBind{MAC: upperCaseLeaseMAC, IP: freeIP}),
+			},
+		},
+	})
+}
+
+// TestLANStaticLeaseResourceTwoLetterCasesIPInUse changes the IP address of a binding to the IP address of
+// the binding of the same MAC address in another letter case. The router would remove that binding, so the update fails.
+func TestLANStaticLeaseResourceTwoLetterCasesIPInUse(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	other := glinettest.StaticBind{MAC: lowerCaseLeaseMAC, IP: otherIP, Name: "other"}
+	own := glinettest.StaticBind{MAC: upperCaseLeaseMAC, IP: leaseIP}
+	srv.LAN.SetStaticBinds([]glinettest.StaticBind{own, other})
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectRouterLeases(srv, other),
+		Steps: []resource.TestStep{
+			{
+				Config:             fakeRouterConfig(srv) + leaseConfig(upperCaseLeaseMAC, leaseIP, ""),
+				ResourceName:       leaseAddress,
+				ImportState:        true,
+				ImportStateId:      upperCaseLeaseMAC,
+				ImportStatePersist: true,
+			},
+			{
+				Config:      fakeRouterConfig(srv) + leaseConfig(upperCaseLeaseMAC, otherIP, ""),
+				ExpectError: regexp.MustCompile(`(?s)IP Address Already Has a LAN Static Lease.*` + lowerCaseLeaseMAC),
+			},
+			{
+				PreConfig: func() {
+					if got := srv.LAN.StaticBinds(); !slices.Equal(got, []glinettest.StaticBind{own, other}) {
+						t.Errorf("static leases after the failed update are %v, want %v", got, []glinettest.StaticBind{own, other})
+					}
+				},
+				Config: fakeRouterConfig(srv) + leaseConfig(upperCaseLeaseMAC, leaseIP, ""),
+			},
+		},
+	})
+}

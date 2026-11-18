@@ -55,6 +55,8 @@ func (r *lanStaticLeaseResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"The router keeps the MAC address in the letter case of the write. " +
 			"The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. " +
 			"Import sets `mac` in the letter case of the router. " +
+			"When the router has a binding for more than one letter case of the MAC address, `mac` must be exactly the MAC address of one of them, " +
+			"and update fails when `mac` would select another binding. " +
 			"Destroy removes the binding from the router.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
@@ -106,7 +108,12 @@ func (r *lanStaticLeaseResource) Create(ctx context.Context, req resource.Create
 		resp.Diagnostics.AddError("Unable to Read LAN Static Leases", err.Error())
 		return
 	}
-	if b := findBind(binds, plan.MAC.ValueString()); b != nil {
+	b, err := findBind(binds, plan.MAC.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("mac"), "Unable to Find LAN Static Lease", err.Error())
+		return
+	}
+	if b != nil {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("mac"),
 			"LAN Static Lease Already Exists",
@@ -115,7 +122,7 @@ func (r *lanStaticLeaseResource) Create(ctx context.Context, req resource.Create
 		)
 		return
 	}
-	checkIPFree(binds, plan, &resp.Diagnostics)
+	checkIPFree(binds, plan.IP.ValueString(), "", &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -149,9 +156,12 @@ func (r *lanStaticLeaseResource) Read(ctx context.Context, req resource.ReadRequ
 	resp.Diagnostics.Append(resp.State.Set(ctx, leaseModel(bind))...)
 }
 
+// Update writes to the router binding of the state. It fails before the write when the planned MAC address
+// would find another router binding, so that a change of the letter case cannot change the binding of the resource.
 func (r *lanStaticLeaseResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan lanStaticLeaseResourceModel
+	var plan, state lanStaticLeaseResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -164,15 +174,34 @@ func (r *lanStaticLeaseResource) Update(ctx context.Context, req resource.Update
 		resp.Diagnostics.AddError("Unable to Read LAN Static Leases", err.Error())
 		return
 	}
-	checkIPFree(binds, plan, &resp.Diagnostics)
+
+	current, err := findBind(binds, state.MAC.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("mac"), "Unable to Find LAN Static Lease", err.Error())
+		return
+	}
+	if current == nil {
+		resp.Diagnostics.AddError("LAN Static Lease Not Found", "The router has no static lease for MAC address "+state.MAC.ValueString()+".")
+		return
+	}
+	planned, err := findBind(binds, plan.MAC.ValueString())
+	if err != nil || planned == nil || planned.MAC != current.MAC {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("mac"),
+			"Ambiguous Letter Case of MAC Address",
+			fmt.Sprintf("The router has more than one static lease for MAC address %s in different letter case. "+
+				"Set mac to exactly %q, the MAC address of the static lease of this resource.", plan.MAC.ValueString(), current.MAC),
+		)
+		return
+	}
+
+	checkIPFree(binds, plan.IP.ValueString(), current.MAC, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	bind := staticBind(plan)
-	if b := findBind(binds, bind.MAC); b != nil {
-		bind.MAC = b.MAC
-	}
+	bind.MAC = current.MAC
 	if err := r.client.LAN.SetStaticBind(ctx, bind); err != nil {
 		resp.Diagnostics.AddError("Unable to Update LAN Static Lease", err.Error())
 		return
@@ -227,23 +256,35 @@ func (r *lanStaticLeaseResource) find(ctx context.Context, mac string) (*glinet.
 	if err != nil {
 		return nil, err
 	}
-	return findBind(binds, mac), nil
+	return findBind(binds, mac)
 }
 
-// findBind returns the binding with exactly the MAC address mac, else the first binding with mac in another letter case.
+// findBind returns the binding with exactly the MAC address mac, else the one binding with mac in another letter case.
 // The router compares MAC addresses with letter case, so it can have a binding for each letter case.
-func findBind(binds []glinet.StaticBind, mac string) *glinet.StaticBind {
+// When no binding has exactly mac and more than one binding has mac in another letter case, findBind returns an error.
+func findBind(binds []glinet.StaticBind, mac string) (*glinet.StaticBind, error) {
+	var matches []glinet.StaticBind
 	for _, b := range binds {
 		if b.MAC == mac {
-			return &b
+			return &b, nil
 		}
-	}
-	for _, b := range binds {
 		if strings.EqualFold(b.MAC, mac) {
-			return &b
+			matches = append(matches, b)
 		}
 	}
-	return nil
+
+	switch len(matches) {
+	case 0:
+		return nil, nil
+	case 1:
+		return &matches[0], nil
+	}
+	var macs []string
+	for _, b := range matches {
+		macs = append(macs, b.MAC)
+	}
+	return nil, fmt.Errorf("the router has more than one static lease for MAC address %s in different letter case (%s); "+
+		"set mac to exactly one of them", mac, strings.Join(macs, ", "))
 }
 
 func (r *lanStaticLeaseResource) readBack(ctx context.Context, mac string, state *tfsdk.State, diags *diag.Diagnostics) {
@@ -260,11 +301,11 @@ func (r *lanStaticLeaseResource) readBack(ctx context.Context, mac string, state
 	diags.Append(state.Set(ctx, leaseModel(bind))...)
 }
 
-// checkIPFree adds an error when a binding with another MAC address has the IP address of plan.
+// checkIPFree adds an error when a binding other than the binding with exactly the MAC address ownMAC has the IP address ip.
 // The router would remove that binding without an error.
-func checkIPFree(binds []glinet.StaticBind, plan lanStaticLeaseResourceModel, diags *diag.Diagnostics) {
+func checkIPFree(binds []glinet.StaticBind, ip, ownMAC string, diags *diag.Diagnostics) {
 	for _, b := range binds {
-		if b.IP == plan.IP.ValueString() && !strings.EqualFold(b.MAC, plan.MAC.ValueString()) {
+		if b.IP == ip && b.MAC != ownMAC {
 			diags.AddAttributeError(
 				path.Root("ip"),
 				"IP Address Already Has a LAN Static Lease",
