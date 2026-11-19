@@ -16,7 +16,7 @@ Get the time zone configuration of the router (`system.get_timezone_config`). To
 data "glinet_system_timezone" "router" {}
 
 output "router_timezone" {
-  value = data.glinet_system_timezone.router.zonename
+  value = data.glinet_system_timezone.router.zone_name
 }
 ```
 

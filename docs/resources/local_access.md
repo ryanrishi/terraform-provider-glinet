@@ -19,7 +19,7 @@ Each write sends all attributes, as the web UI does, also the LuCI attributes wh
 ## Example Usage
 
 ```terraform
-# A change of http_port, https_port or redirect_https moves the router API.
+# A change of http_port, https_port or redirect_https_enabled moves the router API.
 # After the apply, change the host of the provider to the new address.
 resource "glinet_local_access" "this" {
   session_timeout = 1800

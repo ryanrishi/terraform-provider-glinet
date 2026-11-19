@@ -56,6 +56,6 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is always firewall_port_forward_order. The import reads all port forwards of the router in their order.
+# The import ID is always "firewall_port_forward_order". The import reads all port forwards of the router in their order.
 terraform import glinet_firewall_port_forward_order.this firewall_port_forward_order
 ```

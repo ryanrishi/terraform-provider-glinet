@@ -27,13 +27,12 @@ make fmt
 make lint
 make generate
 make test
-GOOS=linux GOARCH=386 go vet ./...
-GOOS=linux GOARCH=arm go vet ./...
+make vet32
 ```
 
 - `make test` runs all tests on a fake router and does not need a router. It stops after 20 minutes. Make sure that `TF_ACC` is not set: with `TF_ACC` and `GLINET_HOST` set, some tests use the real router and change its configuration.
 - `make generate` updates `docs/` from the schemas and the examples. Commit the result.
-- The two `go vet` commands check the code for the 32-bit platforms of the release builds.
+- `make vet32` runs `go vet` for the 32-bit platforms of the release builds (`linux/386` and `linux/arm`).
 - Do not run `make testacc` with `GLINET_HOST` set unless you know what the tests write to your router. `README.md` has the details.
 
 ## Rules for resources

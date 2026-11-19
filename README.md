@@ -106,12 +106,22 @@ One `terraform apply` writes the sensitive mark into the state; the next plan sh
 The provider is tested with a GL-AXT1800 on firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.
 Many writes come from the web UI code of firmware 4.8.3 and were tested only on a fake router, not on a real router. The page of each resource states this.
 
+## Versioning
+
+From version 1.0.0, the provider follows [semantic versioning](https://semver.org/). A breaking change needs a new major version:
+
+- A minor or patch version does not remove or rename a resource, a data source or an attribute, and does not change the type of an attribute or remove a value that an attribute accepts.
+- A minor or patch version reads the state of an earlier version with the same major version. You do not have to change your configuration or your state.
+
+Use the version constraint `~> 1.0` to get the minor and patch versions of 1.x.
+The behaviour of a router can change with its firmware. The page of each resource tells what was tested on a router.
+
 ## Requirements
 
 To use the provider:
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) or [OpenTofu](https://opentofu.org/docs/intro/install/).
-  CI tests Terraform 1.16 and 1.17 and the latest OpenTofu. Version 0.1.x of the provider is known to work with Terraform 1.5.7.
+  CI tests Terraform 1.16 and 1.17 and the latest OpenTofu. Version 0.1.x of the provider was used with Terraform 1.5.7, and version 0.2.0 with Terraform 1.17.2.
   The provider uses version 6 of the plugin protocol, which Terraform supports from version 1.0, and no framework feature that needs a later version. Terraform versions before 1.5.7 were not tested.
   Terraform before 1.3 does not show the plan warning of `glinet_firewall_rule` when it destroys a rule with no destination port.
 
