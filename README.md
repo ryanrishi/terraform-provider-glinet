@@ -44,6 +44,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
+| Resource | `glinet_firewall_port_forward_order` | [docs/resources/firewall_port_forward_order.md](docs/resources/firewall_port_forward_order.md) |
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
 | Resource | `glinet_ipv6` | [docs/resources/ipv6.md](docs/resources/ipv6.md) |
 | Resource | `glinet_lan` | [docs/resources/lan.md](docs/resources/lan.md) |
