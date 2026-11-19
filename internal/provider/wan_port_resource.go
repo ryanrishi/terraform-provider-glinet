@@ -141,7 +141,7 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"mac_period_hours": schema.Int64Attribute{
 				Description: "Period in hours after which the router changes a random MAC address, for `mac_update = \"time\"` (`macaddr.period` in the router API). " +
 					"The web UI offers 1 to 180 days and sends the period in hours, so the value must be a multiple of 24 from 24 to 4320; the attribute uses the unit of the router so that the provider can send back each router value unchanged. " +
-					"Can be set only when `mac_mode` is `random`, and not with `mac_update = \"none\"`. The web UI also sends the period with `mac_update = \"reboot\"`; what the router does with it then is not known. " +
+					"Can be set only when `mac_mode` is `random`, and not with `mac_update = \"none\"`; when `mac_update` is not set and the router has `none` (or no value), create and update fail.The web UI also sends the period with `mac_update = \"reboot\"`; what the router does with it then is not known. " +
 					"When it is not set, the router value does not change, or the provider sends 168 (7 days) when the router has no value, as the web UI does.",
 				Optional: true,
 				Computed: true,
@@ -302,6 +302,12 @@ func (r *wanPortResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk
 		mac, err = wanPortMAC(model, port)
 		if err != nil {
 			diags.AddError("Unable to Make Random MAC Address", err.Error())
+			return
+		}
+		if mac.Mode == "random" && mac.Update == "none" && !model.MACPeriodHours.IsUnknown() && !model.MACPeriodHours.IsNull() {
+			diags.AddAttributeError(path.Root("mac_period_hours"), invalidCombination,
+				"mac_period_hours is set, but mac_update is not set and the router has the update policy none, so the router does not use a period. "+
+					"Set mac_update to time, or remove mac_period_hours.")
 			return
 		}
 	}

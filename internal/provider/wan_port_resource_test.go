@@ -299,6 +299,40 @@ func TestWANPortResourceCableEnabled(t *testing.T) {
 	expectJSONEqual(t, srv.Cable.Ports(), string(before))
 }
 
+// TestWANPortResourcePeriodWithUpdateNone sets mac_period_hours without mac_update while the update policy of the
+// router is none, also when the router has no policy: the apply fails before the write, because the router would
+// not get the period.
+func TestWANPortResourcePeriodWithUpdateNone(t *testing.T) {
+	parallel(t)
+
+	for name, mac := range map[string]map[string]any{
+		"none":      {"mode": "random", "macaddr": wanPortRandomMAC, "update": "none"},
+		"no policy": {"mode": "default", "macaddr": wanPortDefaultMAC},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			srv.Cable.SetPorts(wanPortsResult(t, mac))
+			before := srv.Cable.Ports()
+			calls := recordCalls(t, srv, "cable", "set_port_config")
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:      fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"random\"\n  mac_period_hours = 48\n"),
+						ExpectError: regexp.MustCompile(`(?s)Invalid Attribute Combination.*` + wrapped("Set mac_update to time, or remove mac_period_hours.")),
+					},
+				},
+			})
+
+			if params := calls.take(); len(params) != 0 {
+				t.Errorf("set_port_config calls %v, want none", params)
+			}
+			expectJSONEqual(t, srv.Cable.Ports(), string(before))
+		})
+	}
+}
+
 func TestWANPortResourceSecondWAN(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
