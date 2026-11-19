@@ -24,7 +24,7 @@ const (
 
 // lanNetwork is the configuration of a glinet_lan resource. Fields with their zero value are not in the configuration.
 // The router value of wan_isolation and dhcp_lpr_servers is that of the configuration, or false and none when they
-// are not in the configuration.
+// are not in the configuration. An empty lpr that is not nil is the configuration dhcp_lpr_servers = [].
 type lanNetwork struct {
 	label, iface, ip, netmask string
 	isolation, dhcp           bool
@@ -96,6 +96,10 @@ func (c lanNetwork) state(address string) []statecheck.StateCheck {
 	if c.iface == "guest" {
 		wanIsolation = knownvalue.Bool(c.routerWANIsolation())
 	}
+	lpr := stringListOrNullCheck(c.lpr)
+	if c.dhcp && c.lpr == nil {
+		lpr = stringListExact()
+	}
 	return expectAttributes(address, map[string]knownvalue.Check{
 		"name":             knownvalue.StringExact(c.iface),
 		"ip":               knownvalue.StringExact(c.ip),
@@ -108,7 +112,7 @@ func (c lanNetwork) state(address string) []statecheck.StateCheck {
 		"dhcp_lease_time":  stringOrNullCheck(c.lease),
 		"dhcp_gateway":     stringOrNullCheck(c.gateway),
 		"dhcp_dns":         stringListOrNullCheck(c.dns),
-		"dhcp_lpr_servers": stringListOrNullCheck(c.lpr),
+		"dhcp_lpr_servers": lpr,
 	})
 }
 
@@ -127,12 +131,8 @@ func (c lanNetwork) dhcpParams(minutes string) string {
 		return fmt.Sprintf(`{"interface":%q,"enable":0}`, c.iface)
 	}
 	dns, _ := json.Marshal(append([]string{}, c.dns...))
-	lpr := ""
-	if c.lpr != nil {
-		list, _ := json.Marshal(c.lpr)
-		lpr = fmt.Sprintf(`,"lpr":%s`, list)
-	}
-	return fmt.Sprintf(`{"interface":%q,"enable":1,"start":%q,"end":%q,"leasetime":%q,"gateway":%q,"dns":%s%s}`,
+	lpr, _ := json.Marshal(append([]string{}, c.lpr...))
+	return fmt.Sprintf(`{"interface":%q,"enable":1,"start":%q,"end":%q,"leasetime":%q,"gateway":%q,"dns":%s,"lpr":%s}`,
 		c.iface, c.start, c.end, minutes, c.gateway, dns, lpr)
 }
 
@@ -221,6 +221,8 @@ func TestLANResource(t *testing.T) {
 	blocked.wanIsolation = new(true)
 	printers := blocked
 	printers.lpr = []string{"192.168.10.5", "192.168.10.6"}
+	noPrinters := printers
+	noPrinters.lpr = []string{}
 	unblocked := printers
 	unblocked.wanIsolation, unblocked.lpr = new(false), []string{"192.168.10.6"}
 	disabled := unblocked
@@ -241,6 +243,7 @@ func TestLANResource(t *testing.T) {
 		{oneDNS, []string{oneDNS.dhcpParams("30m")}, false},
 		{blocked, []string{blocked.addressParams()}, false},
 		{printers, []string{printers.dhcpParams("30m")}, true},
+		{noPrinters, []string{noPrinters.dhcpParams("30m")}, false},
 		{unblocked, []string{unblocked.addressParams(), unblocked.dhcpParams("30m")}, false},
 		{disabled, []string{disabled.dhcpParams("")}, false},
 	}
@@ -840,7 +843,6 @@ func TestLANResourceInvalidConfig(t *testing.T) {
 		{disabledWith("dhcp_gateway", `"192.168.9.2"`), `dhcp_gateway cannot be set when dhcp_enabled is false`},
 		{disabledWith("dhcp_dns", `["1.1.1.1"]`), `dhcp_dns cannot be set when dhcp_enabled is false`},
 		{disabledWith("dhcp_lpr_servers", `["192.168.9.5"]`), `dhcp_lpr_servers cannot be set when dhcp_enabled is false`},
-		{with(func(c *lanNetwork) { c.lpr = []string{} }), `dhcp_lpr_servers list must contain at least 1 elements`},
 		{with(func(c *lanNetwork) {
 			c.lpr = []string{"192.168.9.5", "192.168.9.6", "192.168.9.7", "192.168.9.8", "192.168.9.9", "192.168.9.10"}
 		}), `at most\s+5\s+elements, got: 6`},

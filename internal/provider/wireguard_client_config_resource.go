@@ -136,7 +136,7 @@ func (r *wireGuardClientConfigResource) Schema(_ context.Context, _ resource.Sch
 				},
 			},
 			"dns": schema.ListAttribute{
-				Description: "IP addresses of the DNS servers in the tunnel (`dns` in the router API, one string with `, ` between the items). " + wireGuardRouterValueNote,
+				Description: "IP addresses of the DNS servers in the tunnel (`dns` in the router API, one string with `, ` between the items). " + wireGuardRouterValueNote + " " + wireGuardEmptyListNote,
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
@@ -149,7 +149,7 @@ func (r *wireGuardClientConfigResource) Schema(_ context.Context, _ resource.Sch
 				},
 			},
 			"listen_port": schema.Int64Attribute{
-				Description: "UDP port of the router in the tunnel, from 1 to 65535 (`listen_port` in the router API). " + wireGuardRouterValueNote,
+				Description: "UDP port of the router in the tunnel, from 1 to 65535 (`listen_port` in the router API). " + wireGuardRouterValueNote + " " + wireGuardEmptyNumberNote,
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{
@@ -158,7 +158,7 @@ func (r *wireGuardClientConfigResource) Schema(_ context.Context, _ resource.Sch
 				Validators: []validator.Int64{int64validator.Between(1, 65535)},
 			},
 			"persistent_keepalive": schema.Int64Attribute{
-				Description: "Interval of the keepalive packets in seconds, from 1 to 65535 (`persistent_keepalive` in the router API). " + wireGuardRouterValueNote,
+				Description: "Interval of the keepalive packets in seconds, from 1 to 65535 (`persistent_keepalive` in the router API). " + wireGuardRouterValueNote + " " + wireGuardEmptyNumberNote,
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{
@@ -167,7 +167,7 @@ func (r *wireGuardClientConfigResource) Schema(_ context.Context, _ resource.Sch
 				Validators: []validator.Int64{int64validator.Between(1, 65535)},
 			},
 			"mtu": schema.Int64Attribute{
-				Description: "MTU of the tunnel, from 576 to 65535 (`mtu` in the router API). " + wireGuardRouterValueNote,
+				Description: "MTU of the tunnel, from 576 to 65535 (`mtu` in the router API). " + wireGuardRouterValueNote + " " + wireGuardEmptyNumberNote,
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{
