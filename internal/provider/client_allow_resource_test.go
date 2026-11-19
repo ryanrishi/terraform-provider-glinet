@@ -204,7 +204,7 @@ func TestClientAllowResourceBlockListModeCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      fakeRouterConfig(srv) + allowConfig(allowMAC),
-				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Allow-List Mode.*"block_list", not "allow_list"`),
+				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Allow-List Mode.*"block_list",\s+not\s+"allow_list".*"allow_list"\s+first`),
 			},
 		},
 	})
@@ -239,7 +239,7 @@ func TestClientAllowResourceBlockListModeReadAndDelete(t *testing.T) {
 			{
 				Config:      config,
 				Destroy:     true,
-				ExpectError: regexp.MustCompile(`Router Is Not in Allow-List Mode`),
+				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Allow-List Mode.*terraform\s+state\s+rm.*Do\s+not\s+set\s+allow-list\s+mode`),
 			},
 			{
 				PreConfig: func() {
@@ -269,7 +269,7 @@ func TestClientAllowResourceLastEntry(t *testing.T) {
 			{
 				Config:      config,
 				Destroy:     true,
-				ExpectError: regexp.MustCompile(`(?s)Last Allow-List Entry.*` + allowMAC + `.*"block_list"`),
+				ExpectError: regexp.MustCompile(`(?s)Last Allow-List Entry.*` + allowMAC + `.*Keep\s+another\s+entry.*terraform\s+state\s+rm`),
 			},
 			{
 				PreConfig: func() {

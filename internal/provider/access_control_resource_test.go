@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -116,6 +118,45 @@ func TestAccessControlResourceCreateChangesMode(t *testing.T) {
 				Config:            fakeRouterConfig(srv) + accessControlConfig("block_list"),
 				ConfigStateChecks: expectAccessControlMode("block_list"),
 				Check:             resource.ComposeTestCheckFunc(calls.expect(`{"mode":"black","mac":[]}`), expectAccessControl(srv, want)),
+			},
+		},
+	})
+}
+
+// TestAccessControlResourceReadErrorAfterCreate fails the read after the mode change of the create.
+// The resource stays in the state, and the next apply replaces it without a second mode change.
+func TestAccessControlResourceReadErrorAfterCreate(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	srv.AccessControl.SetConfig(glinettest.AccessControlConfig{Mode: glinet.AccessControlBlockList, WhiteMAC: []string{allowMACUpper}})
+	calls := recordCalls(t, srv, "black_white_list", "set_config")
+	getConfig := srv.Handler("black_white_list", "get_config")
+	var failed atomic.Bool
+	srv.Handle("black_white_list", "get_config", func(params json.RawMessage) (any, error) {
+		if srv.AccessControl.Config().Mode == glinet.AccessControlAllowList && !failed.Swap(true) {
+			return nil, glinettest.ErrMethodNotFound
+		}
+		return getConfig(params)
+	})
+	config := fakeRouterConfig(srv) + accessControlConfig("allow_list")
+	want := glinettest.AccessControlConfig{Mode: glinet.AccessControlAllowList, WhiteMAC: []string{allowMACUpper}}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectAccessControl(srv, want),
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile(`(?s)Unable to Read Access Control Configuration.*Method not found`),
+			},
+			{
+				Config:            config,
+				ConfigPlanChecks:  expectResourceAction(accessControlAddress, plancheck.ResourceActionDestroyBeforeCreate),
+				ConfigStateChecks: expectAccessControlMode("allow_list"),
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(`{"mode":"white","mac":["`+allowMACUpper+`"]}`),
+					expectAccessControl(srv, want),
+				),
 			},
 		},
 	})

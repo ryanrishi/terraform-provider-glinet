@@ -22,6 +22,9 @@ func NewClientAllowResource() resource.Resource {
 			"The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. " +
 			"Destroy removes the MAC address in each letter case. " +
 			"The allow-list writes are from the web UI code of firmware 4.8.3 and were not tested on a router.",
+		deleteOutsideModeAdvice: "Remove the resource from the configuration and then from the state with terraform state rm: " +
+			"the entry then stays in the allow list of the router and is not managed. " +
+			"Do not set allow-list mode only to remove an entry: allow-list mode can block clients.",
 		add:           (*glinet.AccessControlService).AddAllowedMAC,
 		remove:        (*glinet.AccessControlService).RemoveAllowedMAC,
 		keepLastEntry: true,

@@ -31,6 +31,8 @@ type clientList struct {
 	description string
 	add         func(*glinet.AccessControlService, context.Context, string) error
 	remove      func(*glinet.AccessControlService, context.Context, string) error
+	// deleteOutsideModeAdvice tells the user what to do when destroy fails because the router is not in mode.
+	deleteOutsideModeAdvice string
 	// keepLastEntry makes destroy fail when it would empty the list while the router uses it.
 	keepLastEntry bool
 }
@@ -95,7 +97,9 @@ func (r *clientListResource) Create(ctx context.Context, req resource.CreateRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	_, entries := r.listEntries(ctx, mac, &resp.Diagnostics)
+	_, entries := r.listEntries(ctx, mac,
+		fmt.Sprintf("Set the access control mode to %q first, for example with glinet_access_control.", accessControlModeName(r.list.mode)),
+		&resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -175,7 +179,7 @@ func (r *clientListResource) Delete(ctx context.Context, req resource.DeleteRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	list, entries := r.listEntries(ctx, mac, &resp.Diagnostics)
+	list, entries := r.listEntries(ctx, mac, r.list.deleteOutsideModeAdvice, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -184,9 +188,10 @@ func (r *clientListResource) Delete(ctx context.Context, req resource.DeleteRequ
 			"Last "+r.list.title()+"-List Entry",
 			fmt.Sprintf("MAC address %s is the last entry of the %s, and the router is in %q mode. "+
 				"An empty %s can block all clients, also the computer that runs Terraform, so the provider does not remove it. "+
-				"Set the access control mode to %q first (for example with glinet_access_control), "+
-				"or keep one more entry in the %s.",
-				mac, r.list.name(), accessControlModeName(r.list.mode), r.list.name(), accessControlModeName(glinet.AccessControlBlockList), r.list.name()),
+				"Keep another entry in the %s, or remove the resource from the configuration and then from the state with terraform state rm: "+
+				"the entry then stays on the router and is not managed. "+
+				"A change of the access control mode does not help, because this resource removes entries only in %q mode.",
+				mac, r.list.name(), accessControlModeName(r.list.mode), r.list.name(), r.list.name(), accessControlModeName(r.list.mode)),
 		)
 		return
 	}
@@ -212,7 +217,7 @@ func (r *clientListResource) ImportState(ctx context.Context, req resource.Impor
 // listEntries reads the access control configuration and returns the list of the resource and its entries for mac.
 // It adds an error when the router is not in the mode of the list: the web UI writes a single MAC address only
 // to the list of the current mode, and it is not known what such a write does in the other mode.
-func (r *clientListResource) listEntries(ctx context.Context, mac string, diags *diag.Diagnostics) (list, entries []string) {
+func (r *clientListResource) listEntries(ctx context.Context, mac, advice string, diags *diag.Diagnostics) (list, entries []string) {
 	config, err := r.client.AccessControl.GetConfig(ctx)
 	if err != nil {
 		diags.AddError("Unable to Read "+r.list.title()+" List", err.Error())
@@ -222,11 +227,9 @@ func (r *clientListResource) listEntries(ctx context.Context, mac string, diags 
 		diags.AddError(
 			"Router Is Not in "+r.list.modeTitle(),
 			fmt.Sprintf("The access control mode of the router is %q, not %q. "+
-				"This resource writes to the %s only in %q mode, because it is not known what the write does in another mode. "+
-				"Set the access control mode to %q (for example with glinet_access_control), "+
-				"or remove the resource from the state with terraform state rm.",
+				"This resource writes to the %s only in %q mode, because it is not known what the write does in another mode. %s",
 				accessControlModeName(config.Mode), accessControlModeName(r.list.mode), r.list.name(),
-				accessControlModeName(r.list.mode), accessControlModeName(r.list.mode)),
+				accessControlModeName(r.list.mode), advice),
 		)
 		return nil, nil
 	}

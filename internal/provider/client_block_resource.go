@@ -18,6 +18,9 @@ func NewClientBlockResource() resource.Resource {
 			"The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. " +
 			"Destroy removes the MAC address in each letter case. " +
 			"It was not verified that the router blocks the traffic of a client in the list.",
+		deleteOutsideModeAdvice: "Set the access control mode to \"block_list\" first, for example with glinet_access_control, " +
+			"or remove the resource from the configuration and then from the state with terraform state rm: " +
+			"the entry then stays on the router and is not managed.",
 		add:    (*glinet.AccessControlService).AddBlockedMAC,
 		remove: (*glinet.AccessControlService).RemoveBlockedMAC,
 	}}

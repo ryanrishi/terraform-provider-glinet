@@ -469,7 +469,7 @@ func TestClientBlockResourceAllowListModeReadAndDelete(t *testing.T) {
 			{
 				Config:      config,
 				Destroy:     true,
-				ExpectError: regexp.MustCompile(`Router Is Not in Block-List Mode`),
+				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Block-List Mode.*"block_list"\s+first.*terraform\s+state\s+rm`),
 			},
 			{
 				PreConfig: func() {
