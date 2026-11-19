@@ -3,19 +3,20 @@
 page_title: "glinet_firewall_dmz Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone wan to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource. A write that enables the DMZ sends back the DMZ priority of the router (priority in the router API), which this resource does not manage.
+  Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone wan to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource.
 ---
 
 # glinet_firewall_dmz (Resource)
 
-Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone `wan` to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource. A write that enables the DMZ sends back the DMZ priority of the router (`priority` in the router API), which this resource does not manage.
+Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone `wan` to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource.
 
 ## Example Usage
 
 ```terraform
 resource "glinet_firewall_dmz" "this" {
-  enabled     = true
-  internal_ip = "192.168.8.200"
+  enabled         = true
+  internal_ip     = "192.168.8.200"
+  higher_priority = true
 }
 ```
 
@@ -26,6 +27,10 @@ resource "glinet_firewall_dmz" "this" {
 
 - `enabled` (Boolean) Whether the DMZ is enabled (`enabled` in the router API).
 - `internal_ip` (String) IPv4 address of the DMZ host (`dest_ip` in the router API).
+
+### Optional
+
+- `higher_priority` (Boolean) Whether the DMZ has the higher priority (`priority` in the router API). The web UI of firmware 4.8.3 shows `true` as the higher priority and `false` as the lower priority. It shows the DMZ on the port forward page, but to what the priority is compared is not known. When it is not set, the provider sends back the value of the router, so the router value does not change. The provider sends `priority` only when `enabled` is `true`, as the web UI does. While the router reports the DMZ as disabled, the provider keeps the value of the state and does not compare it with the router. When the router reports another priority after a write that enables the DMZ, the apply fails. Before the first write, the router reports no priority and the provider reads `false`; the web UI then shows `true`. The write of `priority` was not tested on a router: firmware 4.7.0 reports `false` after each write without `priority`, and what firmware without this option does with it is not known.
 
 ### Read-Only
 
