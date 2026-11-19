@@ -431,13 +431,18 @@ func TestParentalControlRulesetResourceStateOf020(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		var config map[string]any
+		var config map[string]json.RawMessage
+		var rules []map[string]any
 		if err := json.Unmarshal([]byte(mustJSON(t, res)), &config); err != nil {
 			return nil, err
 		}
-		for _, rule := range config["rules"].([]any) {
-			delete(rule.(map[string]any), "url")
+		if err := json.Unmarshal(config["rules"], &rules); err != nil {
+			return nil, err
 		}
+		for _, rule := range rules {
+			delete(rule, "url")
+		}
+		config["rules"] = json.RawMessage(mustJSON(t, rules))
 		return config, nil
 	})
 
