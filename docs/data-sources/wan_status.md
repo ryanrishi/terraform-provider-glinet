@@ -3,12 +3,12 @@
 page_title: "glinet_wan_status Data Source - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Get the state of the wired WAN port (cable.get_status and network.check_wan_cable) and the IPv4 addresses of the uplink interfaces (lan.get_wan_info). The values change while the router runs.
+  Get the state of the wired WAN ports (cable.get_status), the cable of the first wired WAN port (network.check_wan_cable) and the IPv4 addresses of the uplink interfaces (lan.get_wan_info). The data source does not read the cable of the second wired WAN port, because the web UI code does not call network.check_wan_cable for it and the router behaviour is not known.The values change while the router runs.
 ---
 
 # glinet_wan_status (Data Source)
 
-Get the state of the wired WAN port (`cable.get_status` and `network.check_wan_cable`) and the IPv4 addresses of the uplink interfaces (`lan.get_wan_info`). The values change while the router runs.
+Get the state of the wired WAN ports (`cable.get_status`), the cable of the first wired WAN port (`network.check_wan_cable`) and the IPv4 addresses of the uplink interfaces (`lan.get_wan_info`). The data source does not read the cable of the second wired WAN port, because the web UI code does not call `network.check_wan_cable` for it and the router behaviour is not known.The values change while the router runs.
 
 ## Example Usage
 
@@ -30,6 +30,7 @@ output "uplink_addresses" {
 - `interfaces` (Attributes List) Uplink interfaces that have an IPv4 address (`wan_info` of `lan.get_wan_info`). (see [below for nested schema](#nestedatt--interfaces))
 - `mac_clone_enabled` (Boolean) Whether MAC address cloning is enabled for the wired WAN (`macclone_enabled` of `network.check_wan_cable`).
 - `mode` (Number) Mode of the wired WAN, as the router gives it (`mode` of `cable.get_status`). The meaning of the values is not documented.
+- `second_wan` (Attributes) State of the second wired WAN port (`secondwan` of `cable.get_status`). A router without a second wired WAN port gives `error_code` `-4` and `error_message` `Unsupported features!`. The values of a router with a second wired WAN port were not seen on a router. (see [below for nested schema](#nestedatt--second_wan))
 - `status` (Number) Status of the wired WAN, as the router gives it (`status` of `cable.get_status`). The 2023 API reference gives `0` failed, `1` connected, `2` connecting and `3` not connected physically.
 
 <a id="nestedatt--interfaces"></a>
@@ -43,3 +44,14 @@ Read-Only:
 - `netmask` (String) Netmask.
 - `network` (String) Network address.
 - `prefix` (Number) Prefix length of the network.
+
+
+<a id="nestedatt--second_wan"></a>
+### Nested Schema for `second_wan`
+
+Read-Only:
+
+- `error_code` (Number) Error code of the router (`err_code`), for example `-4` when the router has no second wired WAN port. Null when the router gives no error code.
+- `error_message` (String) Error message of the router (`err_msg`). Null when the router gives no error message.
+- `mode` (Number) Mode of the second wired WAN, as for `mode`. Null when the router gives an error code.
+- `status` (Number) Status of the second wired WAN, as for `status`. Null when the router gives an error code.

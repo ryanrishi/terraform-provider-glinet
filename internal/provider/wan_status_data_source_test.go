@@ -24,6 +24,12 @@ func TestWANStatusDataSource(t *testing.T) {
 			"mac_clone_enabled": anyBool,
 			"mode":              anyInt64,
 			"status":            anyInt64,
+			"second_wan": knownvalue.ObjectExact(map[string]knownvalue.Check{
+				"mode":          orNull(anyInt64),
+				"status":        orNull(anyInt64),
+				"error_code":    orNull(anyInt64),
+				"error_message": orNull(anyString),
+			}),
 			"interfaces": knownvalue.ListPartial(map[int]knownvalue.Check{
 				0: knownvalue.ObjectExact(map[string]knownvalue.Check{
 					"interface": nonEmptyString,
@@ -54,6 +60,12 @@ func TestWANStatusDataSource(t *testing.T) {
 		"mac_clone_enabled": knownvalue.Bool(false),
 		"mode":              knownvalue.Int64Exact(2),
 		"status":            knownvalue.Int64Exact(1),
+		"second_wan": knownvalue.ObjectExact(map[string]knownvalue.Check{
+			"mode":          knownvalue.Null(),
+			"status":        knownvalue.Null(),
+			"error_code":    knownvalue.Int64Exact(-4),
+			"error_message": knownvalue.StringExact("Unsupported features!"),
+		}),
 		"interfaces": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"interface": knownvalue.StringExact("wan"),
@@ -73,6 +85,35 @@ func TestWANStatusDataSource(t *testing.T) {
 			}),
 		}),
 	}))
+}
+
+// TestWANStatusDataSourceSecondWAN reads a router with a second WAN port, which does not read the cable of the second port.
+func TestWANStatusDataSourceSecondWAN(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	srv.Cable.SetStatus(json.RawMessage(`{"mode": 0, "secondwan": {"mode": 2, "status": 1}, "status": 3}`))
+	calls := recordCalls(t, srv, "network", "check_wan_cable")
+
+	readDataSource(t, fakeRouterConfig(srv)+wanStatusDataSourceConfig, expectAttributes(wanStatusAddress, map[string]knownvalue.Check{
+		"mode":   knownvalue.Int64Exact(0),
+		"status": knownvalue.Int64Exact(3),
+		"second_wan": knownvalue.ObjectExact(map[string]knownvalue.Check{
+			"mode":          knownvalue.Int64Exact(2),
+			"status":        knownvalue.Int64Exact(1),
+			"error_code":    knownvalue.Null(),
+			"error_message": knownvalue.Null(),
+		}),
+	}))
+
+	got := calls.take()
+	if len(got) == 0 {
+		t.Error("network.check_wan_cable was not called")
+	}
+	for _, params := range got {
+		if params != `{"secondwan":false}` {
+			t.Errorf("network.check_wan_cable was called with %s", params)
+		}
+	}
 }
 
 func TestWANStatusDataSourceNoUplink(t *testing.T) {

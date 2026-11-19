@@ -8,3 +8,9 @@ resource "glinet_wan" "this" {
   }
   mtu = 1500
 }
+
+# Only on a router with a second wired WAN port.
+resource "glinet_wan" "second" {
+  port     = "secondwan"
+  protocol = "dhcp"
+}
