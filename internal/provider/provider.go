@@ -166,6 +166,8 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewAdGuardHomeResource,
 		NewClientAllowResource,
 		NewClientBlockResource,
+		NewClientInfoResource,
+		NewClientSpeedLimitResource,
 		NewDDNSResource,
 		NewTailscaleResource,
 		NewZeroTierResource,

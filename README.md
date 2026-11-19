@@ -42,6 +42,8 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_adguardhome` | [docs/resources/adguardhome.md](docs/resources/adguardhome.md) |
 | Resource | `glinet_client_allow` | [docs/resources/client_allow.md](docs/resources/client_allow.md) |
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
+| Resource | `glinet_client_info` | [docs/resources/client_info.md](docs/resources/client_info.md) |
+| Resource | `glinet_client_speed_limit` | [docs/resources/client_speed_limit.md](docs/resources/client_speed_limit.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
