@@ -49,6 +49,7 @@ func (r *fanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			"The router has one fan configuration, so use one instance of this resource. " +
 			"Only a router with a fan (`hardware_feature.fan` of `system.get_info`) has this setting: on other routers, create and update fail and do not write to the router. " +
 			"For the speed of the fan, use the data source `glinet_fan_status`. " +
+			"The write was tested on a GL-AXT1800 with firmware 4.8.3: the router accepted `temperature` 60, and the fan started. " +
 			"Destroy removes the resource from the Terraform state and does not change the router.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

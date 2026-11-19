@@ -149,6 +149,8 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"When a write to such a rule fails, the error tells how to remove the rule with SSH and `uci`. " +
 			"The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). " +
 			"Other firmware versions were not tested.\n\n" +
+			"Rules with IPv6 addresses, IPv4 and IPv6 CIDR blocks, the protocols `esp` and `icmpv6`, and a source MAC address in upper case were tested on a GL-AXT1800 with firmware 4.8.3: " +
+			"the router accepted the write, and the nftables rule set of the firewall had the rule.\n\n" +
 			"The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
 			"source_zone": sourceZone,

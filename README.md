@@ -33,7 +33,7 @@ variable "glinet_password" {
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
 
 > [!WARNING]
-> Some resources can cut the access to the router: [`glinet_access_control`](docs/resources/access_control.md), [`glinet_client_allow`](docs/resources/client_allow.md), [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
+> Some resources can cut the access to the router, or the Internet access of the router and its clients: [`glinet_access_control`](docs/resources/access_control.md), [`glinet_client_allow`](docs/resources/client_allow.md), [`glinet_parental_control`](docs/resources/parental_control.md), [`glinet_parental_control_group`](docs/resources/parental_control_group.md), [`glinet_local_access`](docs/resources/local_access.md), [`glinet_wan_access`](docs/resources/wan_access.md), [`glinet_wan`](docs/resources/wan.md), [`glinet_wan_port`](docs/resources/wan_port.md), [`glinet_multiwan`](docs/resources/multiwan.md), [`glinet_multiwan_interface`](docs/resources/multiwan_interface.md), [`glinet_multiwan_sensitivity`](docs/resources/multiwan_sensitivity.md), [`glinet_repeater`](docs/resources/repeater.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
 > Read the warnings on their pages before you apply them.
 
 | Type | Name | Documentation |
@@ -55,16 +55,16 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_ipv6` | [docs/resources/ipv6.md](docs/resources/ipv6.md) |
 | Resource | `glinet_lan` | [docs/resources/lan.md](docs/resources/lan.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
-| Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
-| Resource | `glinet_parental_control` | [docs/resources/parental_control.md](docs/resources/parental_control.md) |
-| Resource | `glinet_parental_control_group` | [docs/resources/parental_control_group.md](docs/resources/parental_control_group.md) |
-| Resource | `glinet_parental_control_ruleset` | [docs/resources/parental_control_ruleset.md](docs/resources/parental_control_ruleset.md) |
+| Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
+| Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
 | Resource | `glinet_multiwan` | [docs/resources/multiwan.md](docs/resources/multiwan.md) |
 | Resource | `glinet_multiwan_interface` | [docs/resources/multiwan_interface.md](docs/resources/multiwan_interface.md) |
 | Resource | `glinet_multiwan_sensitivity` | [docs/resources/multiwan_sensitivity.md](docs/resources/multiwan_sensitivity.md) |
 | Resource | `glinet_network_advanced` | [docs/resources/network_advanced.md](docs/resources/network_advanced.md) |
-| Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
+| Resource | `glinet_parental_control` | [docs/resources/parental_control.md](docs/resources/parental_control.md) |
+| Resource | `glinet_parental_control_group` | [docs/resources/parental_control_group.md](docs/resources/parental_control_group.md) |
+| Resource | `glinet_parental_control_ruleset` | [docs/resources/parental_control_ruleset.md](docs/resources/parental_control_ruleset.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_repeater` | [docs/resources/repeater.md](docs/resources/repeater.md) |
 | Resource | `glinet_screen_schedule` | [docs/resources/screen_schedule.md](docs/resources/screen_schedule.md) |
@@ -73,8 +73,8 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
 | Resource | `glinet_usb` | [docs/resources/usb.md](docs/resources/usb.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
-| Resource | `glinet_wan_port` | [docs/resources/wan_port.md](docs/resources/wan_port.md) |
 | Resource | `glinet_wan_access` | [docs/resources/wan_access.md](docs/resources/wan_access.md) |
+| Resource | `glinet_wan_port` | [docs/resources/wan_port.md](docs/resources/wan_port.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
 | Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
 | Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
@@ -88,8 +88,8 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
 | Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
-| Data source | `glinet_parental_control_apps` | [docs/data-sources/parental_control_apps.md](docs/data-sources/parental_control_apps.md) |
 | Data source | `glinet_multiwan_status` | [docs/data-sources/multiwan_status.md](docs/data-sources/multiwan_status.md) |
+| Data source | `glinet_parental_control_apps` | [docs/data-sources/parental_control_apps.md](docs/data-sources/parental_control_apps.md) |
 | Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
 | Data source | `glinet_repeater_status` | [docs/data-sources/repeater_status.md](docs/data-sources/repeater_status.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
@@ -100,11 +100,21 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_wifi_status` | [docs/data-sources/wifi_status.md](docs/data-sources/wifi_status.md) |
 
 The provider is tested with a GL-AXT1800 on firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.
+Many writes come from the web UI code of firmware 4.8.3 and were tested only on a fake router, not on a real router. The page of each resource states this.
 
 ## Requirements
 
+To use the provider:
+
+- [Terraform](https://developer.hashicorp.com/terraform/install) or [OpenTofu](https://opentofu.org/docs/intro/install/).
+  CI tests Terraform 1.16 and 1.17 and the latest OpenTofu. Version 0.1.x of the provider is known to work with Terraform 1.5.7.
+  The provider uses version 6 of the plugin protocol, which Terraform supports from version 1.0, and no framework feature that needs a later version. Terraform versions before 1.5.7 were not tested.
+  Terraform before 1.3 does not show the plan warning of `glinet_firewall_rule` when it destroys a rule with no destination port.
+
+To develop the provider:
+
 - [Go](https://go.dev/doc/install) 1.27 (see `.tool-versions`)
-- [Terraform](https://developer.hashicorp.com/terraform/install) 1.16 or later, or [OpenTofu](https://opentofu.org/docs/intro/install/). The tests and `make generate` need the CLI.
+- [Terraform](https://developer.hashicorp.com/terraform/install) or [OpenTofu](https://opentofu.org/docs/intro/install/) on `PATH`. The tests and `make generate` need the CLI.
 - [golangci-lint](https://golangci-lint.run/) v2 for `make lint`
 
 ## Developing the provider
@@ -116,7 +126,7 @@ The provider is tested with a GL-AXT1800 on firmware 4.7.0 and 4.8.3. Other mode
 | `make fmt` | Format the Go code. |
 | `make lint` | Run golangci-lint. |
 | `make generate` | Format the examples and generate `docs/` with tfplugindocs. |
-| `make test` | Run the tests on a fake router. |
+| `make test` | Run the tests on a fake router, with a time limit of 20 minutes. |
 | `make testacc` | Run the tests with `TF_ACC=1`. |
 
 To add a dependency, run `go get github.com/author/dependency` and `go mod tidy`, then commit `go.mod` and `go.sum`.
@@ -127,6 +137,14 @@ Documentation tools are in the separate module `tools/`.
 The tests run Terraform with the provider in the test process (`resource.UnitTest` with `ProtoV6ProviderFactories`).
 The provider connects to a fake router from the package [`glinettest`](https://pkg.go.dev/github.com/ryanrishi/glinet-client-go/glinettest), which runs in the same process.
 The tests need no router and no `TF_ACC`.
+`make test` runs the tests in parallel and stops them after 20 minutes.
+
+The release builds include 32-bit platforms, where `int` has 32 bits. To check the code for these platforms, also run:
+
+```shell
+GOOS=linux GOARCH=386 go vet ./...
+GOOS=linux GOARCH=arm go vet ./...
+```
 
 To run the tests with OpenTofu, set these environment variables:
 
@@ -136,11 +154,15 @@ TF_ACC_TERRAFORM_PATH=$(which tofu) TF_ACC_PROVIDER_HOST=registry.opentofu.org T
 
 ### Tests on a real router
 
-When `TF_ACC=1` and `GLINET_HOST` are set, the main test of each data source and resource uses the router at `GLINET_HOST` instead of the fake router.
+When `TF_ACC=1` and `GLINET_HOST` are set, some tests use the router at `GLINET_HOST` instead of the fake router:
+
+- The main test of the data sources `glinet_arp_entries`, `glinet_clients`, `glinet_dns_secure_servers`, `glinet_firewall_zones`, `glinet_system_info`, `glinet_system_status`, `glinet_system_timezone`, `glinet_wan_status` and `glinet_wifi_status`.
+- The main test of the resources `glinet_adguardhome`, `glinet_client_block`, `glinet_ddns`, `glinet_dns`, `glinet_firewall_dmz`, `glinet_firewall_port_forward`, `glinet_firewall_rule`, `glinet_lan_static_lease`, `glinet_led`, `glinet_led_schedule`, `glinet_reboot_schedule`, `glinet_system_timezone`, `glinet_tailscale` and `glinet_zerotier`.
+
 The provider gets the credentials from `GLINET_USERNAME` and `GLINET_PASSWORD`.
 Because the values on a router are not fixed, the data source test checks only the types and that the values are not empty.
 The resource tests change the router and put back the initial values when they end.
-The other tests, for example the tests for errors and drift, always use the fake router.
+All other tests, for example the tests for errors and drift and the tests of the other resources and data sources, always use the fake router.
 
 ```shell
 GLINET_HOST=http://192.168.8.1 GLINET_USERNAME=root GLINET_PASSWORD=... make testacc

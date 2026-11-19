@@ -84,6 +84,7 @@ func (r *tailscaleResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"exit_node_ip": schema.StringAttribute{
 				Description: "Tailscale IPv4 or IPv6 address of the exit node that the router uses (`exit_node_ip` in the router API), " +
 					"for example `100.64.0.1` or `fd7a:115c:a1e0::1`. " +
+					"The write of an IPv6 address comes from the web UI code of firmware 4.8.3 and was not tested on a router. " +
 					"When it is not set, the router uses no exit node. Can be set only when `enabled` is `true`.",
 				Optional: true,
 				Validators: []validator.String{
