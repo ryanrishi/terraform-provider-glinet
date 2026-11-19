@@ -73,8 +73,8 @@ func (r *wifiInterfaceResource) Schema(_ context.Context, _ resource.SchemaReque
 			"The provider sends a call only when one of its values differs: on create from the values of the router, on update from the state. " +
 			"A create whose values are equal to those of the router sends no write. " +
 			"When it disables an interface, the provider sends the switch first; else it sends the switch last. " +
-			"This resource does not manage the radio (channel, channel width, hardware mode, TX power): " +
-			"for a main interface, the web UI also sends `device`, `hwmode`, `txpower` and `random_bssid` of the radio, so the provider reads them from the router just before the write and sends them back unchanged. " +
+			"This resource does not manage the radio (channel, channel width, mode, transmit power); `glinet_wifi_radio` does. " +
+			"For a main interface, the web UI also sends `device`, `hwmode`, `txpower`, `random_bssid` and, for a 6 GHz radio, `chan_6g_only_psc` of the radio, so the provider reads them from the router just before the write and sends them back unchanged. " +
 			"It does not send `channel` and `htmode`, as the web UI does while the repeater uses the radio. " +
 			"**Danger:** a write can restart the Wi-Fi of the radio, which disconnects its clients; it is not known whether it also restarts the other radio. " +
 			"When the uplink of the router is a Wi-Fi repeater on the same radio, a write can cut the uplink. " +
@@ -275,6 +275,7 @@ func (r *wifiInterfaceResource) write(ctx context.Context, plan wifiInterfaceRes
 		request.HWMode = radio.HWMode
 		request.TxPower = radio.TxPower
 		request.RandomBSSID = &radio.RandomBSSID
+		request.Chan6GOnlyPSC = radio.Chan6GOnlyPSC
 	}
 
 	calls := []func() error{}
