@@ -58,8 +58,8 @@ func TestClientInfoResource(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		CheckDestroy: resource.ComposeTestCheckFunc(
-			writes.expect(fmt.Sprintf(`{"mac": %q, "alias": "", "class": ""}`, testClientMAC)),
-			expectRouterJSON(t, srv.Clients.List, routerList("")),
+			writes.expect(),
+			expectRouterJSON(t, srv.Clients.List, routerList(`"alias": "tablet", "class": "pad",`)),
 		),
 		Steps: []resource.TestStep{
 			{
@@ -116,6 +116,46 @@ func TestClientInfoResourceLetterCase(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(clientInfoAddress, tfjsonpath.New("mac"), knownvalue.StringExact(testClientMAC)),
 				},
+				Check: writes.expect(),
+			},
+		},
+	})
+}
+
+// twoLetterCasesServer returns a fake router whose client list has testClientMAC and testClientMACUp as two clients.
+func twoLetterCasesServer(t *testing.T) *glinettest.Server {
+	srv := glinettest.NewServer(t)
+	srv.Clients.SetList(json.RawMessage(fmt.Sprintf(`{"clients": [
+		{"mac": %q, "name": "host-1", "alias": "lower", "limit_rx": 0, "limit_tx": 0},
+		{"mac": %q, "name": "host-2", "alias": "upper", "limit_rx": 0, "limit_tx": 0}
+	]}`, testClientMAC, testClientMACUp)))
+	return srv
+}
+
+func TestClientInfoResourceTwoLetterCases(t *testing.T) {
+	parallel(t)
+	srv := twoLetterCasesServer(t)
+	writes := recordCalls(t, srv, "clients", "set_info")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`),
+				ConfigStateChecks: expectClientInfo("tablet", ""),
+				Check:             writes.expect(fmt.Sprintf(`{"mac": %q, "alias": "tablet", "class": ""}`, testClientMAC)),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + clientInfoConfig(testClientMACUp, `alias = "tablet"`),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + clientInfoConfig(testClientMACUp, `alias = "phone"`),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				Config: fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`),
+				Check:  writes.expect(),
 			},
 		},
 	})

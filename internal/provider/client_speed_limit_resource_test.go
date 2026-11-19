@@ -94,6 +94,81 @@ func TestClientSpeedLimitResourceLetterCase(t *testing.T) {
 					statecheck.ExpectKnownValue(speedLimitAddress, tfjsonpath.New("mac"), knownvalue.StringExact(testClientMACUp))),
 				Check: sets.expect(fmt.Sprintf(`{"mac": %q, "download": 0, "upload": 8}`, testClientMAC)),
 			},
+			{
+				Config:           fakeRouterConfig(srv) + speedLimitConfig(testClientMAC, `upload = 8`),
+				ConfigPlanChecks: expectResourceAction(speedLimitAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: append(expectSpeedLimit(0, 8),
+					statecheck.ExpectKnownValue(speedLimitAddress, tfjsonpath.New("mac"), knownvalue.StringExact(testClientMAC))),
+				Check: sets.expect(),
+			},
+		},
+	})
+}
+
+func TestClientSpeedLimitResourceTwoLetterCases(t *testing.T) {
+	parallel(t)
+	srv := twoLetterCasesServer(t)
+	sets := recordCalls(t, srv, "qos", "set_speed_limit_rule")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + speedLimitConfig(testClientMAC, `download = 10`),
+				Check:  sets.expect(fmt.Sprintf(`{"mac": %q, "download": 10, "upload": 0}`, testClientMAC)),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + speedLimitConfig(testClientMACUp, `download = 10`),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + speedLimitConfig(testClientMACUp, `download = 20`),
+				ExpectError: regexp.MustCompile(`Ambiguous Letter Case of MAC Address`),
+			},
+			{
+				Config: fakeRouterConfig(srv) + speedLimitConfig(testClientMAC, `download = 10`),
+				Check:  sets.expect(),
+			},
+		},
+	})
+}
+
+// TestClientSpeedLimitResourceReadFailsAfterWrite checks that a limit stays in the state when the read after the write fails.
+func TestClientSpeedLimitResourceReadFailsAfterWrite(t *testing.T) {
+	parallel(t)
+	srv := clientListServer(t, "")
+	list := srv.Handler("clients", "get_list")
+	set := srv.Handler("qos", "set_speed_limit_rule")
+	srv.Handle("qos", "set_speed_limit_rule", func(params json.RawMessage) (any, error) {
+		result, err := set(params)
+		failRouterMethod(srv, "clients", "get_list")()
+		return result, err
+	})
+	sets := recordCalls(t, srv, "qos", "set_speed_limit_rule")
+	removes := recordCalls(t, srv, "qos", "remove_speed_limit_rule")
+	config := fakeRouterConfig(srv) + speedLimitConfig(testClientMAC, `download = 10`)
+	want := fmt.Sprintf(`{"mac": %q, "download": 10, "upload": 0}`, testClientMAC)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile(`Unable to Read Client Speed Limit`),
+			},
+			{
+				PreConfig: func() {
+					if got := sets.take(); len(got) != 1 || got[0] != canonicalJSON(t, want) {
+						t.Errorf("set_speed_limit_rule calls %q, want one call with %s", got, want)
+					}
+					srv.Handle("clients", "get_list", list)
+					srv.Handle("qos", "set_speed_limit_rule", set)
+				},
+				Config:            config,
+				ConfigPlanChecks:  expectResourceAction(speedLimitAddress, plancheck.ResourceActionDestroyBeforeCreate),
+				ConfigStateChecks: expectSpeedLimit(10, 0),
+				Check:             removes.expect(fmt.Sprintf(`{"mac": %q}`, testClientMAC)),
+			},
 		},
 	})
 }
@@ -131,6 +206,13 @@ func TestClientSpeedLimitResourceRounding(t *testing.T) {
 				ConfigPlanChecks:  expectEmptyPlan,
 				ConfigStateChecks: expectSpeedLimit(1.125, 2.875),
 			},
+			{
+				PreConfig:         func() { srv.Clients.SetList(json.RawMessage(routerSpeedLimit(3, 3))) },
+				Config:            config,
+				ConfigPlanChecks:  expectResourceAction(speedLimitAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectSpeedLimit(1.125, 2.875),
+				Check:             expectRouterJSON(t, srv.Clients.List, routerSpeedLimit(1, 3)),
+			},
 		},
 	})
 }
@@ -152,6 +234,13 @@ func TestClientSpeedLimitResourceDrift(t *testing.T) {
 			},
 			{
 				PreConfig:         func() { srv.Clients.SetList(json.RawMessage(routerSpeedLimit(100, 20))) },
+				Config:            config,
+				ConfigPlanChecks:  expectResourceAction(speedLimitAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectSpeedLimit(100, 50),
+				Check:             sets.expect(want),
+			},
+			{
+				PreConfig:         func() { srv.Clients.SetList(json.RawMessage(routerSpeedLimit(100.125, 50))) },
 				Config:            config,
 				ConfigPlanChecks:  expectResourceAction(speedLimitAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectSpeedLimit(100, 50),

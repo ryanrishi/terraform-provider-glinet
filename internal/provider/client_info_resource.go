@@ -53,8 +53,10 @@ func (r *clientInfoResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"because it is not known whether the router accepts a name or an icon for a MAC address that is not in the list. " +
 			"When the client goes out of the client list, refresh removes the resource from the state. " +
 			"The provider finds the client without letter case and writes the MAC address in the letter case of the client list. " +
+			"When the client list has the MAC address in more than one letter case, update fails when `mac` would select another client. " +
 			"Import sets `mac` in the letter case of the client list. " +
-			"Destroy sets the name and the icon of the client back to automatic.",
+			"Destroy removes the resource from the Terraform state and does not change the router. " +
+			"To set the name or the icon back to automatic, set `alias` or `class` to an empty string before destroy.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
 				Description: "MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. " +
@@ -115,7 +117,11 @@ func (r *clientInfoResource) Create(ctx context.Context, req resource.CreateRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	r.write(ctx, plan, &resp.State, &resp.Diagnostics)
+	c := findClientForWrite(ctx, r.client, plan.MAC.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.write(ctx, c, plan, &resp.State, &resp.Diagnostics)
 }
 
 func (r *clientInfoResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -138,21 +144,10 @@ func (r *clientInfoResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, clientInfoModel(c))...)
 }
 
+// Update writes to the client of the state. A change of only the letter case of mac needs no write.
 func (r *clientInfoResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan clientInfoResourceModel
+	var plan, state clientInfoResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	routerWrites.Lock()
-	defer routerWrites.Unlock()
-
-	r.write(ctx, plan, &resp.State, &resp.Diagnostics)
-}
-
-func (r *clientInfoResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state clientInfoResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -161,18 +156,18 @@ func (r *clientInfoResource) Delete(ctx context.Context, req resource.DeleteRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	c, err := readClient(ctx, r.client, state.MAC.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read Client Info", err.Error())
+	c := findClientForUpdate(ctx, r.client, state.MAC.ValueString(), plan.MAC.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	if c == nil {
+	if plan.Alias.Equal(state.Alias) && plan.Class.Equal(state.Class) {
+		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 		return
 	}
+	r.write(ctx, c, plan, &resp.State, &resp.Diagnostics)
+}
 
-	if err := r.client.Clients.SetInfo(ctx, glinet.ClientInfo{MAC: c.MAC}); err != nil {
-		resp.Diagnostics.AddError("Unable to Delete Client Info", err.Error())
-	}
+func (r *clientInfoResource) Delete(context.Context, resource.DeleteRequest, *resource.DeleteResponse) {
 }
 
 // ImportState sets mac in the letter case of the client list, so that a configuration in that letter case has no difference.
@@ -180,14 +175,9 @@ func (r *clientInfoResource) ImportState(ctx context.Context, req resource.Impor
 	importClientMAC(ctx, r.client, req, resp)
 }
 
-// write sends the name and the icon of plan to the client with the MAC address of plan, and sets state from the client list.
+// write sends the name and the icon of plan to the client c, and sets state from the client list.
 // An unknown alias or class sends the value that the router has.
-func (r *clientInfoResource) write(ctx context.Context, plan clientInfoResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
-	c := findClientForWrite(ctx, r.client, plan.MAC.ValueString(), diags)
-	if diags.HasError() {
-		return
-	}
-
+func (r *clientInfoResource) write(ctx context.Context, c *glinet.ClientDevice, plan clientInfoResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	info := glinet.ClientInfo{MAC: c.MAC, Alias: c.Alias, Class: c.Class}
 	if !plan.Alias.IsUnknown() {
 		info.Alias = plan.Alias.ValueString()
@@ -248,6 +238,38 @@ func findClientForWrite(ctx context.Context, client *glinet.Client, mac string, 
 		)
 	}
 	return c
+}
+
+// findClientForUpdate returns the client of the MAC address stateMAC of the state. It adds an error when the client list
+// has no such client, or when the planned MAC address planMAC would find another client, so that a change of the letter
+// case cannot change the client of the resource.
+func findClientForUpdate(ctx context.Context, client *glinet.Client, stateMAC, planMAC string, diags *diag.Diagnostics) *glinet.ClientDevice {
+	clients, err := client.Clients.ListClients(ctx)
+	if err != nil {
+		diags.AddError("Unable to Read Client List", err.Error())
+		return nil
+	}
+
+	current, err := findClient(clients, stateMAC)
+	if err != nil {
+		diags.AddAttributeError(path.Root("mac"), "Unable to Find Client", err.Error())
+		return nil
+	}
+	if current == nil {
+		diags.AddAttributeError(path.Root("mac"), "Client Not Found", "The client list of the router has no client with MAC address "+stateMAC+".")
+		return nil
+	}
+	planned, err := findClient(clients, planMAC)
+	if err != nil || planned == nil || planned.MAC != current.MAC {
+		diags.AddAttributeError(
+			path.Root("mac"),
+			"Ambiguous Letter Case of MAC Address",
+			fmt.Sprintf("The client list of the router has more than one client for MAC address %s in different letter case. "+
+				"Set mac to exactly %q, the MAC address of the client of this resource.", planMAC, current.MAC),
+		)
+		return nil
+	}
+	return current
 }
 
 // findClient returns the client with exactly the MAC address mac, else the one client with mac in another letter case.

@@ -49,7 +49,7 @@ func (r *clientSpeedLimitResource) Schema(_ context.Context, _ resource.SchemaRe
 	speedDescription := "in KiB/s (the web UI shows KB/s with a base of 1024): 0 for no limit, or 1 to 1073741824 in steps of 0.125 " +
 		"(the Kbps mode of the web UI sends the Kbps value divided by 8). " +
 		"It is not known whether the router keeps a fraction or rounds it: " +
-		"when the value of the router is not 0 and differs from the configured value by less than 1, the state keeps the configured value. " +
+		"when the configured value has a fraction and the router has that value rounded down or up to a whole number, the state keeps the configured value. " +
 		"Default 0."
 
 	resp.Schema = schema.Schema{
@@ -64,6 +64,7 @@ func (r *clientSpeedLimitResource) Schema(_ context.Context, _ resource.SchemaRe
 			"At least one of `download` and `upload` must be more than 0, because it is not known what the router does with two 0 values. " +
 			"When the client goes out of the client list, or has no limit, refresh removes the resource from the state. " +
 			"The provider finds the client without letter case and writes the MAC address in the letter case of the client list. " +
+			"When the client list has the MAC address in more than one letter case, update fails when `mac` would select another client. " +
 			"Import sets `mac` in the letter case of the client list. " +
 			"Destroy removes the speed limit from the router.",
 		Attributes: map[string]schema.Attribute{
@@ -166,9 +167,11 @@ func (r *clientSpeedLimitResource) Read(ctx context.Context, req resource.ReadRe
 	resp.Diagnostics.Append(resp.State.Set(ctx, speedLimitModel(c, state))...)
 }
 
+// Update writes to the client of the state. A change of only the letter case of mac needs no write.
 func (r *clientSpeedLimitResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan clientSpeedLimitResourceModel
+	var plan, state clientSpeedLimitResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -176,11 +179,14 @@ func (r *clientSpeedLimitResource) Update(ctx context.Context, req resource.Upda
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	c := findClientForWrite(ctx, r.client, plan.MAC.ValueString(), &resp.Diagnostics)
+	c := findClientForUpdate(ctx, r.client, state.MAC.ValueString(), plan.MAC.ValueString(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	if plan.Download.Equal(state.Download) && plan.Upload.Equal(state.Upload) {
+		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+		return
+	}
 	r.write(ctx, c.MAC, plan, &resp.State, &resp.Diagnostics)
 }
 
@@ -214,10 +220,16 @@ func (r *clientSpeedLimitResource) ImportState(ctx context.Context, req resource
 }
 
 // write sends the limits of plan to the client with the MAC address mac of the client list, and sets state from the client list.
+// It sets state from plan before the read, so that a failed read does not leave a limit on the router that the state does not have.
 func (r *clientSpeedLimitResource) write(ctx context.Context, mac string, plan clientSpeedLimitResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	limit := glinet.SpeedLimit{MAC: mac, Download: plan.Download.ValueFloat64(), Upload: plan.Upload.ValueFloat64()}
 	if err := r.client.QoS.SetSpeedLimit(ctx, limit); err != nil {
 		diags.AddError("Unable to Write Client Speed Limit", err.Error())
+		return
+	}
+
+	diags.Append(state.Set(ctx, plan)...)
+	if diags.HasError() {
 		return
 	}
 
@@ -243,8 +255,8 @@ func noSpeedLimit(v types.Float64) bool {
 	return v.IsNull() || (!v.IsUnknown() && v.ValueFloat64() == 0)
 }
 
-// speedLimitModel gives the limits of the client. A limit that is not 0 and differs from the limit of prior by less
-// than 1 keeps the value of prior, because it is not known whether the router rounds a fraction.
+// speedLimitModel gives the limits of the client. When the limit of prior has a fraction and the router has it rounded
+// down or up to a whole number, the limit keeps the value of prior, because it is not known whether the router rounds a fraction.
 func speedLimitModel(c *glinet.ClientDevice, prior clientSpeedLimitResourceModel) clientSpeedLimitResourceModel {
 	return clientSpeedLimitResourceModel{
 		MAC:      caseInsensitiveStringValue(c.MAC),
@@ -254,7 +266,11 @@ func speedLimitModel(c *glinet.ClientDevice, prior clientSpeedLimitResourceModel
 }
 
 func speedLimitValue(router float64, prior types.Float64) types.Float64 {
-	if router != 0 && !prior.IsNull() && !prior.IsUnknown() && prior.ValueFloat64() != 0 && math.Abs(router-prior.ValueFloat64()) < 1 {
+	if prior.IsNull() || prior.IsUnknown() {
+		return types.Float64Value(router)
+	}
+	p := prior.ValueFloat64()
+	if p != math.Trunc(p) && (router == math.Floor(p) || router == math.Ceil(p)) {
 		return prior
 	}
 	return types.Float64Value(router)
