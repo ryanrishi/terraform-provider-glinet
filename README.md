@@ -57,6 +57,9 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
+| Resource | `glinet_multiwan` | [docs/resources/multiwan.md](docs/resources/multiwan.md) |
+| Resource | `glinet_multiwan_interface` | [docs/resources/multiwan_interface.md](docs/resources/multiwan_interface.md) |
+| Resource | `glinet_multiwan_sensitivity` | [docs/resources/multiwan_sensitivity.md](docs/resources/multiwan_sensitivity.md) |
 | Resource | `glinet_network_advanced` | [docs/resources/network_advanced.md](docs/resources/network_advanced.md) |
 | Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
@@ -80,6 +83,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
 | Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
+| Data source | `glinet_multiwan_status` | [docs/data-sources/multiwan_status.md](docs/data-sources/multiwan_status.md) |
 | Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
 | Data source | `glinet_repeater_status` | [docs/data-sources/repeater_status.md](docs/data-sources/repeater_status.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
