@@ -3,12 +3,12 @@
 page_title: "glinet_wan Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the wired WAN port of the router (cable.set_config in the router API). The router has one wired WAN port, so use one instance of this resource. Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. A wrong configuration cuts the wired uplink of the router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+  Manages a wired WAN port of the router (cable.set_config in the router API). Use one instance of this resource for each wired WAN port. Only a router with a second wired WAN port (software_feature.secondwan of system.get_info) accepts port = "secondwan": for that port, the provider reads system.get_info before each call and stops with an error when the router has no second wired WAN port. The reads of the second WAN port were not tested on a router, and what cable.get_config and cable.set_config do for the second WAN port on a router without one is not known. Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. A wrong configuration cuts the wired uplink of the router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 ---
 
 # glinet_wan (Resource)
 
-Manages the wired WAN port of the router (`cable.set_config` in the router API). The router has one wired WAN port, so use one instance of this resource. Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. A wrong configuration cuts the wired uplink of the router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+Manages a wired WAN port of the router (`cable.set_config` in the router API). Use one instance of this resource for each wired WAN port. Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = "secondwan"`: for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. The reads of the second WAN port were not tested on a router, and what `cable.get_config` and `cable.set_config` do for the second WAN port on a router without one is not known. Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. A wrong configuration cuts the wired uplink of the router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 
 ## Example Usage
 
@@ -22,6 +22,12 @@ resource "glinet_wan" "this" {
     dns     = ["1.1.1.1", "8.8.8.8"]
   }
   mtu = 1500
+}
+
+# Only on a router with a second wired WAN port.
+resource "glinet_wan" "second" {
+  port     = "secondwan"
+  protocol = "dhcp"
 }
 ```
 
@@ -38,6 +44,7 @@ resource "glinet_wan" "this" {
 - `ipv6` (Attributes) Static IPv6 configuration (`ipv6` in the router API). Can be set only when `protocol` is `static`. The web UI sends it only while IPv6 is enabled on the router (see `glinet_ipv6`). (see [below for nested schema](#nestedatt--ipv6))
 - `mtu` (Number) MTU of the WAN port, 576 to 9200 (`mtu` in the router API). When it is not set, the provider does not send it. The web UI warns that IPv6 needs at least 1280.
 - `password` (String, Sensitive) PPPoE password (`password` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty password, as the web UI does.
+- `port` (String) The wired WAN port: `wan` for the first port or `secondwan` for the second port (`secondwan` in the router API). Default `wan`. Changing it replaces the resource.
 - `ttl` (Number) IPv4 TTL that the router sets on the packets that it sends to the WAN, 1 to 255 (`ttl` in the router API). When it is not set, the provider does not send it.
 - `ttl_ipv6` (Number) IPv6 hop limit that the router sets on the packets that it sends to the WAN, 1 to 255 (`ttl_ipv6` in the router API). When it is not set, the provider does not send it.
 - `username` (String) PPPoE user name, at most 256 characters (`username` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty user name, as the web UI does.
@@ -45,7 +52,7 @@ resource "glinet_wan" "this" {
 
 ### Read-Only
 
-- `id` (String) Always `wan`.
+- `id` (String) Same as `port`.
 
 <a id="nestedatt--ipv4"></a>
 ### Nested Schema for `ipv4`
@@ -74,6 +81,6 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is always "wan".
+# The import ID is the port: "wan" or "secondwan".
 terraform import glinet_wan.this wan
 ```
