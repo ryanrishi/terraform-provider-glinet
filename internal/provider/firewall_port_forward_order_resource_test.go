@@ -313,6 +313,71 @@ func TestFirewallPortForwardOrderResourceInvalidConfig(t *testing.T) {
 	}
 }
 
+// TestFirewallPortForwardOrderResourceUnknownConfig uses values of terraform_data, which are unknown until the apply.
+func TestFirewallPortForwardOrderResourceUnknownConfig(t *testing.T) {
+	parallel(t)
+	item := func(f glinet.PortForward) string {
+		return fmt.Sprintf("{ external_zone = %q, protocol = %q, external_port = %q }", f.Src, f.Proto, f.SrcDport)
+	}
+	config := func(portForwards string) string {
+		return fmt.Sprintf(`
+resource "terraform_data" "list" {
+  input = [%s, %s]
+}
+
+resource "terraform_data" "item" {
+  input = %s
+}
+
+resource "glinet_firewall_port_forward_order" "test" {
+  port_forwards = %s
+}
+`, item(orderC), item(orderA), item(orderB), portForwards)
+	}
+
+	tests := []struct {
+		name         string
+		portForwards string
+		want         []glinet.PortForward
+	}{
+		{"unknown list", "terraform_data.list.output", []glinet.PortForward{orderC, orderA}},
+		{"unknown attribute", fmt.Sprintf("[%s, { external_zone = %q, protocol = terraform_data.item.output.protocol, external_port = %q }]",
+			item(orderC), orderB.Src, orderB.SrcDport), []glinet.PortForward{orderC, orderB}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			srv.Firewall.SetPortForwards(fakes(orderA, orderB, orderC))
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config:            fakeRouterConfig(srv) + config(tt.portForwards),
+						ConfigStateChecks: expectOrderState(tt.want...),
+					},
+				},
+			})
+		})
+	}
+
+	// The framework also reports the attributes of an unknown item as missing, before the apply.
+	t.Run("duplicate with unknown item", func(t *testing.T) {
+		srv := glinettest.NewServer(t)
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config:      fakeRouterConfig(srv) + config(fmt.Sprintf("[%s, terraform_data.item.output, %s]", item(orderA), item(orderA))),
+					ExpectError: regexp.MustCompile(`(?s)Duplicate Port Forward.*external port 50001 more than one time`),
+				},
+			},
+		})
+	})
+}
+
 func TestFirewallPortForwardOrderResourceRouterErrors(t *testing.T) {
 	parallel(t)
 	t.Run("forward not found", func(t *testing.T) {

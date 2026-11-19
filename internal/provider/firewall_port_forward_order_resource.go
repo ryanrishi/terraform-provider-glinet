@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/ryanrishi/glinet-client-go"
 )
 
@@ -119,14 +120,23 @@ func (r *firewallPortForwardOrderResource) Schema(_ context.Context, _ resource.
 }
 
 func (r *firewallPortForwardOrderResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var items []portForwardOrderItemModel
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("port_forwards"), &items)...)
-	if resp.Diagnostics.HasError() {
+	var list types.List
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("port_forwards"), &list)...)
+	if resp.Diagnostics.HasError() || list.IsNull() || list.IsUnknown() {
 		return
 	}
 
 	seen := map[portForwardIdentity]bool{}
-	for i, item := range items {
+	for i, element := range list.Elements() {
+		object, ok := element.(types.Object)
+		if !ok || object.IsNull() || object.IsUnknown() {
+			continue
+		}
+		var item portForwardOrderItemModel
+		resp.Diagnostics.Append(object.As(ctx, &item, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 		if item.ExternalZone.IsUnknown() || item.Protocol.IsUnknown() || item.ExternalPort.IsUnknown() {
 			continue
 		}
