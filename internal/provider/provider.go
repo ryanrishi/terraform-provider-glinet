@@ -160,6 +160,10 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewFirewallRuleResource,
 		NewLEDResource,
 		NewLEDScheduleResource,
+		NewFanResource,
+		NewScreenScheduleResource,
+		NewSwitchButtonResource,
+		NewUSBResource,
 		NewRebootScheduleResource,
 		NewDNSResource,
 		NewAccessControlResource,
@@ -202,6 +206,7 @@ func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewARPEntriesDataSource,
 		NewWifiStatusDataSource,
 		NewDNSSecureServersDataSource,
+		NewFanStatusDataSource,
 	}
 }
 

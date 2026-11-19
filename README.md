@@ -46,6 +46,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_client_speed_limit` | [docs/resources/client_speed_limit.md](docs/resources/client_speed_limit.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
+| Resource | `glinet_fan` | [docs/resources/fan.md](docs/resources/fan.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_firewall_port_forward_order` | [docs/resources/firewall_port_forward_order.md](docs/resources/firewall_port_forward_order.md) |
@@ -60,8 +61,11 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_repeater` | [docs/resources/repeater.md](docs/resources/repeater.md) |
+| Resource | `glinet_screen_schedule` | [docs/resources/screen_schedule.md](docs/resources/screen_schedule.md) |
+| Resource | `glinet_switch_button` | [docs/resources/switch_button.md](docs/resources/switch_button.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
+| Resource | `glinet_usb` | [docs/resources/usb.md](docs/resources/usb.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
 | Resource | `glinet_wan_port` | [docs/resources/wan_port.md](docs/resources/wan_port.md) |
 | Resource | `glinet_wan_access` | [docs/resources/wan_access.md](docs/resources/wan_access.md) |
@@ -74,6 +78,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
+| Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
 | Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
 | Data source | `glinet_repeater_status` | [docs/data-sources/repeater_status.md](docs/data-sources/repeater_status.md) |
