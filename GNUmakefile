@@ -9,6 +9,10 @@ install: build
 lint:
 	golangci-lint run
 
+vet32:
+	GOOS=linux GOARCH=386 go vet ./...
+	GOOS=linux GOARCH=arm go vet ./...
+
 generate:
 	cd tools; go generate ./...
 
@@ -21,4 +25,4 @@ test:
 testacc:
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
 
-.PHONY: fmt lint test testacc build install generate
+.PHONY: fmt lint vet32 test testacc build install generate

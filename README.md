@@ -125,6 +125,7 @@ To develop the provider:
 | `make install` | Build the provider and install it in `$GOPATH/bin`. |
 | `make fmt` | Format the Go code. |
 | `make lint` | Run golangci-lint. |
+| `make vet32` | Run `go vet` for the 32-bit platforms `linux/386` and `linux/arm`. |
 | `make generate` | Format the examples and generate `docs/` with tfplugindocs. |
 | `make test` | Run the tests on a fake router, with a time limit of 20 minutes. |
 | `make testacc` | Run the tests with `TF_ACC=1`. |
@@ -139,12 +140,7 @@ The provider connects to a fake router from the package [`glinettest`](https://p
 The tests need no router and no `TF_ACC`.
 `make test` runs the tests in parallel and stops them after 20 minutes.
 
-The release builds include 32-bit platforms, where `int` has 32 bits. To check the code for these platforms, also run:
-
-```shell
-GOOS=linux GOARCH=386 go vet ./...
-GOOS=linux GOARCH=arm go vet ./...
-```
+The release builds include 32-bit platforms, where `int` has 32 bits. `make vet32` checks the code for these platforms; CI runs it.
 
 To run the tests with OpenTofu, set these environment variables:
 

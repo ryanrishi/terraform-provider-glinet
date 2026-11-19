@@ -13,10 +13,10 @@ make build      # go build
 make install    # go install
 make fmt        # gofmt
 make lint       # golangci-lint v2 (.golangci.yml)
+make vet32      # go vet for GOOS=linux with GOARCH=386 and GOARCH=arm (32-bit)
 make generate   # terraform fmt on examples/ and tfplugindocs into docs/ (runs in tools/)
 make test       # tests on the fake router, no TF_ACC needed; 20-minute limit
 make testacc    # TF_ACC=1; with GLINET_HOST set, the tests that call realRouter() or guardedRealRouter use the real router
-GOOS=linux GOARCH=386 go vet ./...   # 32-bit check; also with GOARCH=arm
 ```
 
 Go version: `.tool-versions` and `go.mod`. `make generate` and the tests need `terraform` (or `tofu`) on `PATH`.
@@ -149,11 +149,11 @@ Tests run Terraform with the provider in the test process:
 - `guardedRealRouter(t, allow)` puts a proxy in front of the real router that sends a call only when `allow` accepts its module, method and params. The real-router tests of `glinet_reboot_schedule` use it so that only `enable: false` can be written, those of `glinet_dns` so that only `rebind_protection` can change (the tests of the other DNS modes always use the fake router), those of `glinet_adguardhome` so that AdGuard Home stays disabled, and those of `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier` and `glinet_client_block` so that only the writes of the test can reach the router.
 - `network_config_test.go`: `recordCalls(t, srv, module, method)` records the params of each call of a fake router method, and `expect` / `expectUnordered` check them after a step; `expectRouterJSON` and `saveRouterJSON` compare a fake router result.
 - `make test` runs the tests with `-parallel=8` and a time limit of 20 minutes.
-- The release builds 32-bit platforms (`386`, `arm`), where `int` has 32 bits. Run `GOOS=linux GOARCH=386 go vet ./...` and `GOOS=linux GOARCH=arm go vet ./...` before a pull request.
+- The release builds 32-bit platforms (`386`, `arm`), where `int` has 32 bits. `make vet32` runs `go vet` for them; CI runs it too.
 - Each test starts with `parallel(t)` (`provider_test.go`). On the fake router the tests then run in parallel. On the real router `parallel(t)` does nothing, so each test runs alone.
   - A test that uses `t.Setenv` does not call `parallel(t)`: Go does not permit `t.Setenv` in a parallel test.
   - Tests do not call `t.Parallel()` directly, and subtests are not parallel.
   - A test keeps its state in its own `glinettest.Server` and in local variables. Package-level test variables are read-only.
 - With OpenTofu: set `TF_ACC_TERRAFORM_PATH`, `TF_ACC_PROVIDER_HOST=registry.opentofu.org`, `TF_ACC_PROVIDER_NAMESPACE=hashicorp`.
 
-CI (`.github/workflows/test.yml`): build and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu, each job with a limit of 30 minutes. CI does not run the 32-bit `go vet`. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags.
+CI (`.github/workflows/test.yml`): build, `make vet32` and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu, each job with a limit of 30 minutes. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags.
