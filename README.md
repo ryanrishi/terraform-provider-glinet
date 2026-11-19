@@ -42,12 +42,16 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_adguardhome` | [docs/resources/adguardhome.md](docs/resources/adguardhome.md) |
 | Resource | `glinet_client_allow` | [docs/resources/client_allow.md](docs/resources/client_allow.md) |
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
+| Resource | `glinet_client_info` | [docs/resources/client_info.md](docs/resources/client_info.md) |
+| Resource | `glinet_client_speed_limit` | [docs/resources/client_speed_limit.md](docs/resources/client_speed_limit.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
+| Resource | `glinet_fan` | [docs/resources/fan.md](docs/resources/fan.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_firewall_port_forward_order` | [docs/resources/firewall_port_forward_order.md](docs/resources/firewall_port_forward_order.md) |
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
+| Resource | `glinet_igmp_snooping` | [docs/resources/igmp_snooping.md](docs/resources/igmp_snooping.md) |
 | Resource | `glinet_ipv6` | [docs/resources/ipv6.md](docs/resources/ipv6.md) |
 | Resource | `glinet_lan` | [docs/resources/lan.md](docs/resources/lan.md) |
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
@@ -56,11 +60,18 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_multiwan` | [docs/resources/multiwan.md](docs/resources/multiwan.md) |
 | Resource | `glinet_multiwan_interface` | [docs/resources/multiwan_interface.md](docs/resources/multiwan_interface.md) |
 | Resource | `glinet_multiwan_sensitivity` | [docs/resources/multiwan_sensitivity.md](docs/resources/multiwan_sensitivity.md) |
+| Resource | `glinet_network_advanced` | [docs/resources/network_advanced.md](docs/resources/network_advanced.md) |
+| Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_repeater` | [docs/resources/repeater.md](docs/resources/repeater.md) |
+| Resource | `glinet_screen_schedule` | [docs/resources/screen_schedule.md](docs/resources/screen_schedule.md) |
+| Resource | `glinet_switch_button` | [docs/resources/switch_button.md](docs/resources/switch_button.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
+| Resource | `glinet_usb` | [docs/resources/usb.md](docs/resources/usb.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
+| Resource | `glinet_wan_port` | [docs/resources/wan_port.md](docs/resources/wan_port.md) |
+| Resource | `glinet_wan_access` | [docs/resources/wan_access.md](docs/resources/wan_access.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
 | Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
 | Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
@@ -70,6 +81,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
+| Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
 | Data source | `glinet_multiwan_status` | [docs/data-sources/multiwan_status.md](docs/data-sources/multiwan_status.md) |
 | Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
