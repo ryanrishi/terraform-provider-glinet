@@ -18,10 +18,7 @@ import (
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-var (
-	lowerCaseMAC = regexp.MustCompile(`^[0-9a-f]{2}(:[0-9a-f]{2}){5}$`)
-	macAddress   = regexp.MustCompile(`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`)
-)
+var macAddress = regexp.MustCompile(`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`)
 
 var (
 	_ resource.Resource                = &lanStaticLeaseResource{}

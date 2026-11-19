@@ -24,3 +24,16 @@ resource "glinet_firewall_rule" "block_ssh" {
     replace_triggered_by = [glinet_firewall_rule.ssh_from_office]
   }
 }
+
+# IPv6 addresses and CIDR blocks work in source_ip and destination_ip.
+# Set destination_port: on firmware 4.8.3, Terraform cannot update or destroy a rule with no destination port.
+resource "glinet_firewall_rule" "https_ipv6" {
+  name             = "https over ipv6"
+  source_zone      = "wan"
+  source_ip        = "2001:db8:1::/48"
+  protocol         = "tcp"
+  destination_zone = "lan"
+  destination_ip   = "2001:db8::20"
+  destination_port = "443"
+  action           = "ACCEPT"
+}
