@@ -17,6 +17,10 @@ func computedInt64(description string) schema.Int64Attribute {
 	return schema.Int64Attribute{Description: description, Computed: true}
 }
 
+func computedFloat64(description string) schema.Float64Attribute {
+	return schema.Float64Attribute{Description: description, Computed: true}
+}
+
 func computedObject(description string, attributes map[string]schema.Attribute) schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{Description: description, Computed: true, Attributes: attributes}
 }
