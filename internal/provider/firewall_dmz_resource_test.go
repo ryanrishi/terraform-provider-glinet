@@ -171,6 +171,35 @@ func TestFirewallDMZResourceUpdate(t *testing.T) {
 	})
 }
 
+// TestFirewallDMZResourcePriority sends back the priority of the router, which the provider does not manage.
+func TestFirewallDMZResourcePriority(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	calls := recordCalls(t, srv, "firewall", "set_dmz")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() { srv.Firewall.SetDMZ(glinettest.DMZ{DestIP: dmzIP, Priority: true}) },
+				Config:    fakeRouterConfig(srv) + dmzConfig(otherDMZIP, true),
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":true}`, otherDMZIP)),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: otherDMZIP, Priority: true}),
+				),
+			},
+			{
+				PreConfig: func() { srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: otherDMZIP}) },
+				Config:    fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":false}`, dmzIP)),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+				),
+			},
+		},
+	})
+}
+
 func TestFirewallDMZResourceImport(t *testing.T) {
 	parallel(t)
 	for _, existing := range []glinettest.DMZ{
@@ -324,10 +353,10 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 	parallel(t)
 	t.Run("get after create", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
-		failed := false
+		gets := 0
 		srv.Handle("firewall", "get_dmz", func(json.RawMessage) (any, error) {
-			if !failed {
-				failed = true
+			gets++
+			if gets == 2 {
 				return nil, glinettest.ErrMethodNotFound
 			}
 			return srv.Firewall.DMZ(), nil
@@ -348,6 +377,24 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 				},
 			},
 		})
+	})
+
+	t.Run("get before set", func(t *testing.T) {
+		srv := glinettest.NewServer(t)
+		failMethod(srv, "get_dmz")()
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config:      fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
+					ExpectError: regexp.MustCompile(`(?s)Unable to Read Firewall DMZ.*Method not found`),
+				},
+			},
+		})
+		if got := srv.Firewall.DMZ(); got != (glinettest.DMZ{}) {
+			t.Errorf("router DMZ is %+v, want no DMZ", got)
+		}
 	})
 
 	t.Run("get on import", func(t *testing.T) {

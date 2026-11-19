@@ -3,12 +3,12 @@
 page_title: "glinet_firewall_dmz Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone wan to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource.
+  Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone wan to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource. A write that enables the DMZ sends back the DMZ priority of the router (priority in the router API), which this resource does not manage.
 ---
 
 # glinet_firewall_dmz (Resource)
 
-Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone `wan` to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource.
+Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone `wan` to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. When the router has no DMZ host, Terraform plans to create this resource. A write that enables the DMZ sends back the DMZ priority of the router (`priority` in the router API), which this resource does not manage.
 
 ## Example Usage
 

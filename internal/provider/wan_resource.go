@@ -312,7 +312,7 @@ func (r *wanResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.Sta
 		return
 	}
 
-	if err := r.client.Cable.SetConfig(ctx, config); err != nil {
+	if err := r.client.Cable.SetConfig(ctx, glinet.FirstWANPort, config); err != nil {
 		diags.AddError("Unable to Set WAN Configuration", err.Error())
 		return
 	}
@@ -329,7 +329,7 @@ func (r *wanResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.Sta
 // read takes the addresses and the PPPoE account only for the protocol that uses them, because the
 // router can keep the values of another protocol.
 func (r *wanResource) read(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
-	config, err := r.client.Cable.GetConfig(ctx)
+	config, err := r.client.Cable.GetConfig(ctx, glinet.FirstWANPort)
 	if err != nil {
 		diags.AddError("Unable to Read WAN Configuration", err.Error())
 		return

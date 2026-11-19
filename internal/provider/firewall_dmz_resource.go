@@ -46,7 +46,8 @@ func (r *firewallDMZResource) Schema(_ context.Context, _ resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		Description: "Manages the DMZ host of the firewall. When the DMZ is enabled, the router forwards incoming traffic from the zone `wan` to the DMZ host. The router has one DMZ configuration, so use one instance of this resource. " +
 			"Destroy disables the DMZ on the router and removes the DMZ host, so that no host stays exposed. " +
-			"When the router has no DMZ host, Terraform plans to create this resource.",
+			"When the router has no DMZ host, Terraform plans to create this resource. " +
+			"A write that enables the DMZ sends back the DMZ priority of the router (`priority` in the router API), which this resource does not manage.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Always `" + firewallDMZID + "`.",
@@ -129,6 +130,7 @@ func (r *firewallDMZResource) ImportState(ctx context.Context, req resource.Impo
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), firewallDMZID)...)
 }
 
+// set writes the DMZ of plan and sends back the priority of the router, which the provider does not manage.
 func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.State, diags *diag.Diagnostics) {
 	var model firewallDMZResourceModel
 	diags.Append(plan.Get(ctx, &model)...)
@@ -139,9 +141,16 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	err := r.client.Firewall.SetDMZ(ctx, glinet.DMZ{
-		Enabled: model.Enabled.ValueBool(),
-		DestIP:  model.InternalIP.ValueString(),
+	current, err := r.client.Firewall.GetDMZ(ctx)
+	if err != nil {
+		diags.AddError("Unable to Read Firewall DMZ", err.Error())
+		return
+	}
+
+	err = r.client.Firewall.SetDMZ(ctx, glinet.DMZ{
+		Enabled:  model.Enabled.ValueBool(),
+		DestIP:   model.InternalIP.ValueString(),
+		Priority: current.Priority,
 	})
 	if err != nil {
 		diags.AddError("Unable to Set Firewall DMZ", err.Error())

@@ -78,7 +78,7 @@ func (d *wanStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequest
 		return
 	}
 
-	cable, err := d.client.Network.CheckWANCable(ctx)
+	cable, err := d.client.Network.CheckWANCable(ctx, glinet.FirstWANPort)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WAN Cable State", err.Error())
 		return
