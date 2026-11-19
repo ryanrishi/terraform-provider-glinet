@@ -85,7 +85,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 		Description: "Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). " +
 			"The router gives the peer its tunnel address and its keys. " +
 			"`client_config` gives the values of the configuration file of the client device. " +
-			"The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. " +
+			"The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with `glinet_wireguard_server` or in the web UI. " +
 			"Destroy removes the peer from the router. " +
 			"Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. " +
 			untestedWriteNote,
@@ -252,7 +252,7 @@ func (r *wireGuardServerPeerResource) Create(ctx context.Context, req resource.C
 	}
 	if !config.Initialization {
 		resp.Diagnostics.AddError("WireGuard Server Not Initialized",
-			"The WireGuard server of the router is not initialized, so it has no keys. Initialize it in the web UI, then run terraform apply again.")
+			"The WireGuard server of the router is not initialized, so it has no keys. Initialize it with glinet_wireguard_server or in the web UI, then run terraform apply again.")
 		return
 	}
 

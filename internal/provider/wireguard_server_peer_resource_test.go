@@ -365,7 +365,7 @@ func TestWireGuardServerPeerResourceNotInitialized(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      fakeRouterConfig(srv) + fullWGServerPeer.config(),
-				ExpectError: regexp.MustCompile(`(?s)WireGuard Server Not Initialized.*` + wrapped("Initialize it in the web UI")),
+				ExpectError: regexp.MustCompile(`(?s)WireGuard Server Not Initialized.*` + wrapped("Initialize it with glinet_wireguard_server or in the web UI")),
 			},
 		},
 	})
@@ -548,6 +548,7 @@ func TestWireGuardSecretsNotInDiagnostics(t *testing.T) {
 	}{
 		{NewWireGuardClientConfigResource(), []string{"preshared_key", "private_key"}},
 		{NewWireGuardServerPeerResource(), []string{"preshared_key"}},
+		{NewWireGuardServerResource(), []string{"private_key"}},
 	} {
 		r := tt.resource
 		var resp fwresource.SchemaResponse
