@@ -285,6 +285,28 @@ func TestWireGuardServerResourceNoIPv6(t *testing.T) {
 	})
 }
 
+// TestWireGuardServerResourceIPv6PrefixLengths accepts IPv6 prefix lengths other than 64, up to 126.
+func TestWireGuardServerResourceIPv6PrefixLengths(t *testing.T) {
+	parallel(t)
+	srv, _ := wgServerTestRouter(t)
+	calls := recordWGServerCalls(t, srv)
+
+	var steps []resource.TestStep
+	for _, address := range []string{"fd00:db8::1/48", "fd00:db8::1/126"} {
+		steps = append(steps, resource.TestStep{
+			Config:            fakeRouterConfig(srv) + wgServer{addressV6: ptr(address)}.config(),
+			ConfigStateChecks: []statecheck.StateCheck{expectWGServer("address_v6", knownvalue.StringExact(address))},
+			Check: calls.setConfig.expect(`{"address_v4":"10.66.0.9/24","address_v6":"` + address + `","ipv6_enable":false,"port":51820,
+				"private_key":"` + fakeServerPrivateKey + `"}`),
+		})
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps:                    steps,
+	})
+}
+
 // TestWireGuardServerResourceRunning refuses a configuration write while the server runs, and permits an options write.
 func TestWireGuardServerResourceRunning(t *testing.T) {
 	parallel(t)
@@ -394,8 +416,11 @@ func TestWireGuardServerResourceInvalidConfig(t *testing.T) {
 		{wgServer{addressV4: ptr("10.0.0.1")}, wrapped("address_v4 must be a private IPv4 address with a prefix length up to 30")},
 		{wgServer{addressV4: ptr("203.0.113.1/24")}, `address_v4 must be a private IPv4 address`},
 		{wgServer{addressV4: ptr("10.0.0.1/31")}, `address_v4 must be a private IPv4 address`},
-		{wgServer{addressV6: ptr("fd00:db8::1/48")}, wrapped(`address_v6 must be "" or an IPv6 address in fd00::/8 with the prefix length 64`)},
-		{wgServer{addressV6: ptr("fc00:db8::1/64")}, wrapped(`address_v6 must be "" or an IPv6 address in fd00::/8`)},
+		{wgServer{addressV4: ptr("10.0.0.1/4")}, `address_v4 must be a private IPv4 address`},
+		{wgServer{addressV4: ptr("172.16.0.1/11")}, `address_v4 must be a private IPv4 address`},
+		{wgServer{addressV6: ptr("fd00:db8::1/127")}, wrapped(`address_v6 must be "" or an IPv6 address with a prefix length up to 126`)},
+		{wgServer{addressV6: ptr("fd00:db8::1")}, wrapped(`address_v6 must be "" or an IPv6 address with a prefix length up to 126`)},
+		{wgServer{addressV6: ptr("::ffff:10.0.0.1/120")}, wrapped(`address_v6 must be "" or an IPv6 address with a prefix length up to 126`)},
 		{wgServer{listenPort: ptr(0)}, `listen_port value must be between 1 and 65535`},
 		{wgServer{privateKey: ptr("short=")}, wrapped("private_key must be a WireGuard key")},
 		{wgServer{mtu: ptr(67)}, `mtu value must be between 68 and 65535`},

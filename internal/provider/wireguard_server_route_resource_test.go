@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -22,7 +23,7 @@ const wgRouteAddress = "glinet_wireguard_server_route.test"
 // wgRoute is a configuration of glinet_wireguard_server_route. The empty fields are left out.
 type wgRoute struct {
 	dest, gateway string
-	metric, mtu   int
+	metric, mtu   int64
 }
 
 func (r wgRoute) config() string {
@@ -118,6 +119,29 @@ func TestWireGuardServerRouteResource(t *testing.T) {
 				ImportStateId:                        "192.168.10.0/24",
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "dest",
+			},
+		},
+	})
+}
+
+// TestWireGuardServerRouteResourceMaxMetric sends the largest metric that fits in the 32-bit int of the 386 and arm builds.
+func TestWireGuardServerRouteResourceMaxMetric(t *testing.T) {
+	parallel(t)
+	srv, _ := wgServerTestRouter(t)
+	adds := recordCalls(t, srv, "wg-server", "add_route")
+	config := fakeRouterConfig(srv) + wgRoute{dest: "192.168.10.0/24", metric: math.MaxInt32}.config()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            config,
+				ConfigStateChecks: []statecheck.StateCheck{expectWGRoute("metric", knownvalue.Int64Exact(math.MaxInt32))},
+				Check:             adds.expect(`{"dest":"192.168.10.0/24","gateway":"","metric":2147483647,"mtu":0,"route_flag":4}`),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: expectEmptyPlan,
 			},
 		},
 	})
@@ -282,8 +306,9 @@ func TestWireGuardServerRouteResourceInvalidConfig(t *testing.T) {
 		{wgRoute{dest: "192.168.10.0/24", gateway: "gw.example.com"}, `gateway must be an IP address`},
 		{wgRoute{dest: "192.168.10.0/24", gateway: "fd00:db8::2"}, wrapped("gateway fd00:db8::2 must have the address family of dest 192.168.10.0/24")},
 		{wgRoute{dest: "fd00:db8:10::/64", gateway: "10.0.0.2"}, wrapped("gateway 10.0.0.2 must have the address family of dest fd00:db8:10::/64")},
-		{wgRoute{dest: "192.168.10.0/24", metric: -1}, wrapped("metric value must be between 1 and 4294967295")},
-		{wgRoute{dest: "192.168.10.0/24", metric: 4294967296}, wrapped("metric value must be between 1 and 4294967295")},
+		{wgRoute{dest: "192.168.10.0/24", metric: -1}, wrapped("metric value must be between 1 and 2147483647")},
+		{wgRoute{dest: "192.168.10.0/24", metric: 2147483648}, wrapped("metric value must be between 1 and 2147483647")},
+		{wgRoute{dest: "192.168.10.0/24", metric: 4294967295}, wrapped("metric value must be between 1 and 2147483647")},
 		{wgRoute{dest: "192.168.10.0/24", mtu: 67}, `mtu value must be between 68 and 65535`},
 		{wgRoute{dest: "192.168.10.0/24", mtu: 65536}, `mtu value must be between 68 and 65535`},
 	}

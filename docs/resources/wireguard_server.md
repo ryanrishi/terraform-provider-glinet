@@ -31,8 +31,8 @@ resource "glinet_wireguard_server" "this" {
 
 ### Optional
 
-- `address_v4` (String) IPv4 address of the server in the tunnel with a prefix length, for example `10.0.0.1/24` (`address_v4` in the router API). It must be a private address, and the prefix length must be 30 or less. When it is not set, the router value does not change.
-- `address_v6` (String) IPv6 address of the server in the tunnel with the prefix length 64, in `fd00::/8`, for example `fd00:db8::1/64` (`address_v6` in the router API). `""` removes the address, as the web UI sends it for an empty input; what the router does with `""` is not known. When it is not set, the router value does not change.
+- `address_v4` (String) IPv4 address of the server in the tunnel with a prefix length, for example `10.0.0.1/24` (`address_v4` in the router API). It must be in a private network (`10.0.0.0/8`, `172.16.0.0/12` or `192.168.0.0/16`), and the prefix length must be 30 or less. When it is not set, the router value does not change.
+- `address_v6` (String) IPv6 address of the server in the tunnel with a prefix length up to 126, for example `fd00:db8::1/64` (`address_v6` in the router API). The client documents prefix lengths up to 126 for the web UI, with 64 as the default. The web UI of firmware 4.8.3 accepts only an address in `fd00::/8` with the prefix length 64; what a router with firmware 4.8.3 does with another address is not known. `""` removes the address, as the web UI sends it for an empty input; what the router does with `""` is not known. When it is not set, the router value does not change.
 - `client_to_client` (Boolean) Whether the peers can reach each other (`client_to_client` in the router API). When it is not set, the router value does not change.
 - `listen_port` (Number) UDP port of the server, from 1 to 65535 (`port` in the router API). When it is not set, the router value does not change.
 - `local_access` (Boolean) Whether the peers can reach the LAN of the router (`local_access` in the router API). When it is not set, the router value does not change.

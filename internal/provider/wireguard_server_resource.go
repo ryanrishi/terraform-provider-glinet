@@ -47,19 +47,20 @@ type wireGuardServerResourceModel struct {
 	MTU            types.Int64  `tfsdk:"mtu"`
 }
 
-// validWireGuardServerAddressV4 is the rule of the web UI: a private IPv4 address with a prefix length up to 30.
+// validWireGuardServerAddressV4 is the rule of the web UI: an address in a private network (10.0.0.0/8, 172.16.0.0/12
+// or 192.168.0.0/16) with a prefix length up to 30.
 func validWireGuardServerAddressV4(s string) bool {
 	prefix, err := netip.ParsePrefix(s)
-	return err == nil && prefix.Addr().Is4() && prefix.Addr().IsPrivate() && prefix.Bits() <= 30
+	return err == nil && prefix.Addr().Is4() && prefix.Masked().Addr().IsPrivate() && prefix.Bits() <= 30
 }
 
-// validWireGuardServerAddressV6 is the rule of the web UI of firmware 4.8.3: empty, or an IPv6 address in fd00::/8 with the prefix length 64.
+// validWireGuardServerAddressV6 accepts empty, or an IPv6 address with a prefix length up to 126.
 func validWireGuardServerAddressV6(s string) bool {
 	if s == "" {
 		return true
 	}
 	prefix, err := netip.ParsePrefix(s)
-	return err == nil && prefix.Addr().Is6() && prefix.Addr().As16()[0] == 0xfd && prefix.Bits() == 64
+	return err == nil && prefix.Addr().Is6() && !prefix.Addr().Is4In6() && prefix.Addr().Zone() == "" && prefix.Bits() <= 126
 }
 
 func (r *wireGuardServerResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -92,7 +93,7 @@ func (r *wireGuardServerResource) Schema(_ context.Context, _ resource.SchemaReq
 			},
 			"address_v4": schema.StringAttribute{
 				Description: "IPv4 address of the server in the tunnel with a prefix length, for example `10.0.0.1/24` (`address_v4` in the router API). " +
-					"It must be a private address, and the prefix length must be 30 or less. When it is not set, the router value does not change.",
+					"It must be in a private network (`10.0.0.0/8`, `172.16.0.0/12` or `192.168.0.0/16`), and the prefix length must be 30 or less. When it is not set, the router value does not change.",
 				Optional: true,
 				Computed: true,
 				Validators: []validator.String{
@@ -100,13 +101,15 @@ func (r *wireGuardServerResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"address_v6": schema.StringAttribute{
-				Description: "IPv6 address of the server in the tunnel with the prefix length 64, in `fd00::/8`, for example `fd00:db8::1/64` (`address_v6` in the router API). " +
+				Description: "IPv6 address of the server in the tunnel with a prefix length up to 126, for example `fd00:db8::1/64` (`address_v6` in the router API). " +
+					"The client documents prefix lengths up to 126 for the web UI, with 64 as the default. " +
+					"The web UI of firmware 4.8.3 accepts only an address in `fd00::/8` with the prefix length 64; what a router with firmware 4.8.3 does with another address is not known. " +
 					"`\"\"` removes the address, as the web UI sends it for an empty input; what the router does with `\"\"` is not known. " +
 					"When it is not set, the router value does not change.",
 				Optional: true,
 				Computed: true,
 				Validators: []validator.String{
-					stringCheck{description: "must be \"\" or an IPv6 address in fd00::/8 with the prefix length 64, such as fd00:db8::1/64", valid: validWireGuardServerAddressV6},
+					stringCheck{description: "must be \"\" or an IPv6 address with a prefix length up to 126, such as fd00:db8::1/64", valid: validWireGuardServerAddressV6},
 				},
 			},
 			"listen_port": schema.Int64Attribute{

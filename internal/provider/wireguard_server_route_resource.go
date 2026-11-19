@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/netip"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -76,9 +77,11 @@ func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.Sche
 				},
 			},
 			"metric": schema.Int64Attribute{
-				Description: "Metric of the route, from 1 to 4294967295 (`metric` in the router API).",
-				Optional:    true,
-				Validators:  []validator.Int64{int64validator.Between(1, 4294967295)},
+				Description: "Metric of the route, from 1 to 2147483647 (`metric` in the router API). " +
+					"The web UI accepts up to 4294967295, but the provider limits the value to 2147483647, " +
+					"because the client gives the metric as an `int`, which has 32 bits on the 386 and arm builds of the provider.",
+				Optional:   true,
+				Validators: []validator.Int64{int64validator.Between(1, math.MaxInt32)},
 			},
 			"mtu": schema.Int64Attribute{
 				Description: "MTU of the route, from 68 to 65535 (`mtu` in the router API).",

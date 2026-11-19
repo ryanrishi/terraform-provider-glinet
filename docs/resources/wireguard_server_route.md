@@ -31,7 +31,7 @@ resource "glinet_wireguard_server_route" "office" {
 ### Optional
 
 - `gateway` (String) IP address of the gateway, of the same address family as `dest` (`gateway` in the router API).
-- `metric` (Number) Metric of the route, from 1 to 4294967295 (`metric` in the router API).
+- `metric` (Number) Metric of the route, from 1 to 2147483647 (`metric` in the router API). The web UI accepts up to 4294967295, but the provider limits the value to 2147483647, because the client gives the metric as an `int`, which has 32 bits on the 386 and arm builds of the provider.
 - `mtu` (Number) MTU of the route, from 68 to 65535 (`mtu` in the router API).
 
 ## Import
