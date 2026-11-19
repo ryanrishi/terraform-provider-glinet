@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -229,6 +231,52 @@ func TestScreenScheduleResourceRouterErrors(t *testing.T) {
 		if err := expectRouterScreenSchedule(srv, before)(nil); err != nil {
 			t.Error(err)
 		}
+	})
+
+	t.Run("disable", func(t *testing.T) {
+		srv := screenRouter(t)
+		set := srv.Handler("timer", "set_screen")
+		var failDisable atomic.Bool
+		failDisable.Store(true)
+		srv.Handle("timer", "set_screen", func(params json.RawMessage) (any, error) {
+			if failDisable.Load() && string(params) == `{"enable":false}` {
+				return nil, glinettest.ErrMethodNotFound
+			}
+			return set(params)
+		})
+		enabled := s
+		enabled.enabled = true
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config:      fakeRouterConfig(srv) + s.config(),
+					ExpectError: regexp.MustCompile(`(?s)Unable to Disable Screen Schedule.*The router has the schedule enabled.*Method not found`),
+				},
+				{
+					PreConfig: func() {
+						if err := expectRouterScreenSchedule(srv, enabled.router())(nil); err != nil {
+							t.Error(err)
+						}
+					},
+					RefreshState:       true,
+					ExpectNonEmptyPlan: true,
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr(screenScheduleAddress, "enabled", "true"),
+						resource.TestCheckResourceAttr(screenScheduleAddress, "turn_on_time", s.on),
+						resource.TestCheckResourceAttr(screenScheduleAddress, "turn_off_time", s.off),
+					),
+				},
+				{
+					PreConfig:         func() { failDisable.Store(false) },
+					Config:            fakeRouterConfig(srv) + s.config(),
+					ConfigPlanChecks:  expectResourceAction(screenScheduleAddress, plancheck.ResourceActionDestroyBeforeCreate),
+					ConfigStateChecks: expectScreenScheduleState(s),
+					Check:             expectRouterScreenSchedule(srv, s.router()),
+				},
+			},
+		})
 	})
 
 	t.Run("get after set", func(t *testing.T) {
