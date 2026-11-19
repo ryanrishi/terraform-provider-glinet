@@ -38,14 +38,14 @@ func TestNetworkAdvancedResource(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectRouterJSON(t, srv.Network.AdvanceConfig, `{"nat_enable":0,"sip_enable":1}`),
+		CheckDestroy:             expectRouterJSON(t, srv.Network.AdvancedConfig, `{"nat_enable":0,"sip_enable":1}`),
 		Steps: []resource.TestStep{
 			{
 				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = true\n  sip_alg = true\n"),
 				ConfigStateChecks: expectNetworkAdvancedState(true, true),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(`{"nat_enable":1,"sip_enable":1}`),
-					expectRouterJSON(t, srv.Network.AdvanceConfig, `{"nat_enable":1,"sip_enable":1}`),
+					expectRouterJSON(t, srv.Network.AdvancedConfig, `{"nat_enable":1,"sip_enable":1}`),
 				),
 			},
 			{
@@ -73,7 +73,7 @@ func TestNetworkAdvancedResource(t *testing.T) {
 func TestNetworkAdvancedResourceRouterValue(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	srv.Network.SetAdvanceConfig(json.RawMessage(`{"nat_enable":0,"sip_enable":1}`))
+	srv.Network.SetAdvancedConfig(json.RawMessage(`{"nat_enable":0,"sip_enable":1}`))
 	calls := recordCalls(t, srv, "network", "set_advance_config")
 
 	resource.UnitTest(t, resource.TestCase{
@@ -85,13 +85,13 @@ func TestNetworkAdvancedResourceRouterValue(t *testing.T) {
 				Check:             calls.expect(`{"nat_enable":1,"sip_enable":1}`),
 			},
 			{
-				PreConfig:         func() { srv.Network.SetAdvanceConfig(json.RawMessage(`{"nat_enable":0,"sip_enable":0}`)) },
+				PreConfig:         func() { srv.Network.SetAdvancedConfig(json.RawMessage(`{"nat_enable":0,"sip_enable":0}`)) },
 				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = true\n"),
 				ConfigPlanChecks:  expectResourceAction(networkAdvancedAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectNetworkAdvancedState(true, false),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(`{"nat_enable":1,"sip_enable":0}`),
-					expectRouterJSON(t, srv.Network.AdvanceConfig, `{"nat_enable":1,"sip_enable":0}`),
+					expectRouterJSON(t, srv.Network.AdvancedConfig, `{"nat_enable":1,"sip_enable":0}`),
 				),
 			},
 		},
@@ -136,7 +136,7 @@ func TestNetworkAdvancedResourceRouterErrors(t *testing.T) {
 					},
 				},
 			})
-			expectJSONEqual(t, srv.Network.AdvanceConfig(), `{"nat_enable":0,"sip_enable":0}`)
+			expectJSONEqual(t, srv.Network.AdvancedConfig(), `{"nat_enable":0,"sip_enable":0}`)
 		})
 	}
 }

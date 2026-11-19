@@ -19,7 +19,7 @@ import (
 
 const adGuardHomeAddress = "glinet_adguardhome.test"
 
-func adGuardHomeConfig(c glinet.GetAdGuardConfigResponse) string {
+func adGuardHomeConfig(c glinet.AdGuardHomeConfig) string {
 	return fmt.Sprintf(`
 resource "glinet_adguardhome" "test" {
   enabled     = %t
@@ -28,7 +28,7 @@ resource "glinet_adguardhome" "test" {
 `, c.Enabled, c.DNSEnabled)
 }
 
-func expectAdGuardHomeState(c glinet.GetAdGuardConfigResponse) []statecheck.StateCheck {
+func expectAdGuardHomeState(c glinet.AdGuardHomeConfig) []statecheck.StateCheck {
 	return []statecheck.StateCheck{
 		statecheck.ExpectKnownValue(adGuardHomeAddress, tfjsonpath.New("id"), knownvalue.StringExact("adguardhome")),
 		statecheck.ExpectKnownValue(adGuardHomeAddress, tfjsonpath.New("enabled"), knownvalue.Bool(c.Enabled)),
@@ -37,9 +37,9 @@ func expectAdGuardHomeState(c glinet.GetAdGuardConfigResponse) []statecheck.Stat
 }
 
 // expectRouterAdGuardHome checks that the AdGuard Home configuration of the router is want.
-func expectRouterAdGuardHome(client *glinet.Client, want glinet.GetAdGuardConfigResponse) resource.TestCheckFunc {
+func expectRouterAdGuardHome(client *glinet.Client, want glinet.AdGuardHomeConfig) resource.TestCheckFunc {
 	return func(*terraform.State) error {
-		got, err := client.AdGuard.GetAdGuardConfig(context.Background())
+		got, err := client.AdGuardHome.GetConfig(context.Background())
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func expectRouterAdGuardHome(client *glinet.Client, want glinet.GetAdGuardConfig
 	}
 }
 
-func setFakeAdGuardHome(srv *glinettest.Server, c glinet.GetAdGuardConfigResponse) {
+func setFakeAdGuardHome(srv *glinettest.Server, c glinet.AdGuardHomeConfig) {
 	srv.AdGuardHome.SetConfig(glinettest.AdGuardHomeConfig(c))
 }
 
@@ -70,14 +70,14 @@ func allowAdGuardHomeDisabled(module, method string, params map[string]json.RawM
 // adGuardHomeTestRouter returns the provider block and a client for the router of the test, and the initial
 // AdGuard Home configuration. The real router is used only through guardedRealRouter with allowAdGuardHomeDisabled,
 // only when AdGuard Home is disabled on it, and its configuration goes back to its initial value when the test ends.
-func adGuardHomeTestRouter(t *testing.T) (string, *glinet.Client, glinet.GetAdGuardConfigResponse) {
+func adGuardHomeTestRouter(t *testing.T) (string, *glinet.Client, glinet.AdGuardHomeConfig) {
 	if !realRouter() {
 		srv := glinettest.NewServer(t)
-		return fakeRouterConfig(srv), testClient(t, srv.URL, srv.Username, srv.Password), glinet.GetAdGuardConfigResponse(srv.AdGuardHome.Config())
+		return fakeRouterConfig(srv), testClient(t, srv.URL, srv.Username, srv.Password), glinet.AdGuardHomeConfig(srv.AdGuardHome.Config())
 	}
 
 	provider, client := guardedRealRouter(t, allowAdGuardHomeDisabled)
-	initial, err := client.AdGuard.GetAdGuardConfig(context.Background())
+	initial, err := client.AdGuardHome.GetConfig(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,12 +87,12 @@ func adGuardHomeTestRouter(t *testing.T) (string, *glinet.Client, glinet.GetAdGu
 
 	t.Cleanup(func() {
 		ctx := context.Background()
-		err := client.AdGuard.SetAdGuardConfig(ctx, &glinet.SetAdGuardConfigRequest{Enabled: initial.Enabled, DNSEnabled: initial.DNSEnabled})
+		err := client.AdGuardHome.SetConfig(ctx, glinet.AdGuardHomeConfig{Enabled: initial.Enabled, DNSEnabled: initial.DNSEnabled})
 		if err != nil {
 			t.Fatalf("restore AdGuard Home configuration: %v", err)
 		}
 
-		restored, err := client.AdGuard.GetAdGuardConfig(ctx)
+		restored, err := client.AdGuardHome.GetConfig(ctx)
 		if err != nil {
 			t.Fatalf("read restored AdGuard Home configuration: %v", err)
 		}
@@ -108,7 +108,7 @@ func adGuardHomeTestRouter(t *testing.T) (string, *glinet.Client, glinet.GetAdGu
 func TestAdGuardHomeResource(t *testing.T) {
 	parallel(t)
 	provider, client, initial := adGuardHomeTestRouter(t)
-	changed := glinet.GetAdGuardConfigResponse{Enabled: false, DNSEnabled: !initial.DNSEnabled}
+	changed := glinet.AdGuardHomeConfig{Enabled: false, DNSEnabled: !initial.DNSEnabled}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -139,7 +139,7 @@ func TestAdGuardHomeResourceUpdate(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
-	configs := []glinet.GetAdGuardConfigResponse{
+	configs := []glinet.AdGuardHomeConfig{
 		{Enabled: true, DNSEnabled: true},
 		{Enabled: true, DNSEnabled: false},
 		{Enabled: false, DNSEnabled: false},
@@ -169,7 +169,7 @@ func TestAdGuardHomeResourceUpdate(t *testing.T) {
 
 func TestAdGuardHomeResourceImport(t *testing.T) {
 	parallel(t)
-	for _, existing := range []glinet.GetAdGuardConfigResponse{
+	for _, existing := range []glinet.AdGuardHomeConfig{
 		{Enabled: true, DNSEnabled: false},
 		{Enabled: false, DNSEnabled: true},
 	} {
@@ -207,7 +207,7 @@ func TestAdGuardHomeResourceImportInvalidID(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:        fakeRouterConfig(srv) + adGuardHomeConfig(glinet.GetAdGuardConfigResponse{}),
+				Config:        fakeRouterConfig(srv) + adGuardHomeConfig(glinet.AdGuardHomeConfig{}),
 				ResourceName:  adGuardHomeAddress,
 				ImportState:   true,
 				ImportStateId: "adguard",
@@ -221,11 +221,11 @@ func TestAdGuardHomeResourceDrift(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
-	want := glinet.GetAdGuardConfigResponse{Enabled: true, DNSEnabled: true}
+	want := glinet.AdGuardHomeConfig{Enabled: true, DNSEnabled: true}
 	config := fakeRouterConfig(srv) + adGuardHomeConfig(want)
 
 	steps := []resource.TestStep{{Config: config}}
-	for _, router := range []glinet.GetAdGuardConfigResponse{
+	for _, router := range []glinet.AdGuardHomeConfig{
 		{Enabled: false, DNSEnabled: true},
 		{Enabled: true, DNSEnabled: false},
 	} {
@@ -278,7 +278,7 @@ func TestAdGuardHomeResourceInvalidConfig(t *testing.T) {
 
 func TestAdGuardHomeResourceRouterErrors(t *testing.T) {
 	parallel(t)
-	c := glinet.GetAdGuardConfigResponse{Enabled: true, DNSEnabled: false}
+	c := glinet.AdGuardHomeConfig{Enabled: true, DNSEnabled: false}
 
 	t.Run("get after set", func(t *testing.T) {
 		srv := glinettest.NewServer(t)

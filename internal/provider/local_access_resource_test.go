@@ -3,6 +3,7 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sync/atomic"
 	"testing"
@@ -30,7 +31,7 @@ resource "glinet_local_access" "test" {
 
 func expectLocalAccess(srv *glinettest.Server, want glinettest.LocalAccessConfig) resource.TestCheckFunc {
 	return func(*terraform.State) error {
-		if got := srv.LocalAccess.Config(); got != want {
+		if got := srv.LocalAccess.Config(); !reflect.DeepEqual(got, want) {
 			return fmt.Errorf("local access configuration is %+v, want %+v", got, want)
 		}
 		return nil
@@ -38,6 +39,10 @@ func expectLocalAccess(srv *glinettest.Server, want glinettest.LocalAccessConfig
 }
 
 func expectLocalAccessState(c glinettest.LocalAccessConfig) []statecheck.StateCheck {
+	var sshEnabled knownvalue.Check = knownvalue.Null()
+	if c.SSHEnabled != nil {
+		sshEnabled = knownvalue.Bool(*c.SSHEnabled)
+	}
 	checks := []statecheck.StateCheck{
 		statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New("id"), knownvalue.StringExact("local_access")),
 	}
@@ -49,7 +54,7 @@ func expectLocalAccessState(c glinettest.LocalAccessConfig) []statecheck.StateCh
 		"luci_https_port":     knownvalue.Int64Exact(int64(c.LuCIHTTPSPort)),
 		"luci_redirect_https": knownvalue.Bool(c.LuCIRedirectHTTPS),
 		"session_timeout":     knownvalue.Int64Exact(int64(c.SessionTimeout)),
-		"ssh_enabled":         knownvalue.Bool(c.SSHEnabled),
+		"ssh_enabled":         sshEnabled,
 		"ssh_port":            knownvalue.Int64Exact(int64(c.SSHPort)),
 	} {
 		checks = append(checks, statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New(name), value))
@@ -68,7 +73,7 @@ func TestLocalAccessResource(t *testing.T) {
 	first.SSHPort = 2222
 	second := first
 	second.LuCIRedirectHTTPS = true
-	second.SSHEnabled = false
+	second.SSHEnabled = ptr(false)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -191,23 +196,14 @@ func TestLocalAccessResourceReadErrorAfterWrite(t *testing.T) {
 }
 
 // TestLocalAccessResourceFirmware470 reads a configuration without ssh_enabled, as firmware 4.7.0 gives it.
-// When ssh_enabled is not set, the plan has no difference.
+// When ssh_enabled is not set, the write sends no ssh_enabled, the state has null, and the plan has no difference.
+// When ssh_enabled is set, the apply fails before the write.
 func TestLocalAccessResourceFirmware470(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	srv.Handle("local-access", "get_config", func(json.RawMessage) (any, error) {
-		c := srv.LocalAccess.Config()
-		return map[string]any{
-			"http_port":           c.HTTPPort,
-			"https_port":          c.HTTPSPort,
-			"redirect_https":      c.RedirectHTTPS,
-			"luci_http_port":      c.LuCIHTTPPort,
-			"luci_https_port":     c.LuCIHTTPSPort,
-			"luci_redirect_https": c.LuCIRedirectHTTPS,
-			"session_timeout":     c.SessionTimeout,
-			"ssh_port":            c.SSHPort,
-		}, nil
-	})
+	initial := srv.LocalAccess.Config()
+	initial.SSHEnabled = nil
+	srv.LocalAccess.SetConfig(initial)
 	calls := recordCalls(t, srv, "local-access", "set_config")
 
 	resource.UnitTest(t, resource.TestCase{
@@ -216,14 +212,26 @@ func TestLocalAccessResourceFirmware470(t *testing.T) {
 			{
 				Config: localAccessConfig(srv, `  session_timeout = 600`),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New("ssh_enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New("ssh_enabled"), knownvalue.Null()),
 				},
 				Check: calls.expect(`{"http_port":80,"https_port":443,"redirect_https":false,"luci_http_port":8080,"luci_https_port":8443,` +
-					`"luci_redirect_https":false,"session_timeout":600,"ssh_enabled":false,"ssh_port":22}`),
+					`"luci_redirect_https":false,"session_timeout":600,"ssh_port":22}`),
 			},
 			{
 				Config:           localAccessConfig(srv, `  session_timeout = 600`),
 				ConfigPlanChecks: expectEmptyPlan,
+			},
+			{
+				Config: localAccessConfig(srv, `
+  session_timeout = 600
+  ssh_enabled     = true
+`),
+				ExpectError: regexp.MustCompile(`(?s)SSH Setting Not Supported.*does not return ssh_enabled`),
+			},
+			{
+				Config:           localAccessConfig(srv, `  session_timeout = 600`),
+				ConfigPlanChecks: expectEmptyPlan,
+				Check:            calls.expect(),
 			},
 		},
 	})

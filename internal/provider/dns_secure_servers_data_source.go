@@ -27,7 +27,7 @@ type dnsSecureServersModel struct {
 	Servers   []dnsSecureServerModel `tfsdk:"servers"`
 }
 
-// dnsSecureServerModel has the fields of glinet.EncryptedServer in the same order, so that a type conversion copies them.
+// dnsSecureServerModel has the fields of glinet.DNSEncryptedServer in the same order, so that a type conversion copies them.
 type dnsSecureServerModel struct {
 	Name     string `tfsdk:"name"`
 	Proto    string `tfsdk:"protocol"`

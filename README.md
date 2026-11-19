@@ -31,6 +31,10 @@ variable "glinet_password" {
 ```
 
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
+Each call to the router has a time limit of 60 seconds.
+
+After `terraform import`, the next plan can show an update in-place with no changed attribute when the configuration sets a sensitive attribute from a variable with `sensitive = true`.
+One `terraform apply` writes the sensitive mark into the state; the next plan shows no changes. The [provider documentation](docs/index.md) tells what this apply does on the router.
 
 > [!WARNING]
 > Some resources can cut the access to the router, or the Internet access of the router and its clients: [`glinet_access_control`](docs/resources/access_control.md), [`glinet_client_allow`](docs/resources/client_allow.md), [`glinet_parental_control`](docs/resources/parental_control.md), [`glinet_parental_control_group`](docs/resources/parental_control_group.md), [`glinet_local_access`](docs/resources/local_access.md), [`glinet_wan_access`](docs/resources/wan_access.md), [`glinet_wan`](docs/resources/wan.md), [`glinet_wan_port`](docs/resources/wan_port.md), [`glinet_multiwan`](docs/resources/multiwan.md), [`glinet_multiwan_interface`](docs/resources/multiwan_interface.md), [`glinet_multiwan_sensitivity`](docs/resources/multiwan_sensitivity.md), [`glinet_repeater`](docs/resources/repeater.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
@@ -125,6 +129,7 @@ To develop the provider:
 | `make install` | Build the provider and install it in `$GOPATH/bin`. |
 | `make fmt` | Format the Go code. |
 | `make lint` | Run golangci-lint. |
+| `make vet32` | Run `go vet` for the 32-bit platforms `linux/386` and `linux/arm`. |
 | `make generate` | Format the examples and generate `docs/` with tfplugindocs. |
 | `make test` | Run the tests on a fake router, with a time limit of 20 minutes. |
 | `make testacc` | Run the tests with `TF_ACC=1`. |
@@ -139,12 +144,7 @@ The provider connects to a fake router from the package [`glinettest`](https://p
 The tests need no router and no `TF_ACC`.
 `make test` runs the tests in parallel and stops them after 20 minutes.
 
-The release builds include 32-bit platforms, where `int` has 32 bits. To check the code for these platforms, also run:
-
-```shell
-GOOS=linux GOARCH=386 go vet ./...
-GOOS=linux GOARCH=arm go vet ./...
-```
+The release builds include 32-bit platforms, where `int` has 32 bits. `make vet32` checks the code for these platforms; CI runs it.
 
 To run the tests with OpenTofu, set these environment variables:
 

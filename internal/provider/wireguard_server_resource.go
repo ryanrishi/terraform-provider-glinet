@@ -78,8 +78,8 @@ func (r *wireGuardServerResource) Schema(_ context.Context, _ resource.SchemaReq
 			"on create from the values of the router, on update from the state. " +
 			"The web UI permits a change of the configuration only while the server is stopped, so a configuration write fails while the server runs or starts; stop the server in the web UI first. " +
 			"The resource does not start or stop the server. Use `glinet_wireguard_server_peer` for the peers and `glinet_wireguard_server_route` for the route rules. " +
-			"With a configuration that has an IPv6 address, the provider sends `ipv6_enable` with the value of the last read, as the client does. " +
-			"Firmware 4.8.3 does not give `ipv6_enable`, so the provider then sends `false`; the web UI of firmware 4.8.3 does not send it, and what the router does with it is not known. " +
+			"The provider sends `ipv6_enable` with the value of the last read only when the router returned it and `address_v6` is not empty, as the web UI of firmware 4.7.0 does. " +
+			"Firmware 4.8.3 does not return `ipv6_enable`, so the provider does not send it; the web UI of firmware 4.8.3 does not send it either. " +
 			"The state keeps the private key as clear text; protect the state. " +
 			"Import the server with the ID `" + wireGuardServerID + "`. " +
 			untestedWriteNote + destroyNote,
@@ -280,11 +280,11 @@ func (r *wireGuardServerResource) write(ctx context.Context, plan wireGuardServe
 			return
 		}
 		if err := r.client.WireGuardServer.SetConfig(ctx, glinet.WireGuardServerConfig{
-			AddressV4:  plan.AddressV4.ValueString(),
-			AddressV6:  plan.AddressV6.ValueString(),
-			IPv6Enable: config.IPv6Enable,
-			Port:       int(plan.ListenPort.ValueInt64()),
-			PrivateKey: plan.PrivateKey.ValueString(),
+			AddressV4:   plan.AddressV4.ValueString(),
+			AddressV6:   plan.AddressV6.ValueString(),
+			IPv6Enabled: config.IPv6Enabled,
+			Port:        int(plan.ListenPort.ValueInt64()),
+			PrivateKey:  plan.PrivateKey.ValueString(),
 		}); err != nil {
 			diags.AddError("Unable to Set WireGuard Server Configuration", err.Error())
 			return

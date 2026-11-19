@@ -117,7 +117,7 @@ func (r *systemTimezoneResource) set(ctx context.Context, plan tfsdk.Plan, state
 		return
 	}
 
-	err := r.client.System.SetTimezoneConfig(ctx, &glinet.SetSystemTimezoneRequest{
+	err := r.client.System.SetTimezoneConfig(ctx, glinet.SetTimezoneConfigRequest{
 		Zonename: model.Zonename.ValueString(),
 		Timezone: model.Timezone.ValueString(),
 	})

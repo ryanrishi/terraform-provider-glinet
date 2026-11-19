@@ -303,8 +303,8 @@ func checkTracking(model multiWANInterfaceResourceModel, tracking glinet.MultiWA
 		return
 	}
 
-	ipv4 := tracking.TrackProto == glinet.MultiWANTrackIPv4 || tracking.TrackProto == glinet.MultiWANTrackBoth
-	ipv6 := tracking.TrackProto == glinet.MultiWANTrackIPv6 || tracking.TrackProto == glinet.MultiWANTrackBoth
+	ipv4 := tracking.TrackProto == glinet.MultiWANTrackProtoIPv4 || tracking.TrackProto == glinet.MultiWANTrackProtoBoth
+	ipv6 := tracking.TrackProto == glinet.MultiWANTrackProtoIPv6 || tracking.TrackProto == glinet.MultiWANTrackProtoBoth
 	checkTrackHosts(diags, "track_ipv4", model.TrackIPv4, tracking.TrackIPv4, ipv4, tracking.TrackProto)
 	checkTrackHosts(diags, "track_ipv6", model.TrackIPv6, tracking.TrackIPv6, ipv6, tracking.TrackProto)
 }

@@ -118,12 +118,12 @@ func (d *repeaterSavedNetworksDataSource) Read(ctx context.Context, _ datasource
 			Manual:     n.Manual,
 			AutoPortal: n.AutoPortal,
 		}
-		if n.MACAddr != nil {
+		if n.MAC != nil {
 			network.MACAddress = &repeaterMACModel{
-				Mode:   n.MACAddr.Mode,
-				MAC:    stringOrNull(n.MACAddr.MAC),
-				Update: stringOrNull(n.MACAddr.Update),
-				Period: int64OrNull(n.MACAddr.Period),
+				Mode:   n.MAC.Mode,
+				MAC:    stringOrNull(n.MAC.MACAddr),
+				Update: stringOrNull(n.MAC.Update),
+				Period: int64OrNull(n.MAC.Period),
 			}
 		}
 		state.Networks = append(state.Networks, network)

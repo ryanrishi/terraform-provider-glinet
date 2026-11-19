@@ -152,10 +152,9 @@ func (r *localAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"ssh_enabled": schema.BoolAttribute{
 				Description: "Whether the SSH server of the router is enabled (`ssh_enabled` in the router API). " +
 					"The router refuses `true` when the admin password is too weak. " +
-					"Firmware 4.7.0 does not return `ssh_enabled`, so the provider reads `false` there, and each write sends `ssh_enabled` `false` when it is not set; " +
-					"it is not known what that firmware does with this value. " +
-					"With such firmware, do not set it: a configured `true` makes a plan difference after each refresh. " +
-					"When it is not set, the router value does not change.",
+					"When it is not set, the router value does not change. " +
+					"Firmware 4.7.0 does not return `ssh_enabled`: with such firmware the provider reads null, and a write sends no `ssh_enabled` when it is not set. " +
+					"When it is set and the router does not return `ssh_enabled` in the read before the write, the apply fails before the write.",
 				Optional: true,
 				Computed: true,
 			},
@@ -262,6 +261,11 @@ func (r *localAccessResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		diags.AddError("Unable to Read Local Access Configuration", err.Error())
 		return
 	}
+	if current.SSHEnabled == nil && !model.SSHEnabled.IsUnknown() {
+		diags.AddAttributeError(path.Root("ssh_enabled"), "SSH Setting Not Supported",
+			"The router does not return ssh_enabled, as firmware 4.7.0 does, so the provider does not write it. Remove ssh_enabled from the configuration.")
+		return
+	}
 	model.fillUnknown(localAccessModel(current))
 	checkDifferentPorts(model.ports(), " (with the router values of the ports that are not set)", diags)
 	if diags.HasError() {
@@ -276,7 +280,7 @@ func (r *localAccessResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		LuCIHTTPSPort:     int(model.LuCIHTTPSPort.ValueInt64()),
 		LuCIRedirectHTTPS: model.LuCIRedirectHTTPS.ValueBool(),
 		SessionTimeout:    int(model.SessionTimeout.ValueInt64()),
-		SSHEnabled:        model.SSHEnabled.ValueBool(),
+		SSHEnabled:        model.SSHEnabled.ValueBoolPointer(),
 		SSHPort:           int(model.SSHPort.ValueInt64()),
 	}
 	endpointMoves := request.HTTPPort != current.HTTPPort || request.HTTPSPort != current.HTTPSPort || request.RedirectHTTPS != current.RedirectHTTPS
@@ -341,17 +345,20 @@ func (m *localAccessResourceModel) fillUnknown(current *localAccessResourceModel
 }
 
 // addLocalAccessError adds the error of local-access set_config. The router gives err_code -1 to -3 for a port that
-// is in use and -4 for SSH with a weak admin password.
+// is in use and -4 for SSH with a weak admin password. An error that is not an answer of the router, such as a time-out,
+// can come from a write that moved the address of the API.
 func addLocalAccessError(err error, endpointMoves bool, diags *diag.Diagnostics) {
 	const summary = "Unable to Set Local Access Configuration"
 	var rpcErr *glinet.RPCError
-	if !errors.As(err, &rpcErr) {
-		detail := err.Error()
-		if endpointMoves {
-			detail = "The router did not answer the write. The write was possibly done. " + endpointMoveNote +
-				" Then run terraform apply again. Error: " + detail
-		}
-		diags.AddError(summary, detail)
+	var httpErr *glinet.HTTPError
+	switch {
+	case errors.As(err, &rpcErr):
+	case errors.As(err, &httpErr) || !endpointMoves:
+		diags.AddError(summary, err.Error())
+		return
+	default:
+		diags.AddError(summary, "The router did not answer the write. The write was possibly done. "+endpointMoveNote+
+			" Then run terraform apply again. Error: "+err.Error())
 		return
 	}
 
@@ -388,7 +395,7 @@ func localAccessModel(c *glinet.LocalAccessConfig) *localAccessResourceModel {
 		LuCIHTTPSPort:     types.Int64Value(int64(c.LuCIHTTPSPort)),
 		LuCIRedirectHTTPS: types.BoolValue(c.LuCIRedirectHTTPS),
 		SessionTimeout:    types.Int64Value(int64(c.SessionTimeout)),
-		SSHEnabled:        types.BoolValue(c.SSHEnabled),
+		SSHEnabled:        types.BoolPointerValue(c.SSHEnabled),
 		SSHPort:           types.Int64Value(int64(c.SSHPort)),
 	}
 }

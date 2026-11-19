@@ -116,9 +116,9 @@ func listOrNull(ctx context.Context, s string, diags *diag.Diagnostics) types.Li
 }
 
 // parseRouterID returns the positive number of an import ID part.
-func parseRouterID(s string) (int, bool) {
-	id, err := strconv.Atoi(s)
-	return id, err == nil && id > 0 && s == strconv.Itoa(id)
+func parseRouterID(s string) (int64, bool) {
+	id, err := strconv.ParseInt(s, 10, 64)
+	return id, err == nil && id > 0 && s == strconv.FormatInt(id, 10)
 }
 
 func invalidImportID(resp *resource.ImportStateResponse, typeName, format, example, id string) {

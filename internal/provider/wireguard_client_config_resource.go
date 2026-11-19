@@ -193,7 +193,7 @@ func (r *wireGuardClientConfigResource) Create(ctx context.Context, req resource
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	groupID := int(plan.GroupID.ValueInt64())
+	groupID := plan.GroupID.ValueInt64()
 	if !r.checkGroup(ctx, groupID, &resp.Diagnostics) {
 		return
 	}
@@ -208,7 +208,7 @@ func (r *wireGuardClientConfigResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	plan.ID = types.Int64Value(int64(id))
+	plan.ID = types.Int64Value(id)
 	plan.nullUnknown()
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, groupID, id, &resp.State, &resp.Diagnostics)
@@ -221,7 +221,7 @@ func (r *wireGuardClientConfigResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	peer := r.find(ctx, int(state.GroupID.ValueInt64()), int(state.ID.ValueInt64()), &resp.Diagnostics)
+	peer := r.find(ctx, state.GroupID.ValueInt64(), state.ID.ValueInt64(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -230,7 +230,7 @@ func (r *wireGuardClientConfigResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, wireGuardClientConfigModel(ctx, int(state.GroupID.ValueInt64()), peer, &resp.Diagnostics))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, wireGuardClientConfigModel(ctx, state.GroupID.ValueInt64(), peer, &resp.Diagnostics))...)
 }
 
 func (r *wireGuardClientConfigResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -243,7 +243,7 @@ func (r *wireGuardClientConfigResource) Update(ctx context.Context, req resource
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	groupID := int(plan.GroupID.ValueInt64())
+	groupID := plan.GroupID.ValueInt64()
 	if !r.checkGroup(ctx, groupID, &resp.Diagnostics) {
 		return
 	}
@@ -272,7 +272,7 @@ func (r *wireGuardClientConfigResource) Delete(ctx context.Context, req resource
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	groupID, id := int(state.GroupID.ValueInt64()), int(state.ID.ValueInt64())
+	groupID, id := state.GroupID.ValueInt64(), state.ID.ValueInt64()
 	peer := r.find(ctx, groupID, id, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -295,12 +295,12 @@ func (r *wireGuardClientConfigResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), int64(groupID))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), int64(id))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), groupID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
 // checkGroup adds an error and returns false when the group groupID is not a group of the user.
-func (r *wireGuardClientConfigResource) checkGroup(ctx context.Context, groupID int, diags *diag.Diagnostics) bool {
+func (r *wireGuardClientConfigResource) checkGroup(ctx context.Context, groupID int64, diags *diag.Diagnostics) bool {
 	group, err := findWireGuardGroup(ctx, r.client, groupID)
 	if err != nil {
 		diags.AddError("Unable to Read WireGuard Client Groups", err.Error())
@@ -311,7 +311,7 @@ func (r *wireGuardClientConfigResource) checkGroup(ctx context.Context, groupID 
 			fmt.Sprintf("The router has no WireGuard client group with the ID %d.", groupID))
 		return false
 	}
-	if group.Type != glinet.WireGuardGroupCustom {
+	if group.Type != glinet.WireGuardClientGroupCustom {
 		diags.AddAttributeError(path.Root("group_id"), "Not a Custom WireGuard Client Group", notCustomGroup(group))
 		return false
 	}
@@ -322,7 +322,7 @@ func (r *wireGuardClientConfigResource) checkGroup(ctx context.Context, groupID 
 // It reads the groups first, because the router API has no documented result for the configurations of a group that does not exist.
 // It adds an error when the group is not a group of the user, so that the resource does not import or remove a configuration
 // of a preset group.
-func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id int, diags *diag.Diagnostics) *glinet.WireGuardPeer {
+func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id int64, diags *diag.Diagnostics) *glinet.WireGuardClientPeer {
 	group, err := findWireGuardGroup(ctx, r.client, groupID)
 	if err != nil {
 		diags.AddError("Unable to Read WireGuard Client Groups", err.Error())
@@ -331,7 +331,7 @@ func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id in
 	if group == nil {
 		return nil
 	}
-	if group.Type != glinet.WireGuardGroupCustom {
+	if group.Type != glinet.WireGuardClientGroupCustom {
 		diags.AddAttributeError(path.Root("group_id"), "Not a Custom WireGuard Client Group", notCustomGroup(group))
 		return nil
 	}
@@ -343,7 +343,7 @@ func (r *wireGuardClientConfigResource) find(ctx context.Context, groupID, id in
 	return peer
 }
 
-func (r *wireGuardClientConfigResource) readBack(ctx context.Context, groupID, id int, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *wireGuardClientConfigResource) readBack(ctx context.Context, groupID, id int64, state *tfsdk.State, diags *diag.Diagnostics) {
 	peer, err := r.client.WireGuardClient.FindPeer(ctx, groupID, id)
 	if err != nil {
 		diags.AddError("Unable to Read WireGuard Client Configuration", err.Error())
@@ -358,16 +358,16 @@ func (r *wireGuardClientConfigResource) readBack(ctx context.Context, groupID, i
 	diags.Append(state.Set(ctx, wireGuardClientConfigModel(ctx, groupID, peer, diags))...)
 }
 
-func (m wireGuardClientConfigResourceModel) peer(ctx context.Context, diags *diag.Diagnostics) glinet.WireGuardPeer {
-	return glinet.WireGuardPeer{
-		ID:                  int(m.ID.ValueInt64()),
+func (m wireGuardClientConfigResourceModel) peer(ctx context.Context, diags *diag.Diagnostics) glinet.WireGuardClientPeer {
+	return glinet.WireGuardClientPeer{
+		ID:                  m.ID.ValueInt64(),
 		Name:                m.Name.ValueString(),
 		AddressV4:           m.AddressV4.ValueString(),
 		AddressV6:           m.AddressV6.ValueString(),
-		IPv6Enable:          !m.AddressV6.IsNull(),
+		IPv6Enabled:         !m.AddressV6.IsNull(),
 		PrivateKey:          m.PrivateKey.ValueString(),
 		PublicKey:           m.PublicKey.ValueString(),
-		PresharedKeyEnable:  !m.PresharedKey.IsNull(),
+		PresharedKeyEnabled: !m.PresharedKey.IsNull(),
 		PresharedKey:        m.PresharedKey.ValueString(),
 		AllowedIPs:          joinList(ctx, m.AllowedIPs, diags),
 		Endpoint:            m.Endpoint.ValueString(),
@@ -393,10 +393,10 @@ func (m *wireGuardClientConfigResourceModel) nullUnknown() {
 
 // wireGuardClientConfigModel returns the model of peer. address_v6 is null while IPv6 is disabled and preshared_key
 // is null while the preshared key is disabled, because the router can keep their values.
-func wireGuardClientConfigModel(ctx context.Context, groupID int, peer *glinet.WireGuardPeer, diags *diag.Diagnostics) *wireGuardClientConfigResourceModel {
+func wireGuardClientConfigModel(ctx context.Context, groupID int64, peer *glinet.WireGuardClientPeer, diags *diag.Diagnostics) *wireGuardClientConfigResourceModel {
 	model := &wireGuardClientConfigResourceModel{
-		ID:                  types.Int64Value(int64(peer.ID)),
-		GroupID:             types.Int64Value(int64(groupID)),
+		ID:                  types.Int64Value(peer.ID),
+		GroupID:             types.Int64Value(groupID),
 		Name:                types.StringValue(peer.Name),
 		AddressV4:           types.StringValue(peer.AddressV4),
 		AddressV6:           types.StringNull(),
@@ -410,10 +410,10 @@ func wireGuardClientConfigModel(ctx context.Context, groupID int, peer *glinet.W
 		PersistentKeepalive: int64OrNull(peer.PersistentKeepalive),
 		MTU:                 int64OrNull(peer.MTU),
 	}
-	if peer.IPv6Enable {
+	if peer.IPv6Enabled {
 		model.AddressV6 = stringOrNull(peer.AddressV6)
 	}
-	if peer.PresharedKeyEnable {
+	if peer.PresharedKeyEnabled {
 		model.PresharedKey = stringOrNull(peer.PresharedKey)
 	}
 	return model

@@ -153,7 +153,7 @@ func (r *switchButtonResource) set(ctx context.Context, plan tfsdk.Plan, state *
 
 	config := glinet.SwitchButtonConfig{Func: model.Function.ValueString(), SubFunc: model.SubFunction.ValueString()}
 	if config.Func != switchButtonNone {
-		funcs, err := r.client.SwitchButton.GetFuncs(ctx)
+		funcs, err := r.client.SwitchButton.ListFuncs(ctx)
 		if err != nil {
 			diags.AddError("Unable to Read Switch Functions", err.Error())
 			return

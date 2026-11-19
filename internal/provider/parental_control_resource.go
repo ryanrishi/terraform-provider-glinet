@@ -129,7 +129,7 @@ func (r *parentalControlResource) Delete(ctx context.Context, _ resource.DeleteR
 		return
 	}
 
-	settings := glinet.ParentalControlSettings{Enable: false, DropAnonymous: config.DropAnonymous, AutoUpdate: config.AutoUpdate}
+	settings := glinet.ParentalControlSettings{Enabled: false, DropAnonymous: config.DropAnonymous, AutoUpdate: config.AutoUpdate}
 	if err := r.client.ParentalControl.SetConfig(ctx, settings); err != nil {
 		resp.Diagnostics.AddError("Unable to Disable Parental Control", err.Error())
 	}
@@ -164,7 +164,7 @@ func (r *parentalControlResource) set(ctx context.Context, plan tfsdk.Plan, stat
 	}
 
 	settings := glinet.ParentalControlSettings{
-		Enable:        model.Enabled.ValueBool(),
+		Enabled:       model.Enabled.ValueBool(),
 		DropAnonymous: boolOr(model.DropAnonymous, config.DropAnonymous),
 		AutoUpdate:    boolOr(model.AutoUpdate, config.AutoUpdate),
 	}
@@ -193,7 +193,7 @@ func boolOr(v types.Bool, router bool) bool {
 func parentalControlModel(config *glinet.ParentalControlConfig) *parentalControlResourceModel {
 	return &parentalControlResourceModel{
 		ID:               types.StringValue(parentalControlID),
-		Enabled:          types.BoolValue(config.Enable),
+		Enabled:          types.BoolValue(config.Enabled),
 		DropAnonymous:    types.BoolValue(config.DropAnonymous),
 		AutoUpdate:       types.BoolValue(config.AutoUpdate),
 		AppFilterEnabled: types.BoolValue(config.EnableApp),

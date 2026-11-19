@@ -196,7 +196,7 @@ func (r *ipv6Resource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.St
 	}
 
 	config := glinet.IPv6Config{
-		Enable:     model.Enabled.ValueBool(),
+		Enabled:    model.Enabled.ValueBool(),
 		LANMode:    model.LANMode.ValueString(),
 		LANDNSMode: model.LANDNSAuto.ValueBool(),
 		LANIP:      model.LANIP.ValueString(),
@@ -244,7 +244,7 @@ func (r *ipv6Resource) read(ctx context.Context, state *tfsdk.State, diags *diag
 		return
 	}
 
-	if !config.Enable && !prior.Enabled.IsNull() {
+	if !config.Enabled && !prior.Enabled.IsNull() {
 		prior.Enabled = types.BoolValue(false)
 		diags.Append(state.Set(ctx, &prior)...)
 		return
@@ -252,7 +252,7 @@ func (r *ipv6Resource) read(ctx context.Context, state *tfsdk.State, diags *diag
 
 	model := ipv6ResourceModel{
 		ID:         types.StringValue(ipv6ID),
-		Enabled:    types.BoolValue(config.Enable),
+		Enabled:    types.BoolValue(config.Enabled),
 		LANMode:    stringOrNull(config.LANMode),
 		LANDNSAuto: types.BoolValue(config.LANDNSMode),
 		LANIP:      types.StringNull(),

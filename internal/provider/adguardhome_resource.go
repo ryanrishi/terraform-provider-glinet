@@ -106,7 +106,7 @@ func (r *adGuardHomeResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		return
 	}
 
-	err := r.client.AdGuard.SetAdGuardConfig(ctx, &glinet.SetAdGuardConfigRequest{
+	err := r.client.AdGuardHome.SetConfig(ctx, glinet.AdGuardHomeConfig{
 		Enabled:    model.Enabled.ValueBool(),
 		DNSEnabled: model.DNSEnabled.ValueBool(),
 	})
@@ -125,7 +125,7 @@ func (r *adGuardHomeResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 }
 
 func (r *adGuardHomeResource) read(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
-	config, err := r.client.AdGuard.GetAdGuardConfig(ctx)
+	config, err := r.client.AdGuardHome.GetConfig(ctx)
 	if err != nil {
 		diags.AddError("Unable to Read AdGuard Home Configuration", err.Error())
 		return

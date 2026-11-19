@@ -39,12 +39,12 @@ func expectWGGroup(attribute string, value knownvalue.Check) statecheck.StateChe
 }
 
 // stateID returns the value of the attribute id of the resource at address in the state s.
-func stateID(s *terraform.State, address string) (int, error) {
+func stateID(s *terraform.State, address string) (int64, error) {
 	rs, ok := s.RootModule().Resources[address]
 	if !ok {
 		return 0, fmt.Errorf("no resource %s in the state", address)
 	}
-	return strconv.Atoi(rs.Primary.Attributes["id"])
+	return strconv.ParseInt(rs.Primary.Attributes["id"], 10, 64)
 }
 
 // expectRouterGroups checks that the custom groups of the router have exactly the names want.
@@ -56,7 +56,7 @@ func expectRouterGroups(client *glinet.Client, want ...string) resource.TestChec
 		}
 		var got []string
 		for _, g := range groups {
-			if g.Type == glinet.WireGuardGroupCustom && g.ID != wgCustomGroupID {
+			if g.Type == glinet.WireGuardClientGroupCustom && g.ID != wgCustomGroupID {
 				got = append(got, g.Name)
 			}
 		}
@@ -119,7 +119,7 @@ func TestWireGuardClientGroupResourceDrift(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	config := fakeRouterConfig(srv) + wgGroupConfig("test-group")
-	var id int
+	var id int64
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -163,7 +163,7 @@ func TestWireGuardClientGroupResourceDeleteWithConfigs(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	removes := recordCalls(t, srv, "wg-client", "remove_group")
-	var groupID, peerID int
+	var groupID, peerID int64
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -176,7 +176,7 @@ func TestWireGuardClientGroupResourceDeleteWithConfigs(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					peerID, err = client.WireGuardClient.AddPeer(context.Background(), groupID, glinet.WireGuardPeer{Name: "manual"})
+					peerID, err = client.WireGuardClient.AddPeer(context.Background(), groupID, glinet.WireGuardClientPeer{Name: "manual"})
 					return err
 				},
 			},
@@ -216,13 +216,13 @@ func TestWireGuardClientGroupResourceImport(t *testing.T) {
 				Config:             config,
 				ResourceName:       wgGroupAddress,
 				ImportState:        true,
-				ImportStateId:      strconv.Itoa(id),
+				ImportStateId:      strconv.FormatInt(id, 10),
 				ImportStatePersist: true,
 			},
 			{
 				Config:            config,
 				ConfigPlanChecks:  expectEmptyPlan,
-				ConfigStateChecks: []statecheck.StateCheck{expectWGGroup("id", knownvalue.Int64Exact(int64(id)))},
+				ConfigStateChecks: []statecheck.StateCheck{expectWGGroup("id", knownvalue.Int64Exact(id))},
 			},
 		},
 	})

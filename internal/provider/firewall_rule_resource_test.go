@@ -29,8 +29,8 @@ import (
 const ruleAddress = "glinet_firewall_rule.test"
 
 // testRule returns an enabled tcp rule from the zone wan to forwardIP in the zone lan.
-func testRule(destPort, target, name string) glinet.Rule {
-	return glinet.Rule{
+func testRule(destPort, target, name string) glinet.FirewallRule {
+	return glinet.FirewallRule{
 		Name:     name,
 		Src:      "wan",
 		Proto:    "tcp",
@@ -43,7 +43,7 @@ func testRule(destPort, target, name string) glinet.Rule {
 }
 
 // ruleResource returns the configuration of r. It leaves out the fields that are empty, and enabled when it is true.
-func ruleResource(label string, r glinet.Rule) string {
+func ruleResource(label string, r glinet.FirewallRule) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "\nresource \"glinet_firewall_rule\" %q {\n", label)
 	for _, a := range []struct{ name, value string }{
@@ -69,12 +69,12 @@ func ruleResource(label string, r glinet.Rule) string {
 	return b.String()
 }
 
-func ruleConfig(r glinet.Rule) string {
+func ruleConfig(r glinet.FirewallRule) string {
 	return ruleResource("test", r)
 }
 
-func fakeRule(r glinet.Rule) glinettest.Rule {
-	return glinettest.Rule{
+func fakeRule(r glinet.FirewallRule) glinettest.FirewallRule {
+	return glinettest.FirewallRule{
 		Name:     r.Name,
 		Src:      r.Src,
 		SrcIP:    r.SrcIP,
@@ -89,8 +89,8 @@ func fakeRule(r glinet.Rule) glinettest.Rule {
 	}
 }
 
-func fakeRules(rules ...glinet.Rule) []glinettest.Rule {
-	res := []glinettest.Rule{}
+func fakeRules(rules ...glinet.FirewallRule) []glinettest.FirewallRule {
+	res := []glinettest.FirewallRule{}
 	for _, r := range rules {
 		res = append(res, fakeRule(r))
 	}
@@ -101,7 +101,7 @@ func expectRule(attribute string, value knownvalue.Check) statecheck.StateCheck 
 	return statecheck.ExpectKnownValue(ruleAddress, tfjsonpath.New(attribute), value)
 }
 
-func expectRuleState(r glinet.Rule) []statecheck.StateCheck {
+func expectRuleState(r glinet.FirewallRule) []statecheck.StateCheck {
 	value := func(s string) knownvalue.Check {
 		if s == "" {
 			return knownvalue.Null()
@@ -133,7 +133,7 @@ func expectRuleAction(action plancheck.ResourceActionType) resource.ConfigPlanCh
 }
 
 // expectFakeRules checks that the rules of srv are want, in this order.
-func expectFakeRules(srv *glinettest.Server, want ...glinet.Rule) resource.TestCheckFunc {
+func expectFakeRules(srv *glinettest.Server, want ...glinet.FirewallRule) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		if got := srv.Firewall.Rules(); !slices.Equal(got, fakeRules(want...)) {
 			return fmt.Errorf("router rules are %v, want %v", got, fakeRules(want...))
@@ -200,7 +200,7 @@ func ruleTestRouter(t *testing.T, ids ...ruleIdentity) (string, *glinet.Client) 
 
 // expectRouterRule checks that the first rule on the router with the identity id is want, without its ID.
 // A nil want checks that the router has no rule with the identity id.
-func expectRouterRule(client *glinet.Client, id ruleIdentity, want *glinet.Rule) resource.TestCheckFunc {
+func expectRouterRule(client *glinet.Client, id ruleIdentity, want *glinet.FirewallRule) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		rules, err := client.Firewall.ListRules(context.Background())
 		if err != nil {
@@ -262,8 +262,8 @@ func TestFirewallRuleResource(t *testing.T) {
 
 func TestFirewallRuleResourceCreate(t *testing.T) {
 	parallel(t)
-	minimal := glinet.Rule{Src: "wan", Target: "DROP", Enabled: true}
-	full := glinet.Rule{
+	minimal := glinet.FirewallRule{Src: "wan", Target: "DROP", Enabled: true}
+	full := glinet.FirewallRule{
 		Name:     "full",
 		Src:      "wan",
 		SrcIP:    "203.0.113.0/24",
@@ -276,7 +276,7 @@ func TestFirewallRuleResourceCreate(t *testing.T) {
 		Target:   "REJECT",
 	}
 
-	for name, r := range map[string]glinet.Rule{"minimal": minimal, "full": full} {
+	for name, r := range map[string]glinet.FirewallRule{"minimal": minimal, "full": full} {
 		t.Run(name, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
 
@@ -305,25 +305,25 @@ func TestFirewallRuleResourceCreate(t *testing.T) {
 // The router keeps each value as written.
 func TestFirewallRuleResourceValues(t *testing.T) {
 	parallel(t)
-	with := func(change func(*glinet.Rule)) glinet.Rule {
+	with := func(change func(*glinet.FirewallRule)) glinet.FirewallRule {
 		r := testRule("50001", "DROP", "values")
 		change(&r)
 		return r
 	}
 
-	tests := map[string]glinet.Rule{
-		"IPv6 source address":      with(func(r *glinet.Rule) { r.SrcIP = "2001:db8::10" }),
-		"IPv6 source prefix":       with(func(r *glinet.Rule) { r.SrcIP = "2001:db8:1::/48" }),
-		"IPv4 source prefix":       with(func(r *glinet.Rule) { r.SrcIP = "198.51.100.0/24" }),
-		"IPv6 destination address": with(func(r *glinet.Rule) { r.DestIP = "2001:db8::20" }),
-		"protocol esp":             with(func(r *glinet.Rule) { r.Proto = "esp" }),
-		"protocol icmpv6":          with(func(r *glinet.Rule) { r.Proto = "icmpv6" }),
-		"protocol number":          with(func(r *glinet.Rule) { r.Proto = "50" }),
-		"protocol ipv6-icmp":       with(func(r *glinet.Rule) { r.Proto = "ipv6-icmp" }),
-		"protocol ax.25":           with(func(r *glinet.Rule) { r.Proto = "ax.25" }),
-		"protocol tp++":            with(func(r *glinet.Rule) { r.Proto = "tp++" }),
-		"protocol iso-tp4":         with(func(r *glinet.Rule) { r.Proto = "iso-tp4" }),
-		"source MAC upper case":    with(func(r *glinet.Rule) { r.SrcMAC = "02:00:5E:00:53:A2" }),
+	tests := map[string]glinet.FirewallRule{
+		"IPv6 source address":      with(func(r *glinet.FirewallRule) { r.SrcIP = "2001:db8::10" }),
+		"IPv6 source prefix":       with(func(r *glinet.FirewallRule) { r.SrcIP = "2001:db8:1::/48" }),
+		"IPv4 source prefix":       with(func(r *glinet.FirewallRule) { r.SrcIP = "198.51.100.0/24" }),
+		"IPv6 destination address": with(func(r *glinet.FirewallRule) { r.DestIP = "2001:db8::20" }),
+		"protocol esp":             with(func(r *glinet.FirewallRule) { r.Proto = "esp" }),
+		"protocol icmpv6":          with(func(r *glinet.FirewallRule) { r.Proto = "icmpv6" }),
+		"protocol number":          with(func(r *glinet.FirewallRule) { r.Proto = "50" }),
+		"protocol ipv6-icmp":       with(func(r *glinet.FirewallRule) { r.Proto = "ipv6-icmp" }),
+		"protocol ax.25":           with(func(r *glinet.FirewallRule) { r.Proto = "ax.25" }),
+		"protocol tp++":            with(func(r *glinet.FirewallRule) { r.Proto = "tp++" }),
+		"protocol iso-tp4":         with(func(r *glinet.FirewallRule) { r.Proto = "iso-tp4" }),
+		"source MAC upper case":    with(func(r *glinet.FirewallRule) { r.SrcMAC = "02:00:5E:00:53:A2" }),
 	}
 
 	for name, r := range tests {
@@ -418,7 +418,7 @@ func TestFirewallRuleResourceUpdate(t *testing.T) {
 	disabled.Enabled = false
 
 	var steps []resource.TestStep
-	for i, r := range []glinet.Rule{noName, named, renamedDrop, rejectNoName, disabled, rejectNoName} {
+	for i, r := range []glinet.FirewallRule{noName, named, renamedDrop, rejectNoName, disabled, rejectNoName} {
 		step := resource.TestStep{
 			Config:            fakeRouterConfig(srv) + ruleConfig(r),
 			ConfigStateChecks: expectRuleState(r),
@@ -441,7 +441,7 @@ func TestFirewallRuleResourceUpdate(t *testing.T) {
 func TestFirewallRuleResourceReplace(t *testing.T) {
 	parallel(t)
 	initial := testRule("50001", "ACCEPT", "test")
-	with := func(change func(*glinet.Rule)) glinet.Rule {
+	with := func(change func(*glinet.FirewallRule)) glinet.FirewallRule {
 		r := initial
 		change(&r)
 		return r
@@ -451,16 +451,16 @@ func TestFirewallRuleResourceReplace(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		changed glinet.Rule
+		changed glinet.FirewallRule
 	}{
-		{"source_zone", with(func(r *glinet.Rule) { r.Src = "guest" })},
-		{"source_ip", with(func(r *glinet.Rule) { r.SrcIP = "203.0.113.5" })},
-		{"source_mac", with(func(r *glinet.Rule) { r.SrcMAC = "02:00:00:aa:bb:01" })},
-		{"source_port", with(func(r *glinet.Rule) { r.SrcPort = "1024" })},
-		{"protocol", with(func(r *glinet.Rule) { r.Proto = "tcp udp" })},
-		{"destination_zone", with(func(r *glinet.Rule) { r.Dest = "guest" })},
-		{"destination_ip", with(func(r *glinet.Rule) { r.DestIP = "" })},
-		{"destination_port", with(func(r *glinet.Rule) { r.DestPort = "50002-50003" })},
+		{"source_zone", with(func(r *glinet.FirewallRule) { r.Src = "guest" })},
+		{"source_ip", with(func(r *glinet.FirewallRule) { r.SrcIP = "203.0.113.5" })},
+		{"source_mac", with(func(r *glinet.FirewallRule) { r.SrcMAC = "02:00:00:aa:bb:01" })},
+		{"source_port", with(func(r *glinet.FirewallRule) { r.SrcPort = "1024" })},
+		{"protocol", with(func(r *glinet.FirewallRule) { r.Proto = "tcp udp" })},
+		{"destination_zone", with(func(r *glinet.FirewallRule) { r.Dest = "guest" })},
+		{"destination_ip", with(func(r *glinet.FirewallRule) { r.DestIP = "" })},
+		{"destination_port", with(func(r *glinet.FirewallRule) { r.DestPort = "50002-50003" })},
 	}
 
 	for _, tt := range tests {
@@ -499,7 +499,7 @@ func TestFirewallRuleResourceReplaceTriggeredBy(t *testing.T) {
 	changed := first
 	changed.SrcIP = "198.51.100.0/24"
 	second := testRule("50001", "DROP", "second")
-	config := func(first glinet.Rule) string {
+	config := func(first glinet.FirewallRule) string {
 		return fakeRouterConfig(srv) + ruleResource("first", first) +
 			strings.TrimSuffix(ruleResource("second", second), "}\n") +
 			"  lifecycle {\n    replace_triggered_by = [glinet_firewall_rule.first]\n  }\n}\n"
@@ -529,7 +529,7 @@ func TestFirewallRuleResourceReplaceTriggeredBy(t *testing.T) {
 
 func TestFirewallRuleResourceImport(t *testing.T) {
 	parallel(t)
-	imported := glinet.Rule{
+	imported := glinet.FirewallRule{
 		Name:    "imported",
 		Src:     "wan",
 		SrcIP:   "203.0.113.0/24",
@@ -675,7 +675,7 @@ func TestFirewallRuleResourceIDShift(t *testing.T) {
 	earlierRule := testRule("50101", "ACCEPT", "earlier")
 	earlierForward := forward("tcp", "50201", "8080", "earlier")
 	keptForward := forward("tcp", "50202", "8080", "kept")
-	added := []glinet.Rule{testRule("50102", "ACCEPT", "added-1"), testRule("50103", "DROP", "added-2")}
+	added := []glinet.FirewallRule{testRule("50102", "ACCEPT", "added-1"), testRule("50103", "DROP", "added-2")}
 	managed := testRule("50001", "ACCEPT", "managed")
 	updated := managed
 	updated.Target = "REJECT"
@@ -728,7 +728,7 @@ func TestFirewallRuleResourceIDShift(t *testing.T) {
 				ConfigPlanChecks:  expectRuleAction(plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectRuleState(updated),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					expectFakeRules(srv, append([]glinet.Rule{updated}, added...)...),
+					expectFakeRules(srv, append([]glinet.FirewallRule{updated}, added...)...),
 					expectFakeForwards(srv, keptForward),
 				),
 			},
@@ -740,7 +740,7 @@ func TestFirewallRuleResourceExists(t *testing.T) {
 	parallel(t)
 	tests := []struct {
 		name     string
-		existing glinet.Rule
+		existing glinet.FirewallRule
 		error    string
 	}{
 		{"named", testRule("50001", "DROP", "existing"),
@@ -777,7 +777,7 @@ func TestFirewallRuleResourceOverlapNotChecked(t *testing.T) {
 	parallel(t)
 	noDestIP := testRule("50001", "DROP", "no destination IP")
 	noDestIP.DestIP = ""
-	existing := []glinet.Rule{
+	existing := []glinet.FirewallRule{
 		testRule("50000-50010", "DROP", "range"),
 		noDestIP,
 	}
@@ -862,7 +862,7 @@ func TestFirewallRuleResourceNoDestinationPort(t *testing.T) {
 	after := testRule("50102", "ACCEPT", "after")
 	srv.Firewall.SetRules(fakeRules(before))
 	srv.Firewall.SetPortForwards(fakes(forward("tcp", "50201", "8080", "forward")))
-	created := glinet.Rule{Name: "no port", Src: "wan", Dest: "lan", DestIP: forwardIP, Target: "DROP", Enabled: true}
+	created := glinet.FirewallRule{Name: "no port", Src: "wan", Dest: "lan", DestIP: forwardIP, Target: "DROP", Enabled: true}
 	updated := created
 	updated.Target = "REJECT"
 	updated.Name = ""
@@ -898,7 +898,7 @@ func TestFirewallRuleResourceNoDestinationPortFirmware483(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	before := testRule("50101", "ACCEPT", "before")
 	srv.Firewall.SetRules(fakeRules(before))
-	created := glinet.Rule{Name: "no port", Src: "wan", Proto: "esp", Dest: "lan", DestIP: forwardIP, Target: "DROP", Enabled: true}
+	created := glinet.FirewallRule{Name: "no port", Src: "wan", Proto: "esp", Dest: "lan", DestIP: forwardIP, Target: "DROP", Enabled: true}
 	changed := created
 	changed.Target = "REJECT"
 
@@ -949,6 +949,61 @@ func TestFirewallRuleResourceNoDestinationPortFirmware483(t *testing.T) {
 	})
 }
 
+// TestFirewallRuleResourceNoDestinationPortOtherError makes set_rule of a rule with no destination port return
+// a JSON-RPC error one time. The errors of update and destroy do not tell how to remove the rule with uci, because
+// that is only for the HTTP status 500 of firmware 4.8.3.
+func TestFirewallRuleResourceNoDestinationPortOtherError(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	created := glinet.FirewallRule{Name: "no port", Src: "wan", Dest: "lan", DestIP: forwardIP, Target: "DROP", Enabled: true}
+	changed := created
+	changed.Target = "REJECT"
+
+	var fail atomic.Bool
+	set := srv.Handler("firewall", "set_rule")
+	srv.Handle("firewall", "set_rule", func(params json.RawMessage) (any, error) {
+		if fail.Swap(false) {
+			return nil, &glinettest.Error{Code: -32602, Message: "Invalid params"}
+		}
+		return set(params)
+	})
+	var errs []error
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeRules(srv),
+		ErrorCheck: func(err error) error {
+			errs = append(errs, err)
+			return nil
+		},
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + ruleConfig(created),
+			},
+			{
+				PreConfig: func() { fail.Store(true) },
+				Config:    fakeRouterConfig(srv) + ruleConfig(changed),
+			},
+			{
+				PreConfig: func() { fail.Store(true) },
+				Config:    fakeRouterConfig(srv),
+			},
+			{
+				Config: fakeRouterConfig(srv),
+			},
+		},
+	})
+
+	if len(errs) != 2 {
+		t.Fatalf("errors are %v, want the update error and the destroy error", errs)
+	}
+	for i, summary := range []string{"Unable to Update Firewall Rule", "Unable to Delete Firewall Rule"} {
+		if msg := errs[i].Error(); !strings.Contains(msg, summary) || !strings.Contains(msg, "Invalid params") || strings.Contains(msg, "uci") {
+			t.Errorf("error %d is %q, want %q with the router error and without uci", i, msg, summary)
+		}
+	}
+}
+
 func TestFirewallRuleModifyPlanNoDestinationPortWarning(t *testing.T) {
 	parallel(t)
 	ctx := context.Background()
@@ -961,7 +1016,7 @@ func TestFirewallRuleModifyPlanNoDestinationPortWarning(t *testing.T) {
 	changed := noPort
 	changed.Target = "REJECT"
 
-	plan := func(rule *glinet.Rule) tfsdk.Plan {
+	plan := func(rule *glinet.FirewallRule) tfsdk.Plan {
 		p := tfsdk.Plan{Schema: schemaResp.Schema, Raw: null}
 		if rule != nil {
 			if diags := p.Set(ctx, ruleModel(rule)); diags.HasError() {
@@ -970,7 +1025,7 @@ func TestFirewallRuleModifyPlanNoDestinationPortWarning(t *testing.T) {
 		}
 		return p
 	}
-	state := func(rule *glinet.Rule) tfsdk.State {
+	state := func(rule *glinet.FirewallRule) tfsdk.State {
 		s := tfsdk.State{Schema: schemaResp.Schema, Raw: null}
 		if rule != nil {
 			if diags := s.Set(ctx, ruleModel(rule)); diags.HasError() {
@@ -982,7 +1037,7 @@ func TestFirewallRuleModifyPlanNoDestinationPortWarning(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		planned, prior *glinet.Rule
+		planned, prior *glinet.FirewallRule
 		warn           bool
 	}{
 		{"create with port", &withPort, nil, false},
@@ -1016,7 +1071,7 @@ func TestFirewallRuleModifyPlanNoDestinationPortWarning(t *testing.T) {
 func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 	parallel(t)
 	before := testRule("50101", "ACCEPT", "before")
-	created := glinet.Rule{Name: "no port", Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
+	created := glinet.FirewallRule{Name: "no port", Src: "wan", Dest: "lan", Target: "DROP", Enabled: true}
 	removable := created
 	removable.DestPort = removablePort
 	removable.Enabled = false
@@ -1025,7 +1080,7 @@ func TestFirewallRuleResourceNoDestinationPortRemoveError(t *testing.T) {
 		name        string
 		failRestore bool
 		error       string
-		left        glinet.Rule
+		left        glinet.FirewallRule
 	}{
 		{"restore", false,
 			`(?s)disabled\s+it\s+and\s+set\s+its\s+destination\s+port\s+to\s+65535.*restored\s+the\s+original\s+values,\s+and\s+the\s+rule\s+is\s+unchanged\s+on\s+the\s+router.*500`,
@@ -1131,7 +1186,7 @@ func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	valid := testRule("50001", "ACCEPT", "")
-	with := func(change func(*glinet.Rule)) string {
+	with := func(change func(*glinet.FirewallRule)) string {
 		r := valid
 		change(&r)
 		return ruleConfig(r)
@@ -1142,28 +1197,28 @@ func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
 		config string
 		error  string
 	}{
-		{"source_zone missing", with(func(r *glinet.Rule) { r.Src = "" }), `The argument "source_zone" is required`},
+		{"source_zone missing", with(func(r *glinet.FirewallRule) { r.Src = "" }), `The argument "source_zone" is required`},
 		{"source_zone empty", strings.Replace(ruleConfig(valid), `source_zone = "wan"`, `source_zone = ""`, 1), `string length must be at least 1`},
 		{"destination_zone empty", strings.Replace(ruleConfig(valid), `destination_zone = "lan"`, `destination_zone = ""`, 1), `string length must be at least 1`},
-		{"action missing", with(func(r *glinet.Rule) { r.Target = "" }), `The argument "action" is required`},
-		{"action lower case", with(func(r *glinet.Rule) { r.Target = "accept" }), `value must be one of`},
-		{"action MARK", with(func(r *glinet.Rule) { r.Target = "MARK" }), `value must be one of`},
-		{"protocol upper case", with(func(r *glinet.Rule) { r.Proto = "TCP" }), `must be tcp udp, or one protocol name`},
-		{"protocol udp tcp", with(func(r *glinet.Rule) { r.Proto = "udp tcp" }), `must be tcp udp, or one protocol name`},
-		{"protocol comma", with(func(r *glinet.Rule) { r.Proto = "tcp,udp" }), `must be tcp udp, or one protocol name`},
-		{"protocol leading dot", with(func(r *glinet.Rule) { r.Proto = ".esp" }), `must be tcp udp, or one protocol name`},
-		{"protocol space", with(func(r *glinet.Rule) { r.Proto = "tcp icmp" }), `must be tcp udp, or one protocol name`},
-		{"protocol upper case with dot", with(func(r *glinet.Rule) { r.Proto = "AX.25" }), `must be tcp udp, or one protocol name`},
-		{"source_ip out of range", with(func(r *glinet.Rule) { r.SrcIP = "203.0.113.256" }), `source_ip must be an IPv4 or IPv6 address, or a CIDR block`},
-		{"source_ip prefix too long", with(func(r *glinet.Rule) { r.SrcIP = "203.0.113.0/33" }), `source_ip must be an IPv4 or IPv6 address`},
-		{"source_ip IPv6 prefix too long", with(func(r *glinet.Rule) { r.SrcIP = "2001:db8::/129" }), `source_ip must be an IPv4 or IPv6 address`},
-		{"source_ip IPv6 zone", with(func(r *glinet.Rule) { r.SrcIP = "fe80::1%br-lan" }), `source_ip must be an IPv4 or IPv6 address`},
-		{"destination_ip host name", with(func(r *glinet.Rule) { r.DestIP = "printer" }), `destination_ip must be an IPv4 or IPv6 address`},
-		{"source_mac dashes", with(func(r *glinet.Rule) { r.SrcMAC = "02-00-00-aa-bb-01" }), `must be a MAC address`},
-		{"source_port 0", with(func(r *glinet.Rule) { r.SrcPort = "0" }), `source_port must be a port from 1 to 65535`},
-		{"destination_port 65536", with(func(r *glinet.Rule) { r.DestPort = "65536" }), `destination_port must be a port`},
-		{"destination_port reversed range", with(func(r *glinet.Rule) { r.DestPort = "50010-50001" }), `destination_port must be a port`},
-		{"destination_port name", with(func(r *glinet.Rule) { r.DestPort = "http" }), `destination_port must be a port`},
+		{"action missing", with(func(r *glinet.FirewallRule) { r.Target = "" }), `The argument "action" is required`},
+		{"action lower case", with(func(r *glinet.FirewallRule) { r.Target = "accept" }), `value must be one of`},
+		{"action MARK", with(func(r *glinet.FirewallRule) { r.Target = "MARK" }), `value must be one of`},
+		{"protocol upper case", with(func(r *glinet.FirewallRule) { r.Proto = "TCP" }), `must be tcp udp, or one protocol name`},
+		{"protocol udp tcp", with(func(r *glinet.FirewallRule) { r.Proto = "udp tcp" }), `must be tcp udp, or one protocol name`},
+		{"protocol comma", with(func(r *glinet.FirewallRule) { r.Proto = "tcp,udp" }), `must be tcp udp, or one protocol name`},
+		{"protocol leading dot", with(func(r *glinet.FirewallRule) { r.Proto = ".esp" }), `must be tcp udp, or one protocol name`},
+		{"protocol space", with(func(r *glinet.FirewallRule) { r.Proto = "tcp icmp" }), `must be tcp udp, or one protocol name`},
+		{"protocol upper case with dot", with(func(r *glinet.FirewallRule) { r.Proto = "AX.25" }), `must be tcp udp, or one protocol name`},
+		{"source_ip out of range", with(func(r *glinet.FirewallRule) { r.SrcIP = "203.0.113.256" }), `source_ip must be an IPv4 or IPv6 address, or a CIDR block`},
+		{"source_ip prefix too long", with(func(r *glinet.FirewallRule) { r.SrcIP = "203.0.113.0/33" }), `source_ip must be an IPv4 or IPv6 address`},
+		{"source_ip IPv6 prefix too long", with(func(r *glinet.FirewallRule) { r.SrcIP = "2001:db8::/129" }), `source_ip must be an IPv4 or IPv6 address`},
+		{"source_ip IPv6 zone", with(func(r *glinet.FirewallRule) { r.SrcIP = "fe80::1%br-lan" }), `source_ip must be an IPv4 or IPv6 address`},
+		{"destination_ip host name", with(func(r *glinet.FirewallRule) { r.DestIP = "printer" }), `destination_ip must be an IPv4 or IPv6 address`},
+		{"source_mac dashes", with(func(r *glinet.FirewallRule) { r.SrcMAC = "02-00-00-aa-bb-01" }), `must be a MAC address`},
+		{"source_port 0", with(func(r *glinet.FirewallRule) { r.SrcPort = "0" }), `source_port must be a port from 1 to 65535`},
+		{"destination_port 65536", with(func(r *glinet.FirewallRule) { r.DestPort = "65536" }), `destination_port must be a port`},
+		{"destination_port reversed range", with(func(r *glinet.FirewallRule) { r.DestPort = "50010-50001" }), `destination_port must be a port`},
+		{"destination_port name", with(func(r *glinet.FirewallRule) { r.DestPort = "http" }), `destination_port must be a port`},
 		{"name empty", strings.Replace(ruleConfig(valid), "}", "  name = \"\"\n}", 1), `string length must be at least 1`},
 	}
 
@@ -1321,8 +1376,8 @@ func TestFirewallRuleResourceRouterErrors(t *testing.T) {
 }
 
 // expectFakeRuleSet checks that the rules of srv are want, in any order. The names must be different.
-func expectFakeRuleSet(srv *glinettest.Server, want ...glinet.Rule) resource.TestCheckFunc {
-	byName := func(a, b glinettest.Rule) int { return strings.Compare(a.Name, b.Name) }
+func expectFakeRuleSet(srv *glinettest.Server, want ...glinet.FirewallRule) resource.TestCheckFunc {
+	byName := func(a, b glinettest.FirewallRule) int { return strings.Compare(a.Name, b.Name) }
 	return func(*terraform.State) error {
 		got := srv.Firewall.Rules()
 		w := fakeRules(want...)
@@ -1348,7 +1403,7 @@ func TestFirewallRuleResourceParallel(t *testing.T) {
 	srv.Firewall.SetRules(fakeRules(existingRule))
 	srv.Firewall.SetPortForwards(fakes(existingForward))
 
-	var rules, changedRules []glinet.Rule
+	var rules, changedRules []glinet.FirewallRule
 	for i := range 12 {
 		r := testRule(strconv.Itoa(50001+i), "ACCEPT", fmt.Sprintf("r%02d", i))
 		if i%4 == 0 {
@@ -1373,7 +1428,7 @@ func TestFirewallRuleResourceParallel(t *testing.T) {
 			changedForwards = append(changedForwards, f)
 		}
 	}
-	config := func(dmz string, rules []glinet.Rule, forwards []glinet.PortForward) string {
+	config := func(dmz string, rules []glinet.FirewallRule, forwards []glinet.PortForward) string {
 		res := provider + dmz
 		for _, r := range rules {
 			res += ruleResource(r.Name, r)
@@ -1389,23 +1444,23 @@ func TestFirewallRuleResourceParallel(t *testing.T) {
 		CheckDestroy: resource.ComposeAggregateTestCheckFunc(
 			expectFakeRules(srv, existingRule),
 			expectFakeForwards(srv, existingForward),
-			expectFakeDMZ(srv, glinettest.DMZ{}),
+			expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 		),
 		Steps: []resource.TestStep{
 			{
 				Config: config(dmzConfig(dmzIP, true), rules, forwards),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					expectFakeRuleSet(srv, append([]glinet.Rule{existingRule}, rules...)...),
+					expectFakeRuleSet(srv, append([]glinet.FirewallRule{existingRule}, rules...)...),
 					expectFakeForwardSet(srv, append([]glinet.PortForward{existingForward}, forwards...)...),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: noPriority}),
 				),
 			},
 			{
 				Config: config(dmzConfig(otherDMZIP, false), changedRules, changedForwards),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					expectFakeRuleSet(srv, append([]glinet.Rule{existingRule}, changedRules...)...),
+					expectFakeRuleSet(srv, append([]glinet.FirewallRule{existingRule}, changedRules...)...),
 					expectFakeForwardSet(srv, append([]glinet.PortForward{existingForward}, changedForwards...)...),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: otherDMZIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: otherDMZIP, Priority: noPriority}),
 				),
 			},
 		},

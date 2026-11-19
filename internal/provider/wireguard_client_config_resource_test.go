@@ -139,14 +139,14 @@ func expectIDCalls(calls *callRecorder, want ...string) resource.TestCheckFunc {
 		peerID, _ := stateID(s, wgConfigAddress)
 		params := make([]string, len(want))
 		for i, w := range want {
-			params[i] = strings.NewReplacer("GROUP_ID", strconv.Itoa(groupID), "PEER_ID", strconv.Itoa(peerID)).Replace(w)
+			params[i] = strings.NewReplacer("GROUP_ID", strconv.FormatInt(groupID, 10), "PEER_ID", strconv.FormatInt(peerID, 10)).Replace(w)
 		}
 		return calls.expect(params...)(s)
 	}
 }
 
 // wgConfigIDs returns the group ID and the configuration ID of the state s.
-func wgConfigIDs(s *terraform.State) (int, int, error) {
+func wgConfigIDs(s *terraform.State) (int64, int64, error) {
 	groupID, err := stateID(s, wgGroupAddress)
 	if err != nil {
 		return 0, 0, err
@@ -298,13 +298,13 @@ func TestWireGuardClientConfigResourceNotConfigured(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	sets := recordCalls(t, srv, "wg-client", "set_config")
-	var groupID, peerID int
+	var groupID, peerID int64
 	saveIDs := func(s *terraform.State) (err error) {
 		groupID, peerID, err = wgConfigIDs(s)
 		return err
 	}
 	ctx := context.Background()
-	setRouterPeer := func(change func(*glinet.WireGuardPeer)) func() {
+	setRouterPeer := func(change func(*glinet.WireGuardClientPeer)) func() {
 		return func() {
 			peer, err := client.WireGuardClient.FindPeer(ctx, groupID, peerID)
 			if err != nil {
@@ -330,7 +330,7 @@ func TestWireGuardClientConfigResourceNotConfigured(t *testing.T) {
 				Check:  saveIDs,
 			},
 			{
-				PreConfig: setRouterPeer(func(p *glinet.WireGuardPeer) {
+				PreConfig: setRouterPeer(func(p *glinet.WireGuardClientPeer) {
 					p.DNS, p.ListenPort, p.PersistentKeepalive, p.MTU = "10.0.0.1", 51820, 25, 1420
 				}),
 				Config:           fakeRouterConfig(srv) + renamed.config(),
@@ -344,7 +344,7 @@ func TestWireGuardClientConfigResourceNotConfigured(t *testing.T) {
 				Check: expectIDCalls(sets, fmt.Sprintf(params, "renamed", `"listen_port":51820,"persistent_keepalive":25,"mtu":1420`)),
 			},
 			{
-				PreConfig:        setRouterPeer(func(p *glinet.WireGuardPeer) { p.ListenPort, p.PersistentKeepalive, p.MTU = 0, 0, 0 }),
+				PreConfig:        setRouterPeer(func(p *glinet.WireGuardClientPeer) { p.ListenPort, p.PersistentKeepalive, p.MTU = 0, 0, 0 }),
 				Config:           fakeRouterConfig(srv) + minimalWGClientConfig.config(),
 				ConfigPlanChecks: expectResourceAction(wgConfigAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: []statecheck.StateCheck{
@@ -364,7 +364,7 @@ func TestWireGuardClientConfigResourceDrift(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	config := fakeRouterConfig(srv) + fullWGClientConfig.config()
-	var groupID, peerID int
+	var groupID, peerID int64
 	saveIDs := func(s *terraform.State) (err error) {
 		groupID, peerID, err = wgConfigIDs(s)
 		return err
@@ -384,7 +384,7 @@ func TestWireGuardClientConfigResourceDrift(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					peer.Name, peer.MTU, peer.PresharedKeyEnable = "other", 1280, false
+					peer.Name, peer.MTU, peer.PresharedKeyEnabled = "other", 1280, false
 					if err := client.WireGuardClient.SetPeer(ctx, groupID, *peer); err != nil {
 						t.Fatal(err)
 					}
@@ -794,7 +794,7 @@ func reportGroupAsPreset(t *testing.T, srv *glinettest.Server, name string, pres
 		}
 		for _, g := range list.Groups {
 			if g["group_name"] == name {
-				g["group_type"] = glinet.WireGuardGroupProvider
+				g["group_type"] = glinet.WireGuardClientGroupProvider
 			}
 		}
 		return list, nil

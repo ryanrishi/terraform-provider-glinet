@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+BREAKING CHANGES:
+
+* `glinet_local_access`: On a router that does not return `ssh_enabled` (firmware 4.7.0), `ssh_enabled` is null in the state, not `false`, and a write sends no `ssh_enabled` when it is not set. Before, the write sent `ssh_enabled` `false`. When `ssh_enabled` is set and the router does not return it, the apply fails before the write.
+* `glinet_firewall_dmz`: When the router reports no DMZ priority (before the first write), `higher_priority` is null in the state, not `false`, and a write sends no `priority` when `higher_priority` is not set. Before, the write sent `priority` `false`. The provider compares the priority after the write only when it sent a priority.
+* `glinet_wireguard_server`: The provider sends `ipv6_enable` only when the router returned it and `address_v6` is not empty. Firmware 4.8.3 does not return `ipv6_enable`, so a write no longer sends `ipv6_enable` `false` there.
+* Each call to the router has a time limit of 60 seconds. Before, a call had no time limit.
+
+ENHANCEMENTS:
+
+* `glinet_wireguard_server_route`: `metric` accepts values from 1 to 4294967295, as the web UI does. Before, the limit was 2147483647.
+* `glinet_firewall_rule`: The error of a failed write to a rule with no destination port tells how to remove the rule with SSH and `uci` only for the fault of firmware 4.8.3 (HTTP status 500 from `set_rule` or `remove_rule`), not for other errors.
+* `glinet_local_access`: When a write that moves the address of the API fails with an HTTP status, the error no longer says that the router did not answer.
+* The client is `glinet-client-go` v1.0.0.
+
+NOTES:
+
+* After `terraform import`, the next plan can show an update in-place with no changed attribute when the configuration sets a sensitive attribute from a variable with `sensitive = true`. Terraform 1.5.7 does this; it is not known whether newer versions do. One `terraform apply` writes the sensitive mark into the state. The provider documentation tells what this apply does on the router.
+* The client v1.0.0 refuses a 0 or 1 flag of the router with another value, for example `2` or `"1"`, in `glinet_lan` and `glinet_network_advanced`. Such a read now fails with an error.
+* CI runs `go vet` for the 32-bit platforms `linux/386` and `linux/arm` (`make vet32`).
+
 ## 0.2.0 (2026-11-19)
 
 This release adds 24 resources and 6 data sources. The provider now has 45 resources and 15 data sources. The provider now supports the options that the web UI of firmware 4.8.3 can set for each resource, not only the options of the test router.
