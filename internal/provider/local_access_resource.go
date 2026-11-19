@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -33,6 +34,10 @@ var browserBlockedPorts = []int64{
 const endpointMoveNote = "A change of http_port, https_port or redirect_https moves the web UI and the API that the provider uses. " +
 	"Change the host of the provider to the new address: http://<router address>:<http_port>, " +
 	"or https://<router address>:<https_port> when redirect_https is true or the host uses HTTPS."
+
+// movedEndpointReadTimeout limits the read after a write that moves the router API, because the old address can
+// stop to answer and the client has no timeout of its own.
+const movedEndpointReadTimeout = 5 * time.Second
 
 var (
 	_ resource.Resource                     = &localAccessResource{}
@@ -102,7 +107,7 @@ func (r *localAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"~> **Warning:** this resource can cut the access to the router, also the access of the provider. " +
 			"The web UI and the API that the provider uses have the same address. A change of `http_port`, `https_port` or `redirect_https` moves this address: " +
 			"after the apply, change `host` of the provider to the new address, for example `http://192.168.8.1:8080`, or the next plan cannot read the router. " +
-			"After such a write, the provider saves the written values in the state before it reads the router again, and shows a warning; when that read fails, the apply does not fail. " +
+			"After such a write, the provider saves the written values in the state before it reads the router again, and shows a warning; when that read fails or gets no answer within 5 seconds, the apply does not fail. " +
 			"It is not known whether the router answers the write before it moves the address; when it does not answer, the apply fails and the write was possibly done. " +
 			"A change of `ssh_enabled` or `ssh_port` can end the SSH access to the router.\n\n" +
 			"Each write sends all attributes, as the web UI does, also the LuCI attributes when LuCI is not installed. " +
@@ -291,7 +296,13 @@ func (r *localAccessResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		diags.AddWarning("Address of the Router API Changed", endpointMoveNote)
 	}
 
-	config, err := r.client.LocalAccess.GetConfig(ctx)
+	readCtx := ctx
+	if endpointMoves {
+		var cancel context.CancelFunc
+		readCtx, cancel = context.WithTimeout(ctx, movedEndpointReadTimeout)
+		defer cancel()
+	}
+	config, err := r.client.LocalAccess.GetConfig(readCtx)
 	if err != nil {
 		if endpointMoves {
 			diags.AddWarning("Unable to Read Local Access Configuration After the Write",

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
@@ -106,43 +107,60 @@ func TestLocalAccessResource(t *testing.T) {
 	})
 }
 
-// TestLocalAccessResourceEndpointMoves fails the first read after a write that changes http_port, as when the router
-// API has moved. The apply keeps the written values in the state and does not fail.
+// TestLocalAccessResourceEndpointMoves fails the first read after a write that changes http_port, or gives it no
+// answer, as when the router API has moved. The apply keeps the written values in the state, does not fail, and ends
+// soon after movedEndpointReadTimeout.
 func TestLocalAccessResourceEndpointMoves(t *testing.T) {
 	parallel(t)
-	srv := glinettest.NewServer(t)
-	var written, failed atomic.Bool
-	set := srv.Handler("local-access", "set_config")
-	srv.Handle("local-access", "set_config", func(params json.RawMessage) (any, error) {
-		written.Store(true)
-		return set(params)
-	})
-	get := srv.Handler("local-access", "get_config")
-	srv.Handle("local-access", "get_config", func(params json.RawMessage) (any, error) {
-		if written.Load() && !failed.Swap(true) {
-			return nil, &glinettest.Error{Code: -32603, Message: "Internal error"}
-		}
-		return get(params)
-	})
-	want := srv.LocalAccess.Config()
-	want.HTTPPort = 8081
-
-	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config:            localAccessConfig(srv, `  http_port = 8081`),
-			ConfigStateChecks: expectLocalAccessState(want),
-			Check: resource.ComposeTestCheckFunc(
-				expectLocalAccess(srv, want),
-				func(*terraform.State) error {
-					if !failed.Load() {
-						return fmt.Errorf("the read after the write did not fail")
+	for name, noAnswer := range map[string]bool{"error": false, "no answer": true} {
+		t.Run(name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			done := make(chan struct{})
+			t.Cleanup(func() { close(done) })
+			var written, failed atomic.Bool
+			set := srv.Handler("local-access", "set_config")
+			srv.Handle("local-access", "set_config", func(params json.RawMessage) (any, error) {
+				written.Store(true)
+				return set(params)
+			})
+			get := srv.Handler("local-access", "get_config")
+			srv.Handle("local-access", "get_config", func(params json.RawMessage) (any, error) {
+				if written.Load() && !failed.Swap(true) {
+					if noAnswer {
+						select {
+						case <-done:
+						case <-time.After(5 * time.Minute):
+						}
 					}
-					return nil
-				},
-			),
-		}},
-	})
+					return nil, &glinettest.Error{Code: -32603, Message: "Internal error"}
+				}
+				return get(params)
+			})
+			want := srv.LocalAccess.Config()
+			want.HTTPPort = 8081
+			start := time.Now()
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+				Steps: []resource.TestStep{{
+					Config:            localAccessConfig(srv, `  http_port = 8081`),
+					ConfigStateChecks: expectLocalAccessState(want),
+					Check: resource.ComposeTestCheckFunc(
+						expectLocalAccess(srv, want),
+						func(*terraform.State) error {
+							if !failed.Load() {
+								return fmt.Errorf("the read after the write did not fail")
+							}
+							if elapsed := time.Since(start); elapsed > movedEndpointReadTimeout+time.Minute {
+								return fmt.Errorf("the apply took %s", elapsed)
+							}
+							return nil
+						},
+					),
+				}},
+			})
+		})
+	}
 }
 
 // TestLocalAccessResourceReadErrorAfterWrite fails the read after a write that does not move the router API.
