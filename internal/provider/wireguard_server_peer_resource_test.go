@@ -286,11 +286,70 @@ func TestWireGuardServerPeerResourceMinimal(t *testing.T) {
 					expectWGPeer("mtu", knownvalue.Null()),
 					expectWGPeer("client_ip", knownvalue.StringExact("10.0.0.2")),
 				},
-				Check: adds.expect(`{"name":"test-peer","presharedkey_enable":false,"presharedkey":""}`),
+				Check: adds.expect(`{"name":"test-peer","presharedkey_enable":false,"presharedkey":"","persistent_keepalive":"","mtu":""}`),
 			},
 			{
 				Config:           config,
 				ConfigPlanChecks: expectEmptyPlan,
+			},
+		},
+	})
+}
+
+// TestWireGuardServerPeerResourceNotConfigured sends back the router values of the attributes that are not in the
+// configuration, also after the router values change, and "" for a number that the router does not have.
+func TestWireGuardServerPeerResourceNotConfigured(t *testing.T) {
+	parallel(t)
+	srv, client := wgServerTestRouter(t)
+	sets := recordCalls(t, srv, "wg-server", "set_peer")
+	ctx := context.Background()
+	setRouterPeer := func(change func(*glinet.WireGuardServerPeer)) func() {
+		return func() {
+			peers, err := client.WireGuardServer.ListPeers(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			change(&peers[0])
+			if err := client.WireGuardServer.SetPeer(ctx, peers[0]); err != nil {
+				t.Fatal(err)
+			}
+			sets.take()
+		}
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + wgServerPeer{name: "test-peer"}.config(),
+			},
+			{
+				PreConfig: setRouterPeer(func(p *glinet.WireGuardServerPeer) {
+					p.AllowedIPs, p.DNS, p.PersistentKeepalive, p.MTU = "10.0.0.0/24", "192.168.8.1", 25, 1420
+				}),
+				Config:           fakeRouterConfig(srv) + wgServerPeer{name: "renamed"}.config(),
+				ConfigPlanChecks: expectResourceAction(wgPeerAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectWGPeer("allowed_ips", stringListExact("10.0.0.0/24")),
+					expectWGPeer("dns", stringListExact("192.168.8.1")),
+					expectWGPeer("persistent_keepalive", knownvalue.Int64Exact(25)),
+					expectWGPeer("mtu", knownvalue.Int64Exact(1420)),
+				},
+				Check: expectPeerCalls(sets, `{"peer_id":PEER_ID,"name":"renamed","presharedkey_enable":false,"presharedkey":"",
+					"allowed_ips":"10.0.0.0/24","dns":"192.168.8.1","persistent_keepalive":25,"mtu":1420}`),
+			},
+			{
+				PreConfig:        setRouterPeer(func(p *glinet.WireGuardServerPeer) { p.PersistentKeepalive, p.MTU = 0, 0 }),
+				Config:           fakeRouterConfig(srv) + wgServerPeer{name: "test-peer"}.config(),
+				ConfigPlanChecks: expectResourceAction(wgPeerAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectWGPeer("allowed_ips", stringListExact("10.0.0.0/24")),
+					expectWGPeer("dns", stringListExact("192.168.8.1")),
+					expectWGPeer("persistent_keepalive", knownvalue.Null()),
+					expectWGPeer("mtu", knownvalue.Null()),
+				},
+				Check: expectPeerCalls(sets, `{"peer_id":PEER_ID,"name":"test-peer","presharedkey_enable":false,"presharedkey":"",
+					"allowed_ips":"10.0.0.0/24","dns":"192.168.8.1","persistent_keepalive":"","mtu":""}`),
 			},
 		},
 	})

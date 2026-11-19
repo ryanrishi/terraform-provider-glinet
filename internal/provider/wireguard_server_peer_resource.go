@@ -111,7 +111,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 			},
 			"allowed_ips": schema.ListAttribute{
 				Description: "1 to 5 IP networks for the configuration of the client device, for example `[\"0.0.0.0/0\"]` " +
-					"(`allowed_ips` in the router API, one string with `, ` between the items). " + wireGuardRouterValueNote,
+					"(`allowed_ips` in the router API, one string with `, ` between the items). " + wireGuardRouterValueNote + " " + wireGuardEmptyListNote,
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
@@ -125,7 +125,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 			},
 			"dns": schema.ListAttribute{
 				Description: "IP addresses of the DNS servers for the configuration of the client device (`dns` in the router API, one string with `, ` between the items). " +
-					wireGuardRouterValueNote,
+					wireGuardRouterValueNote + " " + wireGuardEmptyListNote,
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
@@ -138,7 +138,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 				},
 			},
 			"persistent_keepalive": schema.Int64Attribute{
-				Description: "Interval of the keepalive packets in seconds, from 1 to 65535 (`persistent_keepalive` in the router API). " + wireGuardRouterValueNote,
+				Description: "Interval of the keepalive packets in seconds, from 1 to 65535 (`persistent_keepalive` in the router API). " + wireGuardRouterValueNote + " " + wireGuardEmptyNumberNote,
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{
@@ -147,7 +147,7 @@ func (r *wireGuardServerPeerResource) Schema(_ context.Context, _ resource.Schem
 				Validators: []validator.Int64{int64validator.Between(1, 65535)},
 			},
 			"mtu": schema.Int64Attribute{
-				Description: "MTU of the tunnel, from 576 to 65535 (`mtu` in the router API). " + wireGuardRouterValueNote,
+				Description: "MTU of the tunnel, from 576 to 65535 (`mtu` in the router API). " + wireGuardRouterValueNote + " " + wireGuardEmptyNumberNote,
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{

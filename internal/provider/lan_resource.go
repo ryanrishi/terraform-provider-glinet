@@ -220,15 +220,16 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				},
 			},
 			"dhcp_lpr_servers": schema.ListAttribute{
-				Description: "One to five IPv4 addresses of LPR servers, each one time, that the DHCP server gives (`lpr` in the router API, DHCP option 9). " +
+				Description: "Up to five IPv4 addresses of LPR servers, each one time, that the DHCP server gives (`lpr` in the router API, DHCP option 9). " +
+					"An empty list removes all LPR servers: the provider then sends `lpr: []`, as the web UI of firmware 4.8.3 does. " +
 					"When it is not set, the provider sends back the LPR servers of the router in each DHCP write. " +
-					"The provider cannot remove all LPR servers: it sends `lpr` only when the list has items, and what the router does with a write without `lpr` is not known. " +
-					"What the router does with the LPR servers was not verified. Cannot be set when `dhcp_enabled` is `false`.",
+					"While the DHCP server is enabled, the state has an empty list when the router has no LPR servers. " +
+					"What the router does with the LPR servers, and with `lpr: []`, was not verified. Cannot be set when `dhcp_enabled` is `false`.",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
 				Validators: []validator.List{
-					listvalidator.SizeBetween(1, 5),
+					listvalidator.SizeAtMost(5),
 					listvalidator.UniqueValues(),
 					listvalidator.ValueStringsAre(ipv4Validator),
 				},
@@ -430,8 +431,8 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 	}
 	if plan.DHCPLPR.IsUnknown() {
 		plan.DHCPLPR = types.ListNull(types.StringType)
-		if plan.DHCPEnabled.ValueBool() && len(current.LPR) > 0 {
-			plan.DHCPLPR = stringList(ctx, current.LPR, diags)
+		if plan.DHCPEnabled.ValueBool() {
+			plan.DHCPLPR = stringList(ctx, append([]string{}, current.LPR...), diags)
 		}
 	}
 
@@ -522,7 +523,8 @@ func wanIsolationValue(config *glinet.LANConfig) types.Bool {
 }
 
 // lanModel returns the model of the network config. It keeps the lease time prior when it is the same
-// duration as that of the router. The DHCP attributes are null while the DHCP server is disabled.
+// duration as that of the router. The DHCP attributes are null while the DHCP server is disabled. While it is enabled,
+// dhcp_lpr_servers is an empty list when the router has no LPR servers.
 func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String, diags *diag.Diagnostics) *lanResourceModel {
 	model := &lanResourceModel{
 		Name:          types.StringValue(config.Interface),
@@ -552,8 +554,6 @@ func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String,
 	if len(config.DNS) > 0 {
 		model.DHCPDNS = stringList(ctx, config.DNS, diags)
 	}
-	if len(config.LPR) > 0 {
-		model.DHCPLPR = stringList(ctx, config.LPR, diags)
-	}
+	model.DHCPLPR = stringList(ctx, append([]string{}, config.LPR...), diags)
 	return model
 }

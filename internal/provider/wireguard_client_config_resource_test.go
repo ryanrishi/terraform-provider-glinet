@@ -291,6 +291,74 @@ func TestWireGuardClientConfigResourceMinimal(t *testing.T) {
 	})
 }
 
+// TestWireGuardClientConfigResourceNotConfigured sends back the router values of the attributes that are not in the
+// configuration, also after the router values change, and "" for a number that the router does not have.
+func TestWireGuardClientConfigResourceNotConfigured(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	sets := recordCalls(t, srv, "wg-client", "set_config")
+	var groupID, peerID int
+	saveIDs := func(s *terraform.State) (err error) {
+		groupID, peerID, err = wgConfigIDs(s)
+		return err
+	}
+	ctx := context.Background()
+	setRouterPeer := func(change func(*glinet.WireGuardPeer)) func() {
+		return func() {
+			peer, err := client.WireGuardClient.FindPeer(ctx, groupID, peerID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			change(peer)
+			if err := client.WireGuardClient.SetPeer(ctx, groupID, *peer); err != nil {
+				t.Fatal(err)
+			}
+			sets.take()
+		}
+	}
+	renamed := minimalWGClientConfig.with(func(c *wgClientConfig) { c.name = "renamed" })
+	const params = `{"group_id":GROUP_ID,"peer_id":PEER_ID,"name":%q,"address_v4":"10.0.0.2","address_v6":"","ipv6_enable":false,
+		"private_key":"` + testPrivateKey + `","public_key":"` + testPublicKey + `","allowed_ips":"","end_point":"192.0.2.1:51820",
+		"presharedkey_enable":false,"dns":"10.0.0.1",%s}`
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + minimalWGClientConfig.config(),
+				Check:  saveIDs,
+			},
+			{
+				PreConfig: setRouterPeer(func(p *glinet.WireGuardPeer) {
+					p.DNS, p.ListenPort, p.PersistentKeepalive, p.MTU = "10.0.0.1", 51820, 25, 1420
+				}),
+				Config:           fakeRouterConfig(srv) + renamed.config(),
+				ConfigPlanChecks: expectResourceAction(wgConfigAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectWGConfig("dns", stringListExact("10.0.0.1")),
+					expectWGConfig("listen_port", knownvalue.Int64Exact(51820)),
+					expectWGConfig("persistent_keepalive", knownvalue.Int64Exact(25)),
+					expectWGConfig("mtu", knownvalue.Int64Exact(1420)),
+				},
+				Check: expectIDCalls(sets, fmt.Sprintf(params, "renamed", `"listen_port":51820,"persistent_keepalive":25,"mtu":1420`)),
+			},
+			{
+				PreConfig:        setRouterPeer(func(p *glinet.WireGuardPeer) { p.ListenPort, p.PersistentKeepalive, p.MTU = 0, 0, 0 }),
+				Config:           fakeRouterConfig(srv) + minimalWGClientConfig.config(),
+				ConfigPlanChecks: expectResourceAction(wgConfigAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectWGConfig("dns", stringListExact("10.0.0.1")),
+					expectWGConfig("listen_port", knownvalue.Null()),
+					expectWGConfig("persistent_keepalive", knownvalue.Null()),
+					expectWGConfig("mtu", knownvalue.Null()),
+				},
+				Check: expectIDCalls(sets, fmt.Sprintf(params, "test-config", `"listen_port":"","persistent_keepalive":"","mtu":""`)),
+			},
+		},
+	})
+}
+
 func TestWireGuardClientConfigResourceDrift(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)

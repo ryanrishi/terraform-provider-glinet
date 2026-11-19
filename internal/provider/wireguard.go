@@ -17,8 +17,12 @@ import (
 
 // The helpers in this file are shared by the WireGuard resources.
 
-const wireGuardRouterValueNote = "When it is not set, the provider does not send it and keeps the value of the router. " +
-	"To remove a value from the router, replace the resource."
+const (
+	wireGuardRouterValueNote = "When it is not set, the provider keeps the value of the router: an update sends back the value of the last read. " +
+		"Thus, to remove a value from the router, replace the resource; removing the attribute from the configuration keeps the router value."
+	wireGuardEmptyNumberNote = "When the router has no value, an update sends `\"\"`, as the web UI does for an empty input. What the router does with `\"\"` is not known."
+	wireGuardEmptyListNote   = "When the router has no value, the provider does not send it, as the client does not send an empty value."
+)
 
 var (
 	// The key rule of the web UI: 44 characters of base64 that end in "=", the encoding of 32 bytes.
@@ -94,7 +98,7 @@ func splitList(s string) []string {
 }
 
 // joinList returns the router string of a list, with ", " between the items as the web UI sends it.
-// An unknown list, which is not set in the configuration, gives "", which the client does not send.
+// An unknown list, which is not set in the configuration and has no value in the state, gives "", which the client does not send.
 func joinList(ctx context.Context, list types.List, diags *diag.Diagnostics) string {
 	if list.IsUnknown() {
 		return ""
