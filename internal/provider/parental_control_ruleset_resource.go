@@ -45,9 +45,10 @@ func validBlocklistURL(s string) bool {
 }
 
 var (
-	_ resource.Resource                = &parentalControlRulesetResource{}
-	_ resource.ResourceWithConfigure   = &parentalControlRulesetResource{}
-	_ resource.ResourceWithImportState = &parentalControlRulesetResource{}
+	_ resource.Resource                 = &parentalControlRulesetResource{}
+	_ resource.ResourceWithConfigure    = &parentalControlRulesetResource{}
+	_ resource.ResourceWithUpgradeState = &parentalControlRulesetResource{}
+	_ resource.ResourceWithImportState  = &parentalControlRulesetResource{}
 )
 
 func NewParentalControlRulesetResource() resource.Resource {
@@ -73,6 +74,7 @@ func (r *parentalControlRulesetResource) Metadata(_ context.Context, req resourc
 
 func (r *parentalControlRulesetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages a rule set of parental control (`parental-control.add_rule` in the router API). " +
 			"A rule set blocks apps of the app feature library and domains: the domains of a block list in `block_list`, or of a block list that the router loads from `block_list_url`. " +
 			"Groups (`glinet_parental_control_group`) use rule sets as their default rule set and in their schedules. " +
@@ -439,4 +441,10 @@ func rulesetModel(ctx context.Context, rule *glinet.ParentalControlRule, prior p
 	}
 	model.BlockList = emptyOr(prior.BlockList, model.BlockList, len(lines) == 0)
 	return model
+}
+
+// UpgradeState moves blacklist and url to block_list and block_list_url in a state of schema version 0
+// (release 0.2.0), because it is not known whether the router returns the URL, and Read then keeps the URL of the state.
+func (r *parentalControlRulesetResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{0: renameAttributes(map[string]string{"blacklist": "block_list", "url": "block_list_url"})}
 }

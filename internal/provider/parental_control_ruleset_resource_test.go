@@ -413,3 +413,39 @@ resource "glinet_parental_control_ruleset" "test" {
 		},
 	})
 }
+
+// TestParentalControlRulesetResourceStateOf020 refreshes a state that release 0.2.0 wrote, with url and schema
+// version 0, on a router that does not return the URL. The upgrader moves url to block_list_url, so Read keeps it.
+func TestParentalControlRulesetResourceStateOf020(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	const blockListURL = "https://blocklist.example.com/night.txt"
+	id, err := client.ParentalControl.AddRule(context.Background(), glinet.ParentalControlRuleSettings{Name: "night", Color: "#123456", URL: blockListURL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	get := srv.Handler("parental-control", "get_config")
+	srv.Handle("parental-control", "get_config", func(params json.RawMessage) (any, error) {
+		res, err := get(params)
+		if err != nil {
+			return nil, err
+		}
+		var config map[string]any
+		if err := json.Unmarshal([]byte(mustJSON(t, res)), &config); err != nil {
+			return nil, err
+		}
+		for _, rule := range config["rules"].([]any) {
+			delete(rule.(map[string]any), "url")
+		}
+		return config, nil
+	})
+
+	state := refreshPriorState(t, srv, "glinet_parental_control_ruleset",
+		`{"id":"`+id+`","name":"night","color":"#123456","apps":null,"blacklist":null,"url":"`+blockListURL+`"}`)
+	if state == nil {
+		t.Fatal("Read removed the resource")
+	}
+	expectStringAttribute(t, state, "id", id)
+	expectStringAttribute(t, state, "block_list_url", blockListURL)
+}

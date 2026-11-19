@@ -22,6 +22,7 @@ import (
 var (
 	_ resource.Resource                   = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithConfigure      = &wireGuardServerRouteResource{}
+	_ resource.ResourceWithUpgradeState   = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithImportState    = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithValidateConfig = &wireGuardServerRouteResource{}
 )
@@ -47,6 +48,7 @@ func (r *wireGuardServerRouteResource) Metadata(_ context.Context, req resource.
 
 func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages a route rule of the WireGuard server of the router (`wg-server.add_route` in the router API). " +
 			"The destination network identifies the route rule, so a change of `destination` replaces it. " +
 			"The router gives each route rule an ID (`rule_id`); the provider finds the ID from `destination` before each call and does not keep it in the state, because it is not known whether the ID stays the same. " +
@@ -285,4 +287,10 @@ func wireGuardServerRouteModel(route *glinet.VPNRoute) *wireGuardServerRouteReso
 		Metric:      int64OrNull(route.Metric),
 		MTU:         int64OrNull(route.MTU),
 	}
+}
+
+// UpgradeState moves dest to destination in a state of schema version 0 (release 0.2.0), because Read finds the
+// route rule by destination.
+func (r *wireGuardServerRouteResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{0: renameAttributes(map[string]string{"dest": "destination"})}
 }

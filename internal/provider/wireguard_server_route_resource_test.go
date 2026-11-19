@@ -365,17 +365,22 @@ func TestWireGuardServerRouteResourceRouterErrors(t *testing.T) {
 	}
 }
 
-// TestWireGuardServerRouteResourceStateOf020 refreshes a state that release 0.2.0 wrote, with dest. The framework drops
-// dest, so the state has no destination, and Read removes the resource from the state although the router has the
-// route rule. The next apply then fails because the route rule exists, until the route rule is imported again.
+// TestWireGuardServerRouteResourceStateOf020 refreshes a state that release 0.2.0 wrote, with dest and schema
+// version 0. The upgrader moves dest to destination, so Read finds the route rule and keeps all values.
 func TestWireGuardServerRouteResourceStateOf020(t *testing.T) {
 	parallel(t)
 	srv, client := wgServerTestRouter(t)
-	if err := client.WireGuardServer.AddRoute(context.Background(), glinet.VPNRoute{Dest: "192.168.10.0/24"}); err != nil {
+	route := glinet.VPNRoute{Dest: "192.168.10.0/24", Gateway: "10.0.0.2", Metric: 10, MTU: 1400}
+	if err := client.WireGuardServer.AddRoute(context.Background(), route); err != nil {
 		t.Fatal(err)
 	}
 
-	if state := refreshPriorState(t, srv, "glinet_wireguard_server_route", `{"dest":"192.168.10.0/24","gateway":null,"metric":null,"mtu":null}`); state != nil {
-		t.Errorf("state is %v, want the resource removed", state)
+	state := refreshPriorState(t, srv, "glinet_wireguard_server_route", `{"dest":"192.168.10.0/24","gateway":"10.0.0.2","metric":10,"mtu":1400}`)
+	if state == nil {
+		t.Fatal("Read removed the resource")
 	}
+	expectStringAttribute(t, state, "destination", "192.168.10.0/24")
+	expectStringAttribute(t, state, "gateway", "10.0.0.2")
+	expectInt64Attribute(t, state, "metric", 10)
+	expectInt64Attribute(t, state, "mtu", 1400)
 }

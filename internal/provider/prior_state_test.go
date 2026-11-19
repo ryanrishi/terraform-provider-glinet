@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
@@ -10,7 +11,7 @@ import (
 )
 
 // refreshPriorState gives the provider the state rawState of a resource of the type typeName, as Terraform does
-// for a state that an earlier release wrote with the same schema version: UpgradeResourceState, then ReadResource
+// for a state that release 0.2.0 wrote with schema version 0: UpgradeResourceState, then ReadResource
 // on the fake router srv. It returns the attributes of the refreshed state, or nil when Read removed the resource.
 func refreshPriorState(t *testing.T, srv *glinettest.Server, typeName, rawState string) map[string]tftypes.Value {
 	t.Helper()
@@ -39,6 +40,7 @@ func refreshPriorState(t *testing.T, srv *glinettest.Server, typeName, rawState 
 
 	upgraded, err := server.UpgradeResourceState(ctx, &tfprotov6.UpgradeResourceStateRequest{
 		TypeName: typeName,
+		Version:  0,
 		RawState: &tfprotov6.RawState{JSON: []byte(rawState)},
 	})
 	if err != nil {
@@ -83,5 +85,14 @@ func expectStringAttribute(t *testing.T, attributes map[string]tftypes.Value, na
 	var got string
 	if err := attributes[name].As(&got); err != nil || got != want {
 		t.Errorf("%s is %v, want %q", name, attributes[name], want)
+	}
+}
+
+// expectInt64Attribute checks that the attribute name of attributes is the number want.
+func expectInt64Attribute(t *testing.T, attributes map[string]tftypes.Value, name string, want int64) {
+	t.Helper()
+	var got big.Float
+	if err := attributes[name].As(&got); err != nil || got.Cmp(new(big.Float).SetInt64(want)) != 0 {
+		t.Errorf("%s is %v, want %d", name, attributes[name], want)
 	}
 }

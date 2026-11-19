@@ -24,7 +24,7 @@ Attribute renames. Change the names in your configuration and in each reference 
 * `glinet_wan_port`: `name` is now `port`, as in `glinet_wan`.
 * `glinet_wan_port`: `mac_address` is now `mac`.
 * `glinet_wan_port`: `default_mac_address` is now `default_mac`.
-* `glinet_wireguard_server_route`: `dest` is now `destination`. The import ID is still the destination network. See the note below about the state.
+* `glinet_wireguard_server_route`: `dest` is now `destination`. The import ID is still the destination network.
 * `glinet_parental_control_group`: `start_time` and `end_time` replace `begin` and `end` in each item of `schedules`.
 * `glinet_parental_control_ruleset`: `blacklist` is now `block_list`.
 * `glinet_parental_control_ruleset`: `url` is now `block_list_url`.
@@ -47,10 +47,10 @@ Attribute renames. Change the names in your configuration and in each reference 
 * `glinet_wifi_radio`: `random_bssid` is now `random_bssid_enabled`.
 * `glinet_wifi_radio`: `tx_power` takes `max`, `high`, `medium` and `low` in lower case. Before, it took `Max`, `High`, `Medium` and `Low`. The router still gets `Max`, `High`, `Medium` and `Low`.
 
-The state of release 0.2.0: you do not have to change the state, except for `glinet_wireguard_server_route`. The schema version of the resources did not change, so the provider reads the old state with the new schema: it ignores each attribute that the new schema does not have, and a new attribute is null. The next refresh reads the new attributes from the router.
+The state of release 0.2.0: you do not have to change the state. For most renamed attributes, the provider reads the old state with the new schema: it ignores each attribute that the new schema does not have, a new attribute is null, and the next refresh reads it from the router. Two resources have schema version 1 and an upgrader that moves the old values to the new attributes, because a refresh cannot get them back from the router:
 
-* `glinet_wireguard_server_route`: the provider finds the route rule by `destination`, which is null in the old state, so the refresh removes the resource from the state, and the next apply fails because the route rule exists on the router. Before the first plan with this release, run `terraform state rm <address>` and then `terraform import <address> <destination network>` for each route rule (or use an `import` block).
-* `glinet_parental_control_ruleset`: when the router does not return the URL of the block list, the refresh keeps the value of the state, which is null after the rename. Then the first plan shows an update that sets `block_list_url`, and the apply sends the same URL again. It is not known whether the router returns the URL.
+* `glinet_wireguard_server_route`: `dest` moves to `destination`, which identifies the route rule.
+* `glinet_parental_control_ruleset`: `blacklist` and `url` move to `block_list` and `block_list_url`. It is not known whether the router returns the URL of the block list.
 
 ENHANCEMENTS:
 
