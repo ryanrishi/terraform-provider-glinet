@@ -38,7 +38,7 @@ type clientInfoResource struct {
 type clientInfoResourceModel struct {
 	MAC   caseInsensitiveString `tfsdk:"mac"`
 	Alias types.String          `tfsdk:"alias"`
-	Class types.String          `tfsdk:"class"`
+	Icon  types.String          `tfsdk:"icon"`
 }
 
 func (r *clientInfoResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -56,7 +56,7 @@ func (r *clientInfoResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"When the client list has the MAC address in more than one letter case, update fails when `mac` would select another client. " +
 			"Import sets `mac` in the letter case of the client list. " +
 			"Destroy removes the resource from the Terraform state and does not change the router. " +
-			"To set the name or the icon back to automatic, set `alias` or `class` to an empty string before destroy.",
+			"To set the name or the icon back to automatic, set `alias` or `icon` to an empty string before destroy.",
 		Attributes: map[string]schema.Attribute{
 			"mac": schema.StringAttribute{
 				Description: "MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. " +
@@ -84,8 +84,8 @@ func (r *clientInfoResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					stringvalidator.RegexMatches(noCommaOrQuote, "must not contain , or \""),
 				},
 			},
-			"class": schema.StringAttribute{
-				Description: "Icon of the client. The web UI of firmware 4.8.3 offers `computer`, `phone`, `pad`, `camera`, `watch`, `laptop`, `printer`, " +
+			"icon": schema.StringAttribute{
+				Description: "Icon of the client (`class` in the router API). The web UI of firmware 4.8.3 offers `computer`, `phone`, `pad`, `camera`, `watch`, `laptop`, `printer`, " +
 					"`sound`, `television`, `smartappliances`, `games`, `gateway`, `nas`, `server` and `switch`. " +
 					"The provider does not limit the value to this list, because other firmware versions can have other icons. " +
 					"An empty string sets the icon back to automatic. " +
@@ -160,7 +160,7 @@ func (r *clientInfoResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if plan.Alias.Equal(state.Alias) && plan.Class.Equal(state.Class) {
+	if plan.Alias.Equal(state.Alias) && plan.Icon.Equal(state.Icon) {
 		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 		return
 	}
@@ -176,14 +176,14 @@ func (r *clientInfoResource) ImportState(ctx context.Context, req resource.Impor
 }
 
 // write sends the name and the icon of plan to the client c, and sets state from the client list.
-// An unknown alias or class sends the value that the router has.
+// An unknown alias or icon sends the value that the router has.
 func (r *clientInfoResource) write(ctx context.Context, c *glinet.ClientDevice, plan clientInfoResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	info := glinet.ClientInfo{MAC: c.MAC, Alias: c.Alias, Class: c.Class}
 	if !plan.Alias.IsUnknown() {
 		info.Alias = plan.Alias.ValueString()
 	}
-	if !plan.Class.IsUnknown() {
-		info.Class = plan.Class.ValueString()
+	if !plan.Icon.IsUnknown() {
+		info.Class = plan.Icon.ValueString()
 	}
 	if err := r.client.Clients.SetInfo(ctx, info); err != nil {
 		diags.AddError("Unable to Write Client Info", err.Error())
@@ -208,7 +208,7 @@ func clientInfoModel(c *glinet.ClientDevice) clientInfoResourceModel {
 	return clientInfoResourceModel{
 		MAC:   caseInsensitiveStringValue(c.MAC),
 		Alias: types.StringValue(c.Alias),
-		Class: types.StringValue(c.Class),
+		Icon:  types.StringValue(c.Class),
 	}
 }
 

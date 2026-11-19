@@ -3,12 +3,12 @@
 page_title: "glinet_parental_control_ruleset Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a rule set of parental control (parental-control.add_rule in the router API). A rule set blocks apps of the app feature library and domains: the domains of a block list in blacklist, or of a block list that the router loads from url. Groups (glinet_parental_control_group) use rule sets as their default rule set and in their schedules. The resource does not manage the preset rule sets drop (blocks all traffic) and accept (blocks nothing), which cannot be changed or removed. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. Rule set names are unique on the router (API reference), so create fails when a rule set with the same name exists. Import the rule set with its name, for example terraform import glinet_parental_control_ruleset.example homework. A write can take up to 30 seconds. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the rule set from the router. Destroy fails while a group uses the rule set as its default rule set, in a schedule, or as its temporary rule set.
+  Manages a rule set of parental control (parental-control.add_rule in the router API). A rule set blocks apps of the app feature library and domains: the domains of a block list in block_list, or of a block list that the router loads from block_list_url. Groups (glinet_parental_control_group) use rule sets as their default rule set and in their schedules. The resource does not manage the preset rule sets drop (blocks all traffic) and accept (blocks nothing), which cannot be changed or removed. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. Rule set names are unique on the router (API reference), so create fails when a rule set with the same name exists. Import the rule set with its name, for example terraform import glinet_parental_control_ruleset.example homework. A write can take up to 30 seconds. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the rule set from the router. Destroy fails while a group uses the rule set as its default rule set, in a schedule, or as its temporary rule set.
 ---
 
 # glinet_parental_control_ruleset (Resource)
 
-Manages a rule set of parental control (`parental-control.add_rule` in the router API). A rule set blocks apps of the app feature library and domains: the domains of a block list in `blacklist`, or of a block list that the router loads from `url`. Groups (`glinet_parental_control_group`) use rule sets as their default rule set and in their schedules. The resource does not manage the preset rule sets `drop` (blocks all traffic) and `accept` (blocks nothing), which cannot be changed or removed. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. Rule set names are unique on the router (API reference), so create fails when a rule set with the same name exists. Import the rule set with its name, for example `terraform import glinet_parental_control_ruleset.example homework`. A write can take up to 30 seconds. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the rule set from the router. Destroy fails while a group uses the rule set as its default rule set, in a schedule, or as its temporary rule set.
+Manages a rule set of parental control (`parental-control.add_rule` in the router API). A rule set blocks apps of the app feature library and domains: the domains of a block list in `block_list`, or of a block list that the router loads from `block_list_url`. Groups (`glinet_parental_control_group`) use rule sets as their default rule set and in their schedules. The resource does not manage the preset rule sets `drop` (blocks all traffic) and `accept` (blocks nothing), which cannot be changed or removed. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. Rule set names are unique on the router (API reference), so create fails when a rule set with the same name exists. Import the rule set with its name, for example `terraform import glinet_parental_control_ruleset.example homework`. A write can take up to 30 seconds. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the rule set from the router. Destroy fails while a group uses the rule set as its default rule set, in a schedule, or as its temporary rule set.
 
 ## Example Usage
 
@@ -17,16 +17,16 @@ data "glinet_parental_control_apps" "all" {}
 
 # Blocks the game apps and two domains.
 resource "glinet_parental_control_ruleset" "homework" {
-  name      = "homework"
-  color     = "#4b9bd9"
-  apps      = [for app in data.glinet_parental_control_apps.all.apps : app.id if app.type == 2]
-  blacklist = ["games.example.com", "videos.example.net"]
+  name       = "homework"
+  color      = "#4b9bd9"
+  apps       = [for app in data.glinet_parental_control_apps.all.apps : app.id if app.type == 2]
+  block_list = ["games.example.com", "videos.example.net"]
 }
 
 # Blocks the domains of a block list that the router loads.
 resource "glinet_parental_control_ruleset" "night" {
-  name = "night"
-  url  = "https://blocklist.example.com/night.txt"
+  name           = "night"
+  block_list_url = "https://blocklist.example.com/night.txt"
 }
 ```
 
@@ -40,9 +40,9 @@ resource "glinet_parental_control_ruleset" "night" {
 ### Optional
 
 - `apps` (Set of Number) IDs of the apps that the rule set blocks. Get the IDs from the `glinet_parental_control_apps` data source. The API reference also permits the app types 1 to 8, which mean all apps of that type. The web UI shows the apps only when the router has the app feature library (`app_filter_enabled` of `glinet_parental_control`).
-- `blacklist` (List of String) Lines of the block list of the rule set (`blacklist` in the router API), for example `www.example.com`. Each line can have the characters `A-Z`, `a-z`, `0-9` and `.[]~:;/?&=%-#`. The API reference permits at most 32 lines, and also shows lines in the syntax of the app feature library, for example `[tcp;;;www.example.com;;]`. The router rejects a domain that is not valid. Conflicts with `url`. When neither is set, the rule set blocks only the apps. Refresh ignores empty lines.
+- `block_list` (List of String) Lines of the block list of the rule set (`blacklist` in the router API), for example `www.example.com`. Each line can have the characters `A-Z`, `a-z`, `0-9` and `.[]~:;/?&=%-#`. The API reference permits at most 32 lines, and also shows lines in the syntax of the app feature library, for example `[tcp;;;www.example.com;;]`. The router rejects a domain that is not valid. Conflicts with `block_list_url`. When neither is set, the rule set blocks only the apps. Refresh ignores empty lines.
+- `block_list_url` (String) URL of a block list that the router loads (`manual: false` in the router API). Conflicts with `block_list`. It was not verified that the router returns the URL in its configuration; when it does not, refresh keeps the value of the state.
 - `color` (String) Color of the label of the rule set in the web UI, in the format `#rrggbb`. When it is not set, create sends `#808080`, and an update keeps the router value.
-- `url` (String) URL of a block list that the router loads (`manual: false` in the router API). Conflicts with `blacklist`. It was not verified that the router returns the URL in its configuration; when it does not, refresh keeps the value of the state.
 
 ### Read-Only
 

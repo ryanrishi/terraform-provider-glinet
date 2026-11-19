@@ -28,7 +28,7 @@ func expectWANAccess(srv *glinettest.Server, want glinettest.WANAccess) resource
 	}
 }
 
-// TestWANAccessResource sets all attributes, removes the whitelist, and checks that destroy disables the access.
+// TestWANAccessResource sets all attributes, removes the allow list, and checks that destroy disables the access.
 func TestWANAccessResource(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
@@ -44,11 +44,11 @@ func TestWANAccessResource(t *testing.T) {
 			{
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_wan_access" "test" {
-  https             = true
-  ssh               = false
-  ping              = true
-  whitelist_enabled = true
-  whitelist = {
+  https_enabled             = true
+  ssh_enabled               = false
+  ping_enabled              = true
+  allow_list_enabled = true
+  allow_list = {
     "203.0.113.10" = "office"
     "2001:db8::10" = ""
   }
@@ -56,11 +56,11 @@ resource "glinet_wan_access" "test" {
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("id"), knownvalue.StringExact("wan_access")),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("https"), knownvalue.Bool(true)),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("ssh"), knownvalue.Bool(false)),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("ping"), knownvalue.Bool(true)),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("whitelist_enabled"), knownvalue.Bool(true)),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("whitelist"), knownvalue.MapExact(map[string]knownvalue.Check{
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("https_enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("ssh_enabled"), knownvalue.Bool(false)),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("ping_enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("allow_list_enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("allow_list"), knownvalue.MapExact(map[string]knownvalue.Check{
 						"203.0.113.10": knownvalue.StringExact("office"),
 						"2001:db8::10": knownvalue.StringExact(""),
 					})),
@@ -77,15 +77,15 @@ resource "glinet_wan_access" "test" {
 			{
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_wan_access" "test" {
-  https             = false
-  ssh               = true
-  ping              = false
-  whitelist_enabled = false
-  whitelist         = {}
+  https_enabled             = false
+  ssh_enabled               = true
+  ping_enabled              = false
+  allow_list_enabled = false
+  allow_list         = {}
 }
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("whitelist"), knownvalue.MapExact(map[string]knownvalue.Check{})),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("allow_list"), knownvalue.MapExact(map[string]knownvalue.Check{})),
 				},
 				Check: calls.expect(`{"enable_https":false,"enable_ssh":true,"enable_ping":false,"enable_whitelist":false,"whitelist":[]}`),
 			},
@@ -93,8 +93,8 @@ resource "glinet_wan_access" "test" {
 	})
 }
 
-// TestWANAccessResourceKeepsRouterWhitelist sends back the whitelist and its switch of the router when they are not set.
-func TestWANAccessResourceKeepsRouterWhitelist(t *testing.T) {
+// TestWANAccessResourceKeepsRouterAllowList sends back the allow list and its switch of the router when they are not set.
+func TestWANAccessResourceKeepsRouterAllowList(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	srv.Firewall.SetWANAccess(glinettest.WANAccess{
@@ -109,14 +109,14 @@ func TestWANAccessResourceKeepsRouterWhitelist(t *testing.T) {
 			{
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_wan_access" "test" {
-  https = false
-  ssh   = true
-  ping  = false
+  https_enabled = false
+  ssh_enabled   = true
+  ping_enabled  = false
 }
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("whitelist_enabled"), knownvalue.Bool(true)),
-					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("whitelist"), knownvalue.MapExact(map[string]knownvalue.Check{
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("allow_list_enabled"), knownvalue.Bool(true)),
+					statecheck.ExpectKnownValue(wanAccessAddress, tfjsonpath.New("allow_list"), knownvalue.MapExact(map[string]knownvalue.Check{
 						"198.51.100.7": knownvalue.StringExact("home"),
 					})),
 				},
@@ -126,9 +126,9 @@ resource "glinet_wan_access" "test" {
 			{
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_wan_access" "test" {
-  https = false
-  ssh   = true
-  ping  = true
+  https_enabled = false
+  ssh_enabled   = true
+  ping_enabled  = true
 }
 `,
 				Check: calls.expect(`{"enable_https":false,"enable_ssh":true,"enable_ping":true,"enable_whitelist":true,` +
@@ -154,10 +154,10 @@ func TestWANAccessResourceInvalidConfig(t *testing.T) {
 				Steps: []resource.TestStep{{
 					Config: fakeRouterConfig(glinettest.NewServer(t)) + `
 resource "glinet_wan_access" "test" {
-  https     = true
-  ssh       = false
-  ping      = false
-  whitelist = { ` + tc.source + ` }
+  https_enabled     = true
+  ssh_enabled       = false
+  ping_enabled      = false
+  allow_list = { ` + tc.source + ` }
 }
 `,
 					PlanOnly:    true,
@@ -175,9 +175,9 @@ func TestWANAccessResourceInvalidImportID(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: fakeRouterConfig(srv) + `resource "glinet_wan_access" "test" {
-  https = false
-  ssh   = false
-  ping  = false
+  https_enabled = false
+  ssh_enabled   = false
+  ping_enabled  = false
 }`,
 			ResourceName:  wanAccessAddress,
 			ImportState:   true,

@@ -30,10 +30,10 @@ type clientModel struct {
 	MAC            string       `tfsdk:"mac"`
 	Name           string       `tfsdk:"name"`
 	Alias          types.String `tfsdk:"alias"`
-	Class          types.String `tfsdk:"class"`
+	Icon           types.String `tfsdk:"icon"`
 	Blocked        bool         `tfsdk:"blocked"`
-	LimitRx        float64      `tfsdk:"limit_rx"`
-	LimitTx        float64      `tfsdk:"limit_tx"`
+	DownloadLimit  float64      `tfsdk:"download_limit"`
+	UploadLimit    float64      `tfsdk:"upload_limit"`
 	IP             string       `tfsdk:"ip"`
 	IPv6           []string     `tfsdk:"ipv6"`
 	Connection     string       `tfsdk:"connection"`
@@ -59,18 +59,18 @@ func (d *clientsDataSource) Metadata(_ context.Context, req datasource.MetadataR
 func (d *clientsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Get the client devices that the router knows, online and offline (`clients.get_list`). " +
-			"`mac`, `name`, `alias`, `class`, `blocked`, `limit_rx` and `limit_tx` are names and settings of the client. " +
+			"`mac`, `name`, `alias`, `icon`, `blocked`, `download_limit` and `upload_limit` are names and settings of the client. " +
 			"The other attributes change while the router runs.",
 		Attributes: map[string]schema.Attribute{
 			"clients": computedList("Client devices.", map[string]schema.Attribute{
-				"mac":      computedString("MAC address of the client."),
-				"name":     computedString("Name of the client, as the router detects it."),
-				"alias":    computedString("Name that is set for the client on the router. Null when none is set."),
-				"class":    computedString("Device class that is set for the client on the router, for example `laptop`. Null when none is set."),
-				"blocked":  computedBool("Whether the router blocks the client."),
-				"limit_rx": computedFloat64("Download speed limit of the client in KiB/s (`limit_rx`). `0` is no limit. The value can have a fraction."),
-				"limit_tx": computedFloat64("Upload speed limit of the client in KiB/s (`limit_tx`). `0` is no limit. The value can have a fraction."),
-				"ip":       computedString("IPv4 address of the client. The router also gives it for offline clients."),
+				"mac":            computedString("MAC address of the client."),
+				"name":           computedString("Name of the client, as the router detects it."),
+				"alias":          computedString("Name that is set for the client on the router. Null when none is set."),
+				"icon":           computedString("Icon that is set for the client on the router (`class` in the router API), for example `laptop`. Null when none is set."),
+				"blocked":        computedBool("Whether the router blocks the client."),
+				"download_limit": computedFloat64("Download speed limit of the client in KiB/s (`limit_rx` in the router API). `0` is no limit. The value can have a fraction."),
+				"upload_limit":   computedFloat64("Upload speed limit of the client in KiB/s (`limit_tx` in the router API). `0` is no limit. The value can have a fraction."),
+				"ip":             computedString("IPv4 address of the client. The router also gives it for offline clients."),
 				"ipv6": schema.ListAttribute{
 					Description: "IPv6 addresses of the client. Empty when the router gives none.",
 					Computed:    true,
@@ -129,10 +129,10 @@ func (d *clientsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 			MAC:            c.MAC,
 			Name:           c.Name,
 			Alias:          stringOrNull(c.Alias),
-			Class:          stringOrNull(c.Class),
+			Icon:           stringOrNull(c.Class),
 			Blocked:        c.Blocked,
-			LimitRx:        c.LimitRx,
-			LimitTx:        c.LimitTx,
+			DownloadLimit:  c.LimitRx,
+			UploadLimit:    c.LimitTx,
 			IP:             c.IP,
 			IPv6:           append([]string{}, c.IPv6...),
 			Connection:     c.Iface,

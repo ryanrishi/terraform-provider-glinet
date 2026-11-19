@@ -24,7 +24,7 @@ const (
 	groupRulesetConfig = `
 resource "glinet_parental_control_ruleset" "homework" {
   name      = "homework"
-  blacklist = ["games.example.com"]
+  block_list = ["games.example.com"]
 }
 `
 )
@@ -39,10 +39,10 @@ func scheduleCheck(days []int64, begin, end, ruleset string) knownvalue.Check {
 		dayChecks[i] = knownvalue.Int64Exact(d)
 	}
 	return knownvalue.ObjectExact(map[string]knownvalue.Check{
-		"days":    knownvalue.SetExact(dayChecks),
-		"begin":   knownvalue.StringExact(begin),
-		"end":     knownvalue.StringExact(end),
-		"ruleset": knownvalue.StringExact(ruleset),
+		"days":       knownvalue.SetExact(dayChecks),
+		"start_time": knownvalue.StringExact(begin),
+		"end_time":   knownvalue.StringExact(end),
+		"ruleset":    knownvalue.StringExact(ruleset),
 	})
 }
 
@@ -90,14 +90,14 @@ resource "glinet_parental_control_group" "test" {
   schedules = [
     {
       days    = [2, 1]
-      begin   = "16:00"
-      end     = "18:00"
+      start_time   = "16:00"
+      end_time     = "18:00"
       ruleset = glinet_parental_control_ruleset.homework.id
     },
     {
       days    = [0]
-      begin   = "21:00"
-      end     = "24:00"
+      start_time   = "21:00"
+      end_time     = "24:00"
       ruleset = "drop"
     },
   ]
@@ -147,14 +147,14 @@ resource "glinet_parental_control_group" "test" {
   schedules = [
     {
       days    = [1, 2]
-      begin   = "16:00"
-      end     = "18:00"
+      start_time   = "16:00"
+      end_time     = "18:00"
       ruleset = glinet_parental_control_ruleset.homework.id
     },
     {
       days    = [0]
-      begin   = "21:00"
-      end     = "24:00"
+      start_time   = "21:00"
+      end_time     = "24:00"
       ruleset = "drop"
     },
   ]
@@ -172,14 +172,14 @@ resource "glinet_parental_control_group" "test" {
   schedules = [
     {
       days    = [1, 2]
-      begin   = "16:00"
-      end     = "18:00"
+      start_time   = "16:00"
+      end_time     = "18:00"
       ruleset = glinet_parental_control_ruleset.homework.id
     },
     {
       days    = [6]
-      begin   = "20:00"
-      end     = "24:00"
+      start_time   = "20:00"
+      end_time     = "24:00"
       ruleset = "accept"
     },
   ]
@@ -390,7 +390,7 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1], begin = "08:00", end = "09:00", ruleset = "cfg0000ff" },
+    { days = [1], start_time = "08:00", end_time = "09:00", ruleset = "cfg0000ff" },
   ]
 }
 `,
@@ -413,20 +413,20 @@ func TestParentalControlGroupResourceInvalidConfig(t *testing.T) {
 	srv := glinettest.NewServer(t)
 
 	for config, want := range map[string]string{
-		`macs = ["02:00:00:00:00:0a", "02:00:00:00:00:0A"]`:                              `Duplicate MAC Address`,
-		`macs = ["02-00-00-00-00-01"]`:                                                   `must be a MAC address`,
-		`schedules = [{ days = [1], begin = "08:00", end = "08:10", ruleset = "drop" }]`: `shorter than 15 minutes`,
-		`schedules = [{ days = [1], begin = "09:00", end = "08:00", ruleset = "drop" }]`: `shorter than 15 minutes`,
-		`schedules = [{ days = [1], begin = "08:00", end = "23:59", ruleset = "drop" }]`: `24:00 instead of 23:59`,
-		`schedules = [{ days = [1], begin = "24:00", end = "24:00", ruleset = "drop" }]`: `must be a time from 00:00 to 23:59`,
-		`schedules = [{ days = [7], begin = "08:00", end = "09:00", ruleset = "drop" }]`: `must be between 0 and 6`,
+		`macs = ["02:00:00:00:00:0a", "02:00:00:00:00:0A"]`:                                        `Duplicate MAC Address`,
+		`macs = ["02-00-00-00-00-01"]`:                                                             `must be a MAC address`,
+		`schedules = [{ days = [1], start_time = "08:00", end_time = "08:10", ruleset = "drop" }]`: `shorter than 15 minutes`,
+		`schedules = [{ days = [1], start_time = "09:00", end_time = "08:00", ruleset = "drop" }]`: `shorter than 15 minutes`,
+		`schedules = [{ days = [1], start_time = "08:00", end_time = "23:59", ruleset = "drop" }]`: `24:00 instead of 23:59`,
+		`schedules = [{ days = [1], start_time = "24:00", end_time = "24:00", ruleset = "drop" }]`: `must be a time from 00:00 to 23:59`,
+		`schedules = [{ days = [7], start_time = "08:00", end_time = "09:00", ruleset = "drop" }]`: `must be between 0 and 6`,
 		`schedules = [
-    { days = [1, 2], begin = "08:00", end = "10:00", ruleset = "drop" },
-    { days = [2, 3], begin = "09:45", end = "11:00", ruleset = "accept" },
+    { days = [1, 2], start_time = "08:00", end_time = "10:00", ruleset = "drop" },
+    { days = [2, 3], start_time = "09:45", end_time = "11:00", ruleset = "accept" },
   ]`: `On day 2, the schedule from 08:00 to 10:00 overlaps the schedule from 09:45 to 11:00`,
 		`schedules = [
-    { days = [1], begin = "08:00", end = "10:00", ruleset = "drop" },
-    { days = [2], begin = "08:00", end = "10:00", ruleset = "drop" },
+    { days = [1], start_time = "08:00", end_time = "10:00", ruleset = "drop" },
+    { days = [2], start_time = "08:00", end_time = "10:00", ruleset = "drop" },
   ]`: `Make them one schedule with all their days`,
 	} {
 		resource.UnitTest(t, resource.TestCase{
@@ -460,8 +460,8 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1], begin = "08:00", end = "10:00", ruleset = "drop" },
-    { days = [1], begin = "10:00", end = "24:00", ruleset = "accept" },
+    { days = [1], start_time = "08:00", end_time = "10:00", ruleset = "drop" },
+    { days = [1], start_time = "10:00", end_time = "24:00", ruleset = "accept" },
   ]
 }
 `,
@@ -486,7 +486,7 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1], begin = "08:00", end = "10:00", ruleset = "drop" },
+    { days = [1], start_time = "08:00", end_time = "10:00", ruleset = "drop" },
   ]
 }
 `
@@ -523,7 +523,7 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1], begin = "08:00", end = "08:10", ruleset = glinet_parental_control_ruleset.homework.id },
+    { days = [1], start_time = "08:00", end_time = "08:10", ruleset = glinet_parental_control_ruleset.homework.id },
   ]
 }
 `,
@@ -536,8 +536,8 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1, 2], begin = "08:00", end = "10:00", ruleset = glinet_parental_control_ruleset.homework.id },
-    { days = [2], begin = "09:00", end = "11:00", ruleset = "drop" },
+    { days = [1, 2], start_time = "08:00", end_time = "10:00", ruleset = glinet_parental_control_ruleset.homework.id },
+    { days = [2], start_time = "09:00", end_time = "11:00", ruleset = "drop" },
   ]
 }
 `,
@@ -550,8 +550,8 @@ resource "glinet_parental_control_group" "test" {
   name            = "kids"
   default_ruleset = "accept"
   schedules = [
-    { days = [1, length(glinet_parental_control_ruleset.homework.id) > 0 ? 2 : 3], begin = "08:00", end = "10:00", ruleset = "accept" },
-    { days = [2], begin = "09:00", end = "11:00", ruleset = "drop" },
+    { days = [1, length(glinet_parental_control_ruleset.homework.id) > 0 ? 2 : 3], start_time = "08:00", end_time = "10:00", ruleset = "accept" },
+    { days = [2], start_time = "09:00", end_time = "11:00", ruleset = "drop" },
   ]
 }
 `,
@@ -581,7 +581,7 @@ resource "glinet_parental_control_group" "test" {
   name            = %q
   default_ruleset = "accept"
   schedules = [
-    { days = [1], begin = %q, end = "10:00", ruleset = "drop" },
+    { days = [1], start_time = %q, end_time = "10:00", ruleset = "drop" },
   ]
 }
 `, name, begin)

@@ -28,7 +28,7 @@ var randomMACPattern = regexp.MustCompile(`^[0-9A-F][26AE](:[0-9A-F]{2}){5}$`)
 func wanPortConfig(name, mode, attributes string) string {
 	return fmt.Sprintf(`
 resource "glinet_wan_port" "test" {
-  name = %q
+  port = %q
   mode = %q
 %s}
 `, name, mode, attributes)
@@ -37,15 +37,15 @@ resource "glinet_wan_port" "test" {
 // wanPortState checks the state of the first WAN port. A nil check expects null.
 func wanPortState(mode string, checks map[string]knownvalue.Check) []statecheck.StateCheck {
 	all := map[string]knownvalue.Check{
-		"id":                  knownvalue.StringExact("wan"),
-		"name":                knownvalue.StringExact("wan"),
-		"mode":                knownvalue.StringExact(mode),
-		"mac_mode":            knownvalue.StringExact("default"),
-		"mac_address":         knownvalue.StringExact(wanPortDefaultMAC),
-		"mac_update":          knownvalue.Null(),
-		"mac_period_hours":    knownvalue.Null(),
-		"default_mac_address": knownvalue.StringExact(wanPortDefaultMAC),
-		"label":               knownvalue.StringExact("WAN"),
+		"id":               knownvalue.StringExact("wan"),
+		"port":             knownvalue.StringExact("wan"),
+		"mode":             knownvalue.StringExact(mode),
+		"mac_mode":         knownvalue.StringExact("default"),
+		"mac":              knownvalue.StringExact(wanPortDefaultMAC),
+		"mac_update":       knownvalue.Null(),
+		"mac_period_hours": knownvalue.Null(),
+		"default_mac":      knownvalue.StringExact(wanPortDefaultMAC),
+		"label":            knownvalue.StringExact("WAN"),
 	}
 	for k, v := range checks {
 		if v == nil {
@@ -102,7 +102,7 @@ func TestWANPortResource(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_port_config")
-	clone := wanPortConfig("wan", "wan", "  mac_mode = \"clone\"\n  mac_address = \""+wanPortCloneMAC+"\"\n")
+	clone := wanPortConfig("wan", "wan", "  mac_mode = \"clone\"\n  mac = \""+wanPortCloneMAC+"\"\n")
 	defaultMAC := `{"name":"wan","mode":"wan","macaddr":{"mode":"default","macaddr":"` + wanPortDefaultMAC + `"}}`
 
 	resource.UnitTest(t, resource.TestCase{
@@ -112,8 +112,8 @@ func TestWANPortResource(t *testing.T) {
 			{
 				Config: fakeRouterConfig(srv) + clone,
 				ConfigStateChecks: wanPortState("wan", map[string]knownvalue.Check{
-					"mac_mode":    knownvalue.StringExact("clone"),
-					"mac_address": knownvalue.StringExact(wanPortCloneMAC),
+					"mac_mode": knownvalue.StringExact("clone"),
+					"mac":      knownvalue.StringExact(wanPortCloneMAC),
 				}),
 				Check: calls.expect(`{"name":"wan","mode":"wan","macaddr":{"mode":"clone","macaddr":"` + wanPortCloneMAC + `"}}`),
 			},
@@ -129,13 +129,13 @@ func TestWANPortResource(t *testing.T) {
 				ImportState:                          true,
 				ImportStateId:                        "wan",
 				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "name",
-				ImportStateVerifyIgnore:              []string{"mac_address"},
+				ImportStateVerifyIdentifierAttribute: "port",
+				ImportStateVerifyIgnore:              []string{"mac"},
 			},
 			{
 				Config:            fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"random\"\n"),
 				ConfigPlanChecks:  expectResourceAction(wanPortAddress, plancheck.ResourceActionUpdate),
-				ConfigStateChecks: wanPortState("wan", map[string]knownvalue.Check{"mac_mode": knownvalue.StringExact("random"), "mac_address": knownvalue.StringRegexp(randomMACPattern), "mac_update": knownvalue.StringExact("none")}),
+				ConfigStateChecks: wanPortState("wan", map[string]knownvalue.Check{"mac_mode": knownvalue.StringExact("random"), "mac": knownvalue.StringRegexp(randomMACPattern), "mac_update": knownvalue.StringExact("none")}),
 				Check:             expectRandomMACCall(t, calls, "none", 0),
 			},
 			{
@@ -161,7 +161,7 @@ func TestWANPortResourceRandomUpdate(t *testing.T) {
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_port_config")
 	random := func(attributes string) string {
-		return fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"random\"\n  mac_address = \""+wanPortRandomMAC+"\"\n"+attributes)
+		return fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"random\"\n  mac = \""+wanPortRandomMAC+"\"\n"+attributes)
 	}
 	call := func(update string, period int) string {
 		params := map[string]any{"mode": "random", "macaddr": wanPortRandomMAC, "update": update}
@@ -173,7 +173,7 @@ func TestWANPortResourceRandomUpdate(t *testing.T) {
 	state := func(update string, period int64) []statecheck.StateCheck {
 		return wanPortState("wan", map[string]knownvalue.Check{
 			"mac_mode":         knownvalue.StringExact("random"),
-			"mac_address":      knownvalue.StringExact(wanPortRandomMAC),
+			"mac":              knownvalue.StringExact(wanPortRandomMAC),
 			"mac_update":       knownvalue.StringExact(update),
 			"mac_period_hours": knownvalue.Int64Exact(period),
 		})
@@ -220,7 +220,7 @@ func TestWANPortResourceRouterValues(t *testing.T) {
 				Config: fakeRouterConfig(srv) + wanPortConfig("wan", "wan", ""),
 				ConfigStateChecks: wanPortState("wan", map[string]knownvalue.Check{
 					"mac_mode":         knownvalue.StringExact("random"),
-					"mac_address":      knownvalue.StringExact(wanPortRandomMAC),
+					"mac":              knownvalue.StringExact(wanPortRandomMAC),
 					"mac_update":       knownvalue.StringExact("time"),
 					"mac_period_hours": knownvalue.Int64Exact(48),
 				}),
@@ -233,7 +233,7 @@ func TestWANPortResourceRouterValues(t *testing.T) {
 				Config: fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"random\"\n  mac_update = \"time\"\n"),
 				ConfigStateChecks: wanPortState("wan", map[string]knownvalue.Check{
 					"mac_mode":         knownvalue.StringExact("random"),
-					"mac_address":      knownvalue.StringExact(wanPortCloneMAC),
+					"mac":              knownvalue.StringExact(wanPortCloneMAC),
 					"mac_update":       knownvalue.StringExact("time"),
 					"mac_period_hours": knownvalue.Int64Exact(24),
 				}),
@@ -337,7 +337,7 @@ func TestWANPortResourceSecondWAN(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_port_config")
-	config := fakeRouterConfig(srv) + wanPortConfig("secondwan", "wan", "  mac_mode = \"clone\"\n  mac_address = \""+wanPortCloneMAC+"\"\n")
+	config := fakeRouterConfig(srv) + wanPortConfig("secondwan", "wan", "  mac_mode = \"clone\"\n  mac = \""+wanPortCloneMAC+"\"\n")
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -355,15 +355,15 @@ func TestWANPortResourceSecondWAN(t *testing.T) {
 				},
 				Config: config,
 				ConfigStateChecks: expectAttributes(wanPortAddress, map[string]knownvalue.Check{
-					"id":                  knownvalue.StringExact("secondwan"),
-					"name":                knownvalue.StringExact("secondwan"),
-					"mode":                knownvalue.StringExact("wan"),
-					"mac_mode":            knownvalue.StringExact("clone"),
-					"mac_address":         knownvalue.StringExact(wanPortCloneMAC),
-					"mac_update":          knownvalue.Null(),
-					"mac_period_hours":    knownvalue.Null(),
-					"default_mac_address": knownvalue.StringExact("02:00:00:00:00:03"),
-					"label":               knownvalue.StringExact("WAN2"),
+					"id":               knownvalue.StringExact("secondwan"),
+					"port":             knownvalue.StringExact("secondwan"),
+					"mode":             knownvalue.StringExact("wan"),
+					"mac_mode":         knownvalue.StringExact("clone"),
+					"mac":              knownvalue.StringExact(wanPortCloneMAC),
+					"mac_update":       knownvalue.Null(),
+					"mac_period_hours": knownvalue.Null(),
+					"default_mac":      knownvalue.StringExact("02:00:00:00:00:03"),
+					"label":            knownvalue.StringExact("WAN2"),
 				}),
 				Check: calls.expect(`{"name":"secondwan","mode":"wan","macaddr":{"mode":"clone","macaddr":"` + wanPortCloneMAC + `"}}`),
 			},
@@ -372,7 +372,7 @@ func TestWANPortResourceSecondWAN(t *testing.T) {
 				ImportState:                          true,
 				ImportStateId:                        "secondwan",
 				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "name",
+				ImportStateVerifyIdentifierAttribute: "port",
 			},
 		},
 	})
@@ -398,7 +398,7 @@ func TestWANPortResourceDrift(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	calls := recordCalls(t, srv, "cable", "set_port_config")
-	config := fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"clone\"\n  mac_address = \""+wanPortCloneMAC+"\"\n")
+	config := fakeRouterConfig(srv) + wanPortConfig("wan", "wan", "  mac_mode = \"clone\"\n  mac = \""+wanPortCloneMAC+"\"\n")
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -432,15 +432,15 @@ func TestWANPortResourceInvalidConfig(t *testing.T) {
 	for _, tt := range []struct{ mode, attributes, err string }{
 		{"lan", `  mac_mode = "default"` + "\n", `mac_mode cannot be set when mode is lan`},
 		{"lan", `  mac_period_hours = 24` + "\n", `mac_period_hours cannot be set when mode is lan`},
-		{"wan", `  mac_mode = "clone"` + "\n", `mac_address is required when mac_mode is clone`},
-		{"wan", `  mac_mode = "default"` + "\n  mac_address = \"" + wanPortCloneMAC + "\"\n", `mac_address cannot be set when mac_mode is default`},
-		{"wan", `  mac_address = "` + wanPortCloneMAC + "\"\n", `mac_address cannot be set when mac_mode is not set`},
-		{"wan", `  mac_mode = "clone"` + "\n  mac_address = \"" + wanPortCloneMAC + "\"\n  mac_update = \"time\"\n", `mac_update cannot be set when mac_mode is clone`},
+		{"wan", `  mac_mode = "clone"` + "\n", `mac is required when mac_mode is clone`},
+		{"wan", `  mac_mode = "default"` + "\n  mac = \"" + wanPortCloneMAC + "\"\n", `mac cannot be set when mac_mode is default`},
+		{"wan", `  mac = "` + wanPortCloneMAC + "\"\n", `mac cannot be set when mac_mode is not set`},
+		{"wan", `  mac_mode = "clone"` + "\n  mac = \"" + wanPortCloneMAC + "\"\n  mac_update = \"time\"\n", `mac_update cannot be set when mac_mode is clone`},
 		{"wan", `  mac_mode = "random"` + "\n  mac_update = \"none\"\n  mac_period_hours = 24\n", `mac_period_hours cannot be set when mac_update is none`},
 		{"wan", `  mac_mode = "random"` + "\n  mac_period_hours = 25\n", `mac_period_hours must be a multiple of 24`},
 		{"wan", `  mac_mode = "random"` + "\n  mac_period_hours = 4344\n", `mac_period_hours value must be between 24 and 4320`},
-		{"wan", `  mac_mode = "clone"` + "\n  mac_address = \"01:00:5E:00:00:01\"\n", `must be a unicast MAC address`},
-		{"wan", `  mac_mode = "clone"` + "\n  mac_address = \"00:00:00:00:00:00\"\n", `must be a unicast MAC address`},
+		{"wan", `  mac_mode = "clone"` + "\n  mac = \"01:00:5E:00:00:01\"\n", `must be a unicast MAC address`},
+		{"wan", `  mac_mode = "clone"` + "\n  mac = \"00:00:00:00:00:00\"\n", `must be a unicast MAC address`},
 		{"wan", `  mac_mode = "other"` + "\n", `mac_mode value must be one of`},
 	} {
 		t.Run(tt.err, func(t *testing.T) {
@@ -495,4 +495,22 @@ func TestWANPortResourceRouterErrors(t *testing.T) {
 			expectJSONEqual(t, srv.Cable.Ports(), string(before))
 		})
 	}
+}
+
+// TestWANPortResourceStateOf020 refreshes a state that release 0.2.0 wrote, with name, mac_address and
+// default_mac_address. The framework drops these attributes, and Read finds the port by the ID and sets port, mac and
+// default_mac from the router.
+func TestWANPortResourceStateOf020(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+
+	state := refreshPriorState(t, srv, "glinet_wan_port", `{"id":"wan","name":"wan","mode":"wan","mac_mode":"default",
+		"mac_address":"`+wanPortDefaultMAC+`","mac_update":null,"mac_period_hours":null,"default_mac_address":"`+wanPortDefaultMAC+`","label":"WAN"}`)
+	if state == nil {
+		t.Fatal("Read removed the resource")
+	}
+	expectStringAttribute(t, state, "id", "wan")
+	expectStringAttribute(t, state, "port", "wan")
+	expectStringAttribute(t, state, "mac", wanPortDefaultMAC)
+	expectStringAttribute(t, state, "default_mac", wanPortDefaultMAC)
 }

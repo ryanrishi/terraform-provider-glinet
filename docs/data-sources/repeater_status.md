@@ -36,7 +36,7 @@ output "repeater_uplink" {
 - `fail_type` (String) Reason of the last failed connection (`fail_type`), for example `key` (wrong key) or `not-found` (network not found). Null when the router gives no reason.
 - `htmode` (String) HT mode of the uplink (`htmode`), for example `HT40`. Null when the router gives no HT mode.
 - `ipv4` (Attributes) IPv4 address of the uplink (`ipv4`). Null when the router gives no IPv4 address. (see [below for nested schema](#nestedatt--ipv4))
-- `mac_address` (String) MAC address of the repeater interface (`macaddr`). Null when the router gives no MAC address.
+- `mac` (String) MAC address of the repeater interface (`macaddr`). Null when the router gives no MAC address.
 - `network` (String) Network interface of the repeater (`network`), for example `wwan`. Null when the router gives no interface.
 - `portal` (Boolean) Whether the uplink network has a captive portal (`portal`).
 - `portal_url` (String) URL of the captive portal (`portal_url`). This value comes from the web UI code and was not seen on a router. Null when the router gives no URL.

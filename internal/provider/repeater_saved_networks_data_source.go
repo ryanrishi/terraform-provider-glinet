@@ -34,20 +34,20 @@ type repeaterSavedNetworkModel struct {
 	Netmask    types.String      `tfsdk:"netmask"`
 	Gateway    types.String      `tfsdk:"gateway"`
 	DNS        types.List        `tfsdk:"dns"`
-	Disguise   bool              `tfsdk:"disguise"`
-	MACAddress *repeaterMACModel `tfsdk:"mac_address"`
+	Disguise   bool              `tfsdk:"disguise_enabled"`
+	MACClone   *repeaterMACModel `tfsdk:"mac_clone"`
 	TTL        types.Int64       `tfsdk:"ttl"`
 	TTLIPv6    types.Int64       `tfsdk:"ttl_ipv6"`
 	MTU        types.Int64       `tfsdk:"mtu"`
 	Manual     bool              `tfsdk:"manual"`
-	AutoPortal bool              `tfsdk:"auto_portal"`
+	AutoPortal bool              `tfsdk:"auto_portal_enabled"`
 }
 
 type repeaterMACModel struct {
-	Mode   string       `tfsdk:"mode"`
-	MAC    types.String `tfsdk:"mac"`
-	Update types.String `tfsdk:"update"`
-	Period types.Int64  `tfsdk:"period"`
+	Mode        string       `tfsdk:"mode"`
+	MAC         types.String `tfsdk:"mac"`
+	Update      types.String `tfsdk:"update"`
+	PeriodHours types.Int64  `tfsdk:"period_hours"`
 }
 
 func (d *repeaterSavedNetworksDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -72,19 +72,19 @@ func (d *repeaterSavedNetworksDataSource) Schema(_ context.Context, _ datasource
 					ElementType: types.StringType,
 					Computed:    true,
 				},
-				"disguise": computedBool("Whether the disguise option of the web UI is enabled (`disguise`)."),
-				"mac_address": computedObject("MAC address that the repeater uses on this network (`macaddr`). Null when the router gives no MAC address setting.", map[string]schema.Attribute{
+				"disguise_enabled": computedBool("Whether the disguise option of the web UI is enabled (`disguise_enabled`)."),
+				"mac_clone": computedObject("MAC address that the repeater uses on this network (`macaddr`). Null when the router gives no MAC address setting.", map[string]schema.Attribute{
 					"mode": computedString("`default` (the MAC address of the router), `clone` (the MAC address of a client) or `random` (a random MAC address)."),
 					"mac":  computedString("MAC address for the modes `clone` and `random` (`macaddr`). Null when the router gives no MAC address."),
-					"update": computedString("When the router changes a random MAC address (`update`): `none`, `time` (every `period` hours) or `reboot`. " +
+					"update": computedString("When the router changes a random MAC address (`update`): `none`, `time` (every `period_hours` hours) or `reboot`. " +
 						"Null when the router gives no value."),
-					"period": computedInt64("Period in hours for `update` `time` (`period`). Null when the router gives no period."),
+					"period_hours": computedInt64("Period in hours for `update` `time` (`period`). Null when the router gives no period."),
 				}),
-				"ttl":         computedInt64("IPv4 TTL (`ttl`). Null when it is not set."),
-				"ttl_ipv6":    computedInt64("IPv6 hop limit (`ttl_ipv6`). Null when it is not set."),
-				"mtu":         computedInt64("MTU (`mtu`). Null when it is not set."),
-				"manual":      computedBool("The `manual` value of the router. Its meaning is not known."),
-				"auto_portal": computedBool("Whether the captive portal option of the web UI is enabled (`auto_portal`)."),
+				"ttl":                 computedInt64("IPv4 TTL (`ttl`). Null when it is not set."),
+				"ttl_ipv6":            computedInt64("IPv6 hop limit (`ttl_ipv6`). Null when it is not set."),
+				"mtu":                 computedInt64("MTU (`mtu`). Null when it is not set."),
+				"manual":              computedBool("The `manual` value of the router. Its meaning is not known."),
+				"auto_portal_enabled": computedBool("Whether the captive portal option of the web UI is enabled (`auto_portal_enabled`)."),
 			}),
 		},
 	}
@@ -119,11 +119,11 @@ func (d *repeaterSavedNetworksDataSource) Read(ctx context.Context, _ datasource
 			AutoPortal: n.AutoPortal,
 		}
 		if n.MAC != nil {
-			network.MACAddress = &repeaterMACModel{
-				Mode:   n.MAC.Mode,
-				MAC:    stringOrNull(n.MAC.MACAddr),
-				Update: stringOrNull(n.MAC.Update),
-				Period: int64OrNull(n.MAC.Period),
+			network.MACClone = &repeaterMACModel{
+				Mode:        n.MAC.Mode,
+				MAC:         stringOrNull(n.MAC.MACAddr),
+				Update:      stringOrNull(n.MAC.Update),
+				PeriodHours: int64OrNull(n.MAC.Period),
 			}
 		}
 		state.Networks = append(state.Networks, network)

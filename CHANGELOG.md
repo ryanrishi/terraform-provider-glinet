@@ -9,6 +9,49 @@ BREAKING CHANGES:
 * `glinet_wireguard_server`: The provider sends `ipv6_enable` only when the router returned it and `address_v6` is not empty. Firmware 4.8.3 does not return `ipv6_enable`, so a write no longer sends `ipv6_enable` `false` there.
 * Each call to the router has a time limit of 60 seconds. Before, a call had no time limit.
 
+Attribute renames. Change the names in your configuration and in each reference to them. The values do not change, except for `tx_power`.
+
+* `glinet_wan_access`: `https` is now `https_enabled`.
+* `glinet_wan_access`: `ssh` is now `ssh_enabled`.
+* `glinet_wan_access`: `ping` is now `ping_enabled`.
+* `glinet_wan_access`: `whitelist_enabled` is now `allow_list_enabled`.
+* `glinet_wan_access`: `whitelist` is now `allow_list`.
+* `glinet_network_advanced`: `full_cone_nat` is now `full_cone_nat_enabled`.
+* `glinet_network_advanced`: `sip_alg` is now `sip_alg_enabled`.
+* `glinet_wireguard_server`: `local_access` is now `local_access_enabled`.
+* `glinet_wireguard_server`: `client_to_client` is now `client_to_client_enabled`.
+* `glinet_wireguard_server`: `masquerade` is now `masquerade_enabled`.
+* `glinet_wan_port`: `name` is now `port`, as in `glinet_wan`.
+* `glinet_wan_port`: `mac_address` is now `mac`.
+* `glinet_wan_port`: `default_mac_address` is now `default_mac`.
+* `glinet_wireguard_server_route`: `dest` is now `destination`. The import ID is still the destination network.
+* `glinet_parental_control_group`: `start_time` and `end_time` replace `begin` and `end` in each item of `schedules`.
+* `glinet_parental_control_ruleset`: `blacklist` is now `block_list`.
+* `glinet_parental_control_ruleset`: `url` is now `block_list_url`.
+* `glinet_system_timezone` (resource and data source): `zonename` is now `zone_name`.
+* `glinet_system_timezone` (resource and data source) and data source `glinet_system_status`: `tzoffset` is now `timezone_offset`.
+* `glinet_client_info` and data source `glinet_clients`: `class` is now `icon`.
+* Data source `glinet_clients`: `limit_rx` is now `download_limit`, and `limit_tx` is now `upload_limit`.
+* Data source `glinet_repeater_status`: `mac_address` is now `mac`.
+* Data source `glinet_repeater_saved_networks`: `mac_address` is now `mac_clone`, and its attribute `period` is now `period_hours`.
+* Data source `glinet_repeater_saved_networks`: `auto_portal` is now `auto_portal_enabled`, and `disguise` is now `disguise_enabled`.
+* `glinet_dns`: `force_dns` is now `force_dns_enabled`.
+* `glinet_dns`: `rebind_protection` is now `rebind_protection_enabled`.
+* `glinet_dns`: `override_vpn` is now `override_vpn_enabled`.
+* `glinet_lan`: `ap_isolation` is now `ap_isolation_enabled`.
+* `glinet_lan`: `wan_isolation` is now `wan_isolation_enabled`.
+* `glinet_local_access`: `redirect_https` is now `redirect_https_enabled`.
+* `glinet_local_access`: `luci_redirect_https` is now `luci_redirect_https_enabled`.
+* `glinet_parental_control`: `auto_update` is now `auto_update_enabled`.
+* `glinet_parental_control`: `drop_anonymous` is now `drop_anonymous_enabled`.
+* `glinet_wifi_radio`: `random_bssid` is now `random_bssid_enabled`.
+* `glinet_wifi_radio`: `tx_power` takes `max`, `high`, `medium` and `low` in lower case. Before, it took `Max`, `High`, `Medium` and `Low`. The router still gets `Max`, `High`, `Medium` and `Low`.
+
+The state of release 0.2.0: you do not have to change the state. For most renamed attributes, the provider reads the old state with the new schema: it ignores each attribute that the new schema does not have, a new attribute is null, and the next refresh reads it from the router. Two resources have schema version 1 and an upgrader that moves the old values to the new attributes, because a refresh cannot get them back from the router:
+
+* `glinet_wireguard_server_route`: `dest` moves to `destination`, which identifies the route rule.
+* `glinet_parental_control_ruleset`: `blacklist` and `url` move to `block_list` and `block_list_url`. It is not known whether the router returns the URL of the block list.
+
 ENHANCEMENTS:
 
 * `glinet_wireguard_server_route`: `metric` accepts values from 1 to 4294967295, as the web UI does. Before, the limit was 2147483647.

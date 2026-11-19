@@ -31,9 +31,9 @@ var browserBlockedPorts = []int64{
 	6666, 6667, 6668, 6669, 6697, 10080,
 }
 
-const endpointMoveNote = "A change of http_port, https_port or redirect_https moves the web UI and the API that the provider uses. " +
+const endpointMoveNote = "A change of http_port, https_port or redirect_https_enabled moves the web UI and the API that the provider uses. " +
 	"Change the host of the provider to the new address: http://<router address>:<http_port>, " +
-	"or https://<router address>:<https_port> when redirect_https is true or the host uses HTTPS."
+	"or https://<router address>:<https_port> when redirect_https_enabled is true or the host uses HTTPS."
 
 // movedEndpointReadTimeout limits the read after a write that moves the router API, because the old address can
 // stop to answer and the client has no timeout of its own.
@@ -58,10 +58,10 @@ type localAccessResourceModel struct {
 	ID                types.String `tfsdk:"id"`
 	HTTPPort          types.Int64  `tfsdk:"http_port"`
 	HTTPSPort         types.Int64  `tfsdk:"https_port"`
-	RedirectHTTPS     types.Bool   `tfsdk:"redirect_https"`
+	RedirectHTTPS     types.Bool   `tfsdk:"redirect_https_enabled"`
 	LuCIHTTPPort      types.Int64  `tfsdk:"luci_http_port"`
 	LuCIHTTPSPort     types.Int64  `tfsdk:"luci_https_port"`
-	LuCIRedirectHTTPS types.Bool   `tfsdk:"luci_redirect_https"`
+	LuCIRedirectHTTPS types.Bool   `tfsdk:"luci_redirect_https_enabled"`
 	SessionTimeout    types.Int64  `tfsdk:"session_timeout"`
 	SSHEnabled        types.Bool   `tfsdk:"ssh_enabled"`
 	SSHPort           types.Int64  `tfsdk:"ssh_port"`
@@ -105,7 +105,7 @@ func (r *localAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 		Description: "Manages the access to the router from the LAN: the ports of the web UI, LuCI and SSH, the redirect to HTTPS and the session timeout of the web UI " +
 			"(`local-access.set_config` in the router API). The router has one local access configuration, so use one instance of this resource.\n\n" +
 			"~> **Warning:** this resource can cut the access to the router, also the access of the provider. " +
-			"The web UI and the API that the provider uses have the same address. A change of `http_port`, `https_port` or `redirect_https` moves this address: " +
+			"The web UI and the API that the provider uses have the same address. A change of `http_port`, `https_port` or `redirect_https_enabled` moves this address: " +
 			"after the apply, change `host` of the provider to the new address, for example `http://192.168.8.1:8080`, or the next plan cannot read the router. " +
 			"After such a write, the provider saves the written values in the state before it reads the router again, and shows a warning; when that read fails or gets no answer within 5 seconds, the apply does not fail. " +
 			"It is not known whether the router answers the write before it moves the address; when it does not answer, the apply fails and the write was possibly done. " +
@@ -125,7 +125,7 @@ func (r *localAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"http_port":  webPortAttribute("Port of the web UI and the API over HTTP (`http_port` in the router API)."),
 			"https_port": webPortAttribute("Port of the web UI and the API over HTTPS (`https_port` in the router API)."),
-			"redirect_https": schema.BoolAttribute{
+			"redirect_https_enabled": schema.BoolAttribute{
 				Description: "Whether the router redirects HTTP to HTTPS for the web UI (`redirect_https` in the router API). " +
 					"What the redirect does to the API calls of the provider over HTTP is not known; use a `host` with `https://` when it is `true`. " +
 					"When it is not set, the router value does not change.",
@@ -134,7 +134,7 @@ func (r *localAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"luci_http_port":  webPortAttribute("Port of LuCI over HTTP (`luci_http_port` in the router API). The web UI shows it only when LuCI is installed."),
 			"luci_https_port": webPortAttribute("Port of LuCI over HTTPS (`luci_https_port` in the router API). The web UI shows it only when LuCI is installed."),
-			"luci_redirect_https": schema.BoolAttribute{
+			"luci_redirect_https_enabled": schema.BoolAttribute{
 				Description: "Whether the router redirects HTTP to HTTPS for LuCI (`luci_redirect_https` in the router API). The web UI shows it only when LuCI is installed. " +
 					"When it is not set, the router value does not change.",
 				Optional: true,

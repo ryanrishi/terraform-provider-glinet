@@ -42,15 +42,15 @@ type wanPortResource struct {
 }
 
 type wanPortResourceModel struct {
-	ID                types.String          `tfsdk:"id"`
-	Name              types.String          `tfsdk:"name"`
-	Mode              types.String          `tfsdk:"mode"`
-	MACMode           types.String          `tfsdk:"mac_mode"`
-	MACAddress        caseInsensitiveString `tfsdk:"mac_address"`
-	MACUpdate         types.String          `tfsdk:"mac_update"`
-	MACPeriodHours    types.Int64           `tfsdk:"mac_period_hours"`
-	DefaultMACAddress types.String          `tfsdk:"default_mac_address"`
-	Label             types.String          `tfsdk:"label"`
+	ID             types.String          `tfsdk:"id"`
+	Port           types.String          `tfsdk:"port"`
+	Mode           types.String          `tfsdk:"mode"`
+	MACMode        types.String          `tfsdk:"mac_mode"`
+	MAC            caseInsensitiveString `tfsdk:"mac"`
+	MACUpdate      types.String          `tfsdk:"mac_update"`
+	MACPeriodHours types.Int64           `tfsdk:"mac_period_hours"`
+	DefaultMAC     types.String          `tfsdk:"default_mac"`
+	Label          types.String          `tfsdk:"label"`
 }
 
 // validUnicastMAC accepts the MAC addresses that the web UI accepts for MAC clone: not 00:00:00:00:00:00, and not
@@ -69,9 +69,9 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"~>**Warning:** `mode = \"lan\"` removes the wired uplink of the port, and a change of the MAC address can make the upstream network give the router a new address. " +
 			"Then Terraform can lose the access to the router.\n\n" +
 			"Use one instance of this resource for each wired WAN port. The port always exists on the router, so create takes over the port. " +
-			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `name = \"secondwan\"`: " +
+			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
 			"for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. " +
-			"The protocol settings of the same port (DHCP, static address, PPPoE) are in `glinet_wan`, which uses another router method; the two resources have no attribute in common. " +
+			"The protocol settings of the same port (DHCP, static address, PPPoE) are in `glinet_wan`, which uses another router method; the two resources have only `port` in common. " +
 			"Each write sends `mode` and, for `mode = \"wan\"`, the MAC settings, as the web UI does. " +
 			"Each MAC attribute that is not set keeps the value of the router: the provider sends back the value that it reads from the router just before the write. " +
 			"Before a change of the port from `wan` to `lan`, the provider reads `network.check_wan_cable` and stops with an error while the router reports `cable_enabled`, as the web UI does: remove the cable from the port first. " +
@@ -80,13 +80,13 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Same as `name`.",
+				Description: "Same as `port`.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"name": schema.StringAttribute{
+			"port": schema.StringAttribute{
 				Description: "The wired WAN port: `wan` for the first port or `secondwan` for the second port (`name` in the router API). Changing it replaces the resource.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
@@ -105,8 +105,8 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"mac_mode": schema.StringAttribute{
-				Description: "MAC address of the port (`macaddr.mode` in the router API): `default` for the MAC address of the router (`default_mac_address`), " +
-					"`clone` for the MAC address in `mac_address`, for example the MAC address of a client, or `random` for a random MAC address. " +
+				Description: "MAC address of the port (`macaddr.mode` in the router API): `default` for the MAC address of the router (`default_mac`), " +
+					"`clone` for the MAC address in `mac`, for example the MAC address of a client, or `random` for a random MAC address. " +
 					"Can be set only when `mode` is `wan`. When it is not set, the router value does not change.",
 				Optional: true,
 				Computed: true,
@@ -114,14 +114,14 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					stringvalidator.OneOf("default", "clone", "random"),
 				},
 			},
-			"mac_address": schema.StringAttribute{
+			"mac": schema.StringAttribute{
 				Description: "MAC address of the port, in lower case or upper case (`macaddr.macaddr` in the router API). " +
 					"Must not be `00:00:00:00:00:00` or a multicast address (the second hex digit must be even). " +
 					"Can be set only when `mac_mode` is `clone` or `random`, and is required for `clone`. " +
 					"For `random`, when it is not set, the provider sends back the MAC address of the router when the router already uses a random MAC address, " +
 					"and else makes a random locally administered MAC address, as the web UI does. " +
 					"With `mac_update` `time` or `reboot`, the router changes the MAC address itself: do not set this attribute then, or each change shows as a difference. " +
-					"With `mac_mode` `default`, the provider sends `default_mac_address`, as the web UI does.",
+					"With `mac_mode` `default`, the provider sends `default_mac`, as the web UI does.",
 				Optional:   true,
 				Computed:   true,
 				CustomType: caseInsensitiveStringType{},
@@ -149,7 +149,7 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					int64validator.Between(hoursPerDay, maxMACPeriodHours),
 				},
 			},
-			"default_mac_address": schema.StringAttribute{
+			"default_mac": schema.StringAttribute{
 				Description: "MAC address of the router for the port (`macaddr.defmacaddr` in the router API).",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
@@ -169,7 +169,7 @@ func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 
 func (r *wanPortResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
-		description: "the MAC attributes are allowed only for mode wan, mac_address only for mac_mode clone or random and required for clone, " +
+		description: "the MAC attributes are allowed only for mode wan, mac only for mac_mode clone or random and required for clone, " +
 			"mac_update and mac_period_hours only for mac_mode random, mac_period_hours not with mac_update none and only a multiple of 24",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
 			var config wanPortResourceModel
@@ -187,7 +187,7 @@ func (r *wanPortResource) ConfigValidators(context.Context) []resource.ConfigVal
 
 			if config.Mode.ValueString() == "lan" {
 				forbid(diags, "mac_mode", config.MACMode, "when mode is lan")
-				forbid(diags, "mac_address", config.MACAddress, "when mode is lan")
+				forbid(diags, "mac", config.MAC, "when mode is lan")
 				forbid(diags, "mac_update", config.MACUpdate, "when mode is lan")
 				forbid(diags, "mac_period_hours", config.MACPeriodHours, "when mode is lan")
 				return
@@ -203,10 +203,10 @@ func (r *wanPortResource) ConfigValidators(context.Context) []resource.ConfigVal
 			}
 			switch macMode {
 			case "clone":
-				require(diags, "mac_address", config.MACAddress, reason)
+				require(diags, "mac", config.MAC, reason)
 			case "random":
 			default:
-				forbid(diags, "mac_address", config.MACAddress, reason)
+				forbid(diags, "mac", config.MAC, reason)
 			}
 			if macMode != "random" {
 				forbid(diags, "mac_update", config.MACUpdate, reason)
@@ -224,9 +224,10 @@ func (r *wanPortResource) Create(ctx context.Context, req resource.CreateRequest
 	r.set(ctx, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
+// Read finds the port by the ID, which is the same as port.
 func (r *wanPortResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var name types.String
-	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("name"), &name)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &name)...)
 	if resp.Diagnostics.HasError() || !checkWANPort(ctx, r.client, name.ValueString(), &resp.Diagnostics) {
 		return
 	}
@@ -261,7 +262,8 @@ func (r *wanPortResource) ImportState(ctx context.Context, req resource.ImportSt
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("port"), req.ID)...)
 }
 
 // set sends the mode of the port and, for mode wan, the MAC settings, as the web UI does. Each MAC attribute that
@@ -272,7 +274,7 @@ func (r *wanPortResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk
 	if diags.HasError() {
 		return
 	}
-	name := model.Name.ValueString()
+	name := model.Port.ValueString()
 
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
@@ -287,7 +289,7 @@ func (r *wanPortResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk
 	}
 	port := findCablePort(ports, name)
 	if port == nil {
-		diags.AddAttributeError(path.Root("name"), "Ethernet Port Not Found",
+		diags.AddAttributeError(path.Root("port"), "Ethernet Port Not Found",
 			fmt.Sprintf("The router has no Ethernet port %q. The ports of the router are: %s.", name, cablePortNames(ports)))
 		return
 	}
@@ -377,13 +379,13 @@ func wanPortMAC(model wanPortResourceModel, port *glinet.CablePort) (glinet.Cabl
 	case "default":
 		mac.MACAddr = defaultMAC(port)
 	case "clone":
-		mac.MACAddr = model.MACAddress.ValueString()
-		if model.MACAddress.IsUnknown() {
+		mac.MACAddr = model.MAC.ValueString()
+		if model.MAC.IsUnknown() {
 			mac.MACAddr = current.MACAddr
 		}
 	case "random":
-		mac.MACAddr = model.MACAddress.ValueString()
-		if model.MACAddress.IsUnknown() {
+		mac.MACAddr = model.MAC.ValueString()
+		if model.MAC.IsUnknown() {
 			mac.MACAddr = current.MACAddr
 			if current.Mode != "random" {
 				random, err := randomMAC()
@@ -448,25 +450,25 @@ func cablePortNames(ports []glinet.CablePort) string {
 
 func wanPortModel(port *glinet.CablePort) *wanPortResourceModel {
 	model := &wanPortResourceModel{
-		ID:                types.StringValue(port.Name),
-		Name:              types.StringValue(port.Name),
-		Mode:              types.StringValue(port.Mode),
-		MACMode:           types.StringNull(),
-		MACAddress:        caseInsensitiveString{StringValue: types.StringNull()},
-		MACUpdate:         types.StringNull(),
-		MACPeriodHours:    types.Int64Null(),
-		DefaultMACAddress: types.StringNull(),
-		Label:             stringOrNull(port.Silk),
+		ID:             types.StringValue(port.Name),
+		Port:           types.StringValue(port.Name),
+		Mode:           types.StringValue(port.Mode),
+		MACMode:        types.StringNull(),
+		MAC:            caseInsensitiveString{StringValue: types.StringNull()},
+		MACUpdate:      types.StringNull(),
+		MACPeriodHours: types.Int64Null(),
+		DefaultMAC:     types.StringNull(),
+		Label:          stringOrNull(port.Silk),
 	}
 	if mac := port.MAC; mac != nil {
 		model.MACMode = types.StringValue(mac.Mode)
 		if mac.Mode == "" {
 			model.MACMode = types.StringValue("default")
 		}
-		model.MACAddress = caseInsensitiveString{StringValue: stringOrNull(mac.MACAddr)}
+		model.MAC = caseInsensitiveString{StringValue: stringOrNull(mac.MACAddr)}
 		model.MACUpdate = stringOrNull(mac.Update)
 		model.MACPeriodHours = int64OrNull(mac.Period)
-		model.DefaultMACAddress = stringOrNull(mac.DefaultMACAddr)
+		model.DefaultMAC = stringOrNull(mac.DefaultMACAddr)
 	}
 	return model
 }

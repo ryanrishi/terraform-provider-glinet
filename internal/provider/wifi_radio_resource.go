@@ -28,9 +28,31 @@ var (
 )
 
 var (
-	wifiTxPowers      = []string{"Max", "High", "Medium", "Low"}
+	wifiTxPowers      = []string{"max", "high", "medium", "low"}
 	wifiChannelWidths = []string{"20", "40", "80", "160", "320", "auto"}
 )
+
+// routerTxPowers maps each transmit power to its value in the router API.
+var routerTxPowers = map[string]string{"max": "Max", "high": "High", "medium": "Medium", "low": "Low"}
+
+// routerTxPower returns the value of the router API for the transmit power p. Another value, which providerTxPower
+// gave unchanged from the router, goes back unchanged.
+func routerTxPower(p string) string {
+	if v, ok := routerTxPowers[p]; ok {
+		return v
+	}
+	return p
+}
+
+// providerTxPower returns the transmit power of the router value v, or v when it is not a value of routerTxPowers.
+func providerTxPower(v string) string {
+	for p, router := range routerTxPowers {
+		if router == v {
+			return p
+		}
+	}
+	return v
+}
 
 func NewWifiRadioResource() resource.Resource {
 	return &wifiRadioResource{}
@@ -47,7 +69,7 @@ type wifiRadioResourceModel struct {
 	ChannelWidth    types.String `tfsdk:"channel_width"`
 	Mode            types.String `tfsdk:"mode"`
 	TxPower         types.String `tfsdk:"tx_power"`
-	RandomBSSID     types.Bool   `tfsdk:"random_bssid"`
+	RandomBSSID     types.Bool   `tfsdk:"random_bssid_enabled"`
 	PSCChannelsOnly types.Bool   `tfsdk:"psc_channels_only"`
 }
 
@@ -123,14 +145,14 @@ func (r *wifiRadioResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				},
 			},
 			"tx_power": schema.StringAttribute{
-				Description: "Transmit power: `Max`, `High`, `Medium` or `Low` (`txpower` in the router API). When it is not set, the router value does not change.",
+				Description: "Transmit power: `max`, `high`, `medium` or `low` (`txpower` in the router API, which has the values `Max`, `High`, `Medium` and `Low`). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,
 				Validators: []validator.String{
 					stringvalidator.OneOf(wifiTxPowers...),
 				},
 			},
-			"random_bssid": schema.BoolAttribute{
+			"random_bssid_enabled": schema.BoolAttribute{
 				Description: "Whether the radio uses a random BSSID (`random_bssid` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,
@@ -269,7 +291,7 @@ func (r *wifiRadioResource) write(ctx context.Context, plan wifiRadioResourceMod
 			Hidden:        &iface.Hidden,
 			Device:        radio.Device,
 			HWMode:        plan.Mode.ValueString(),
-			TxPower:       plan.TxPower.ValueString(),
+			TxPower:       routerTxPower(plan.TxPower.ValueString()),
 			RandomBSSID:   plan.RandomBSSID.ValueBoolPointer(),
 			Chan6GOnlyPSC: plan.PSCChannelsOnly.ValueBoolPointer(),
 		}
@@ -286,7 +308,7 @@ func (r *wifiRadioResource) write(ctx context.Context, plan wifiRadioResourceMod
 			return
 		}
 	case txPower:
-		if err := r.client.Wifi.SetTxPower(ctx, radio.Device, plan.TxPower.ValueString()); err != nil {
+		if err := r.client.Wifi.SetTxPower(ctx, radio.Device, routerTxPower(plan.TxPower.ValueString())); err != nil {
 			diags.AddError("Unable to Set Wi-Fi Transmit Power", err.Error())
 			return
 		}
@@ -416,7 +438,7 @@ func wifiRadioModel(radio *glinet.WifiRadio) *wifiRadioResourceModel {
 		Channel:         types.Int64Value(int64(radio.Channel)),
 		ChannelWidth:    types.StringValue(radio.HTMode),
 		Mode:            types.StringValue(radio.HWMode),
-		TxPower:         types.StringValue(radio.TxPower),
+		TxPower:         types.StringValue(providerTxPower(radio.TxPower)),
 		RandomBSSID:     types.BoolValue(radio.RandomBSSID),
 		PSCChannelsOnly: types.BoolPointerValue(radio.Chan6GOnlyPSC),
 	}

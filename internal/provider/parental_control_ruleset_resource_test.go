@@ -78,7 +78,7 @@ resource "glinet_parental_control_ruleset" "test" {
   name      = "homework"
   color     = "#4B9BD9"
   apps      = [8009, 1001]
-  blacklist = ["games.example.com", "[tcp;;;www.example.com;;]"]
+  block_list = ["games.example.com", "[tcp;;;www.example.com;;]"]
 }
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
@@ -86,10 +86,10 @@ resource "glinet_parental_control_ruleset" "test" {
 					expectRuleset("name", knownvalue.StringExact("homework")),
 					expectRuleset("color", knownvalue.StringExact("#4B9BD9")),
 					expectRuleset("apps", knownvalue.SetExact([]knownvalue.Check{knownvalue.Int64Exact(1001), knownvalue.Int64Exact(8009)})),
-					expectRuleset("blacklist", knownvalue.ListExact([]knownvalue.Check{
+					expectRuleset("block_list", knownvalue.ListExact([]knownvalue.Check{
 						knownvalue.StringExact("games.example.com"), knownvalue.StringExact("[tcp;;;www.example.com;;]"),
 					})),
-					expectRuleset("url", knownvalue.Null()),
+					expectRuleset("block_list_url", knownvalue.Null()),
 				},
 				Check: resource.ComposeTestCheckFunc(
 					expectRouterRulesets(client, "homework"),
@@ -100,7 +100,7 @@ resource "glinet_parental_control_ruleset" "test" {
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_parental_control_ruleset" "test" {
   name = "night"
-  url  = "https://blocklist.example.com/night.txt"
+  block_list_url  = "https://blocklist.example.com/night.txt"
 }
 `,
 				ConfigPlanChecks: expectResourceAction(rulesetAddress, plancheck.ResourceActionUpdate),
@@ -108,8 +108,8 @@ resource "glinet_parental_control_ruleset" "test" {
 					expectRuleset("id", knownvalue.StringExact("cfg000001")),
 					expectRuleset("color", knownvalue.StringExact("#4B9BD9")),
 					expectRuleset("apps", knownvalue.Null()),
-					expectRuleset("blacklist", knownvalue.Null()),
-					expectRuleset("url", knownvalue.StringExact("https://blocklist.example.com/night.txt")),
+					expectRuleset("block_list", knownvalue.Null()),
+					expectRuleset("block_list_url", knownvalue.StringExact("https://blocklist.example.com/night.txt")),
 				},
 				Check: resource.ComposeTestCheckFunc(
 					expectRouterRulesets(client, "night"),
@@ -141,13 +141,13 @@ func TestParentalControlRulesetResourceDefaults(t *testing.T) {
 resource "glinet_parental_control_ruleset" "test" {
   name      = "empty"
   apps      = []
-  blacklist = []
+  block_list = []
 }
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectRuleset("color", knownvalue.StringExact(defaultRulesetColor)),
 					expectRuleset("apps", knownvalue.SetExact([]knownvalue.Check{})),
-					expectRuleset("blacklist", knownvalue.ListExact([]knownvalue.Check{})),
+					expectRuleset("block_list", knownvalue.ListExact([]knownvalue.Check{})),
 				},
 				Check: adds.expect(`{"name":"empty","color":"#808080","apps":[],"manual":true,"blacklist":[]}`),
 			},
@@ -163,7 +163,7 @@ resource "glinet_parental_control_ruleset" "test" {
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectRuleset("color", knownvalue.StringExact("#123456")),
 					expectRuleset("apps", knownvalue.Null()),
-					expectRuleset("blacklist", knownvalue.Null()),
+					expectRuleset("block_list", knownvalue.Null()),
 				},
 				Check: sets.expect(`{"id":"cfg000001","name":"renamed","color":"#123456","apps":[],"manual":true,"blacklist":[]}`),
 			},
@@ -181,7 +181,7 @@ func TestParentalControlRulesetResourceIDChange(t *testing.T) {
 	config := fakeRouterConfig(srv) + `
 resource "glinet_parental_control_ruleset" "test" {
   name      = "homework"
-  blacklist = ["games.example.com"]
+  block_list = ["games.example.com"]
 }
 `
 
@@ -368,14 +368,14 @@ func TestParentalControlRulesetResourceInvalidConfig(t *testing.T) {
 		`name = "a"
   color = "blue"`: `must be a color in the format #rrggbb`,
 		`name = "a"
-  blacklist = ["example.com", ""]`: `must not be empty`,
+  block_list = ["example.com", ""]`: `must not be empty`,
 		`name = "a"
-  blacklist = ["exa mple.com"]`: `can have only the characters`,
+  block_list = ["exa mple.com"]`: `can have only the characters`,
 		`name = "a"
-  blacklist = ["example.com"]
-  url = "https://example.com/list.txt"`: `Invalid Attribute Combination`,
+  block_list = ["example.com"]
+  block_list_url = "https://example.com/list.txt"`: `Invalid Attribute Combination`,
 		`name = "a"
-  url = "example.com/list.txt"`: `must be a URL`,
+  block_list_url = "example.com/list.txt"`: `must be a URL`,
 		`name = "a"
   apps = [0]`: `must be at least 1`,
 	} {
@@ -405,11 +405,52 @@ func TestParentalControlRulesetResourceWriteError(t *testing.T) {
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_parental_control_ruleset" "test" {
   name      = "homework"
-  blacklist = ["example..com"]
+  block_list = ["example..com"]
 }
 `,
 				ExpectError: regexp.MustCompile(`(?s)Unable to Create Parental Control Rule Set.*` + wrapped(`rejects a domain of the block list`)),
 			},
 		},
 	})
+}
+
+// TestParentalControlRulesetResourceStateOf020 refreshes a state that release 0.2.0 wrote, with url and schema
+// version 0, on a router that does not return the URL. The upgrader moves url to block_list_url, so Read keeps it.
+func TestParentalControlRulesetResourceStateOf020(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	const blockListURL = "https://blocklist.example.com/night.txt"
+	id, err := client.ParentalControl.AddRule(context.Background(), glinet.ParentalControlRuleSettings{Name: "night", Color: "#123456", URL: blockListURL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	get := srv.Handler("parental-control", "get_config")
+	srv.Handle("parental-control", "get_config", func(params json.RawMessage) (any, error) {
+		res, err := get(params)
+		if err != nil {
+			return nil, err
+		}
+		var config map[string]json.RawMessage
+		var rules []map[string]any
+		if err := json.Unmarshal([]byte(mustJSON(t, res)), &config); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(config["rules"], &rules); err != nil {
+			return nil, err
+		}
+		for _, rule := range rules {
+			delete(rule, "url")
+		}
+		config["rules"] = json.RawMessage(mustJSON(t, rules))
+		return config, nil
+	})
+
+	state := refreshPriorState(t, srv, "glinet_parental_control_ruleset",
+		`{"id":"`+id+`","name":"night","color":"#123456","apps":null,"blacklist":null,"url":"`+blockListURL+`"}`)
+	if state == nil {
+		t.Fatal("Read removed the resource")
+	}
+	expectStringAttribute(t, state, "id", id)
+	expectStringAttribute(t, state, "block_list_url", blockListURL)
 }

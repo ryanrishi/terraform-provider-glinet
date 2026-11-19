@@ -54,8 +54,8 @@ type lanResourceModel struct {
 	Name          types.String `tfsdk:"name"`
 	IP            types.String `tfsdk:"ip"`
 	Netmask       types.String `tfsdk:"netmask"`
-	APIsolation   types.Bool   `tfsdk:"ap_isolation"`
-	WANIsolation  types.Bool   `tfsdk:"wan_isolation"`
+	APIsolation   types.Bool   `tfsdk:"ap_isolation_enabled"`
+	WANIsolation  types.Bool   `tfsdk:"wan_isolation_enabled"`
 	DHCPEnabled   types.Bool   `tfsdk:"dhcp_enabled"`
 	DHCPStart     types.String `tfsdk:"dhcp_start"`
 	DHCPEnd       types.String `tfsdk:"dhcp_end"`
@@ -128,7 +128,7 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Description: "Manages the address and the DHCP server of the LAN or of the guest network of the router (`lan.set_config` in the router API). " +
 			"Use one instance of this resource for each network. Both networks always exist on the router, so create takes over the network. " +
-			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation`, `wan_isolation`) and the DHCP group (the other attributes) in two calls. " +
+			"The web UI writes the address group (`ip`, `netmask`, `ap_isolation_enabled`, `wan_isolation_enabled`) and the DHCP group (the other attributes) in two calls. " +
 			"The provider sends a group only when one of its values differs: on create from the values of the router, on update from the state. " +
 			"It sends the address group first. A create whose values are equal to those of the router sends no write. " +
 			"**Danger:** each write to the LAN configuration, also for the `guest` network and also a write that changes nothing, " +
@@ -165,11 +165,11 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					stringCheck{description: "must be an IPv4 netmask such as 255.255.255.0", valid: validNetmask},
 				},
 			},
-			"ap_isolation": schema.BoolAttribute{
+			"ap_isolation_enabled": schema.BoolAttribute{
 				Description: "Whether the Wi-Fi clients of the network cannot reach each other (`ap_isolate` in the router API).",
 				Required:    true,
 			},
-			"wan_isolation": schema.BoolAttribute{
+			"wan_isolation_enabled": schema.BoolAttribute{
 				Description: "Whether the clients of the guest network cannot reach the networks of the uplinks (`wan_isolate` in the router API, \"block WAN\" in the web UI). " +
 					"Only for the `guest` network: it cannot be set for the `lan` network and is always null there. " +
 					"When it is not set, the provider sends back the value of the router in each address write, so the router value does not change. " +
@@ -240,7 +240,7 @@ func (r *lanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 
 func (r *lanResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
-		description: "the DHCP attributes go with dhcp_enabled, wan_isolation goes with the guest network, and the addresses fit the network",
+		description: "the DHCP attributes go with dhcp_enabled, wan_isolation_enabled goes with the guest network, and the addresses fit the network",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
 			var config lanResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
@@ -265,7 +265,7 @@ func (r *lanResource) ConfigValidators(context.Context) []resource.ConfigValidat
 			}
 
 			if config.Name.ValueString() == "lan" {
-				forbid(diags, "wan_isolation", config.WANIsolation, "for the lan network")
+				forbid(diags, "wan_isolation_enabled", config.WANIsolation, "for the lan network")
 			}
 
 			validateLANAddresses(config, diags)
@@ -407,7 +407,7 @@ func (r *lanResource) ImportState(ctx context.Context, req resource.ImportStateR
 }
 
 // write sends the address group and the DHCP group of plan, each one only when one of its attributes differs
-// from prior, or on create (prior is nil) from the router values. An unknown wan_isolation or dhcp_lpr_servers,
+// from prior, or on create (prior is nil) from the router values. An unknown wan_isolation_enabled or dhcp_lpr_servers,
 // which is not in the configuration, gets the router value, so that a write sends it back unchanged. When the
 // DHCP write of an update fails after the address write, the state gets the new address.
 func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *lanResourceModel, state *tfsdk.State, diags *diag.Diagnostics) {
@@ -506,7 +506,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 	diags.Append(state.Set(ctx, lanModel(ctx, config, plan.DHCPLeaseTime, diags))...)
 }
 
-// wanIsolationValue returns wan_isolation of the network config: null for the lan network, and false for a
+// wanIsolationValue returns wan_isolation_enabled of the network config: null for the lan network, and false for a
 // guest network that has no wan_isolate, as the web UI shows it.
 func wanIsolationValue(config *glinet.LANConfig) types.Bool {
 	if config.Interface != "guest" {

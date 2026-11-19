@@ -36,9 +36,9 @@ func TestSystemTimezoneDataSource(t *testing.T) {
 		})
 		config = fakeRouterConfig(srv) + timezoneDataSourceConfig
 		checks = []statecheck.StateCheck{
-			expectTimezoneDataSource("zonename", knownvalue.StringExact("Europe/Berlin")),
+			expectTimezoneDataSource("zone_name", knownvalue.StringExact("Europe/Berlin")),
 			expectTimezoneDataSource("timezone", knownvalue.StringExact("CET-1CEST,M3.5.0,M10.5.0/3")),
-			expectTimezoneDataSource("tzoffset", knownvalue.StringExact("+0100")),
+			expectTimezoneDataSource("timezone_offset", knownvalue.StringExact("+0100")),
 			expectTimezoneDataSource("auto_timezone_enabled", knownvalue.Bool(true)),
 			expectTimezoneDataSource("localtime", knownvalue.Int64Exact(1794499485)),
 			expectTimezoneDataSource("timestamp", knownvalue.Int64Exact(1794495885)),
@@ -109,7 +109,7 @@ func expectTimezoneDataSource(attribute string, value knownvalue.Check) stateche
 }
 
 // realRouterTimezoneDataSourceChecks checks only types and that values are not empty, because the router values are not fixed.
-// zonename is empty when the router uses UTC.
+// zone_name is empty when the router uses UTC.
 func realRouterTimezoneDataSourceChecks() []statecheck.StateCheck {
 	notEmpty := knownvalue.StringFunc(func(v string) error {
 		if v == "" {
@@ -119,9 +119,9 @@ func realRouterTimezoneDataSourceChecks() []statecheck.StateCheck {
 	})
 
 	return []statecheck.StateCheck{
-		expectTimezoneDataSource("zonename", knownvalue.StringFunc(func(string) error { return nil })),
+		expectTimezoneDataSource("zone_name", knownvalue.StringFunc(func(string) error { return nil })),
 		expectTimezoneDataSource("timezone", notEmpty),
-		expectTimezoneDataSource("tzoffset", notEmpty),
+		expectTimezoneDataSource("timezone_offset", notEmpty),
 		expectTimezoneDataSource("auto_timezone_enabled", knownvalue.BoolFunc(func(bool) error { return nil })),
 		expectTimezoneDataSource("localtime", positiveInt64),
 		expectTimezoneDataSource("timestamp", positiveInt64),

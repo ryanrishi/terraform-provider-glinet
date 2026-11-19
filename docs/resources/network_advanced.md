@@ -14,8 +14,8 @@ Manages the advanced network settings of the router: Full Cone NAT and the SIP A
 
 ```terraform
 resource "glinet_network_advanced" "this" {
-  full_cone_nat = true
-  sip_alg       = false
+  full_cone_nat_enabled = true
+  sip_alg_enabled       = false
 }
 ```
 
@@ -24,8 +24,8 @@ resource "glinet_network_advanced" "this" {
 
 ### Optional
 
-- `full_cone_nat` (Boolean) Whether the router uses Full Cone NAT (`nat_enable` in the router API). When it is not set, the router value does not change.
-- `sip_alg` (Boolean) Whether the SIP ALG is enabled (`sip_enable` in the router API). When it is not set, the router value does not change.
+- `full_cone_nat_enabled` (Boolean) Whether the router uses Full Cone NAT (`nat_enable` in the router API). When it is not set, the router value does not change.
+- `sip_alg_enabled` (Boolean) Whether the SIP ALG is enabled (`sip_enable` in the router API). When it is not set, the router value does not change.
 
 ### Read-Only
 

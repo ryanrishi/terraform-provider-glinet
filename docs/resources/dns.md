@@ -14,11 +14,11 @@ Manages the DNS settings of the router. The router has one DNS configuration, so
 
 ```terraform
 resource "glinet_dns" "this" {
-  mode              = "manual"
-  servers           = ["1.1.1.1", "9.9.9.9", "2606:4700:4700::1111"]
-  force_dns         = false
-  rebind_protection = true
-  override_vpn      = true
+  mode                      = "manual"
+  servers                   = ["1.1.1.1", "9.9.9.9", "2606:4700:4700::1111"]
+  force_dns_enabled         = false
+  rebind_protection_enabled = true
+  override_vpn_enabled      = true
 }
 ```
 
@@ -27,9 +27,9 @@ resource "glinet_dns" "this" {
 
 ### Required
 
-- `force_dns` (Boolean) Whether the router makes the clients use its own DNS server (`force_dns` in the router API).
-- `override_vpn` (Boolean) Whether the DNS settings of the router override the DNS servers of a VPN client (`override_vpn` in the router API). A change can change the DNS servers that an active VPN client tunnel uses.
-- `rebind_protection` (Boolean) Whether DNS rebinding protection is enabled (`rebind_protection` in the router API).
+- `force_dns_enabled` (Boolean) Whether the router makes the clients use its own DNS server (`force_dns` in the router API).
+- `override_vpn_enabled` (Boolean) Whether the DNS settings of the router override the DNS servers of a VPN client (`override_vpn` in the router API). A change can change the DNS servers that an active VPN client tunnel uses.
+- `rebind_protection_enabled` (Boolean) Whether DNS rebinding protection is enabled (`rebind_protection` in the router API).
 
 ### Optional
 

@@ -41,7 +41,7 @@ type systemStatusModel struct {
 	NATEnabled      bool                       `tfsdk:"nat_enabled"`
 	Mode            int64                      `tfsdk:"mode"`
 	Timestamp       int64                      `tfsdk:"timestamp"`
-	TZOffset        string                     `tfsdk:"tzoffset"`
+	TimezoneOffset  string                     `tfsdk:"timezone_offset"`
 	ClientCounts    []clientCountModel         `tfsdk:"client_counts"`
 	Networks        []networkStatusModel       `tfsdk:"networks"`
 	Services        []serviceStatusModel       `tfsdk:"services"`
@@ -113,7 +113,7 @@ func (d *systemStatusDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 			"nat_enabled":       computedBool("Whether NAT is enabled (`netnat_enabled`)."),
 			"mode":              computedInt64("Operation mode of the router, as the router gives it. `0` is the router mode."),
 			"timestamp":         computedInt64("Clock of the router, as a Unix time in seconds."),
-			"tzoffset":          computedString("Current offset from UTC, for example `+0100`."),
+			"timezone_offset":   computedString("Current offset from UTC, for example `+0100`."),
 			"client_counts": computedList("Numbers of connected clients (`client`).", map[string]schema.Attribute{
 				"cable_total":    computedInt64("Number of clients on a cable."),
 				"wireless_total": computedInt64("Number of clients on Wi-Fi."),
@@ -175,7 +175,7 @@ func (d *systemStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequ
 		NATEnabled:      sys.NetNATEnabled,
 		Mode:            int64(sys.Mode),
 		Timestamp:       sys.Timestamp,
-		TZOffset:        sys.TZOffset,
+		TimezoneOffset:  sys.TZOffset,
 		ClientCounts:    []clientCountModel{},
 		Networks:        []networkStatusModel{},
 		Services:        []serviceStatusModel{},

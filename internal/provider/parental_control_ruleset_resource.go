@@ -30,8 +30,8 @@ const defaultRulesetColor = "#808080"
 
 var (
 	rulesetColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
-	// blacklistLine has the characters that the web UI keeps in a line of the block list.
-	blacklistLine = regexp.MustCompile(`^[A-Za-z0-9.\[\]~:;/?&=%\-#]+$`)
+	// blockListLine has the characters that the web UI keeps in a line of the block list.
+	blockListLine = regexp.MustCompile(`^[A-Za-z0-9.\[\]~:;/?&=%\-#]+$`)
 )
 
 var blocklistURLValidator = stringCheck{
@@ -45,9 +45,10 @@ func validBlocklistURL(s string) bool {
 }
 
 var (
-	_ resource.Resource                = &parentalControlRulesetResource{}
-	_ resource.ResourceWithConfigure   = &parentalControlRulesetResource{}
-	_ resource.ResourceWithImportState = &parentalControlRulesetResource{}
+	_ resource.Resource                 = &parentalControlRulesetResource{}
+	_ resource.ResourceWithConfigure    = &parentalControlRulesetResource{}
+	_ resource.ResourceWithUpgradeState = &parentalControlRulesetResource{}
+	_ resource.ResourceWithImportState  = &parentalControlRulesetResource{}
 )
 
 func NewParentalControlRulesetResource() resource.Resource {
@@ -59,12 +60,12 @@ type parentalControlRulesetResource struct {
 }
 
 type parentalControlRulesetModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Color     types.String `tfsdk:"color"`
-	Apps      types.Set    `tfsdk:"apps"`
-	Blacklist types.List   `tfsdk:"blacklist"`
-	URL       types.String `tfsdk:"url"`
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Color        types.String `tfsdk:"color"`
+	Apps         types.Set    `tfsdk:"apps"`
+	BlockList    types.List   `tfsdk:"block_list"`
+	BlockListURL types.String `tfsdk:"block_list_url"`
 }
 
 func (r *parentalControlRulesetResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -73,8 +74,9 @@ func (r *parentalControlRulesetResource) Metadata(_ context.Context, req resourc
 
 func (r *parentalControlRulesetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages a rule set of parental control (`parental-control.add_rule` in the router API). " +
-			"A rule set blocks apps of the app feature library and domains: the domains of a block list in `blacklist`, or of a block list that the router loads from `url`. " +
+			"A rule set blocks apps of the app feature library and domains: the domains of a block list in `block_list`, or of a block list that the router loads from `block_list_url`. " +
 			"Groups (`glinet_parental_control_group`) use rule sets as their default rule set and in their schedules. " +
 			"The resource does not manage the preset rule sets `drop` (blocks all traffic) and `accept` (blocks nothing), which cannot be changed or removed. " +
 			parentalControlIDNote + " " +
@@ -122,22 +124,22 @@ func (r *parentalControlRulesetResource) Schema(_ context.Context, _ resource.Sc
 					setvalidator.ValueInt64sAre(int64validator.AtLeast(1)),
 				},
 			},
-			"blacklist": schema.ListAttribute{
+			"block_list": schema.ListAttribute{
 				Description: "Lines of the block list of the rule set (`blacklist` in the router API), for example `www.example.com`. " +
 					"Each line can have the characters `A-Z`, `a-z`, `0-9` and `.[]~:;/?&=%-#`. " +
 					"The API reference permits at most 32 lines, and also shows lines in the syntax of the app feature library, for example `[tcp;;;www.example.com;;]`. " +
 					"The router rejects a domain that is not valid. " +
-					"Conflicts with `url`. When neither is set, the rule set blocks only the apps. Refresh ignores empty lines.",
+					"Conflicts with `block_list_url`. When neither is set, the rule set blocks only the apps. Refresh ignores empty lines.",
 				ElementType: types.StringType,
 				Optional:    true,
 				Validators: []validator.List{
-					listvalidator.ValueStringsAre(stringvalidator.RegexMatches(blacklistLine,
+					listvalidator.ValueStringsAre(stringvalidator.RegexMatches(blockListLine,
 						"must not be empty and can have only the characters A-Z, a-z, 0-9 and .[]~:;/?&=%-#")),
-					listvalidator.ConflictsWith(path.MatchRoot("url")),
+					listvalidator.ConflictsWith(path.MatchRoot("block_list_url")),
 				},
 			},
-			"url": schema.StringAttribute{
-				Description: "URL of a block list that the router loads (`manual: false` in the router API). Conflicts with `blacklist`. " +
+			"block_list_url": schema.StringAttribute{
+				Description: "URL of a block list that the router loads (`manual: false` in the router API). Conflicts with `block_list`. " +
 					"It was not verified that the router returns the URL in its configuration; when it does not, refresh keeps the value of the state.",
 				Optional: true,
 				Validators: []validator.String{
@@ -360,7 +362,7 @@ func rulesetUsers(config *glinet.ParentalControlConfig, id string) string {
 func rulesetWriteError(err error) string {
 	var rpcErr *glinet.RPCError
 	if errors.As(err, &rpcErr) && rpcErr.Code == -2 {
-		return err.Error() + "\n\nThe router rejects a domain of the block list (blacklist) that is not valid."
+		return err.Error() + "\n\nThe router rejects a domain of the block list (`block_list`) that is not valid."
 	}
 	return err.Error()
 }
@@ -390,21 +392,21 @@ func rulesetSettings(ctx context.Context, plan parentalControlRulesetModel, diag
 		Name:   plan.Name.ValueString(),
 		Color:  plan.Color.ValueString(),
 		Apps:   []int{},
-		Manual: plan.URL.IsNull(),
+		Manual: plan.BlockListURL.IsNull(),
 	}
 	for _, app := range apps {
 		settings.Apps = append(settings.Apps, int(app))
 	}
 	if settings.Manual {
-		settings.Blacklist = listStrings(ctx, plan.Blacklist, diags)
+		settings.Blacklist = listStrings(ctx, plan.BlockList, diags)
 	} else {
-		settings.URL = plan.URL.ValueString()
+		settings.URL = plan.BlockListURL.ValueString()
 	}
 	return settings
 }
 
 // rulesetModel returns the model of the router rule set. prior gives the values that the router does not return:
-// an empty apps or blacklist that is not null, and the URL when the router returns none.
+// an empty apps or block_list that is not null, and the URL when the router returns none.
 func rulesetModel(ctx context.Context, rule *glinet.ParentalControlRule, prior parentalControlRulesetModel, diags *diag.Diagnostics) *parentalControlRulesetModel {
 	apps := make([]int64, len(rule.Apps))
 	for i, app := range rule.Apps {
@@ -412,18 +414,18 @@ func rulesetModel(ctx context.Context, rule *glinet.ParentalControlRule, prior p
 	}
 
 	model := &parentalControlRulesetModel{
-		ID:        types.StringValue(rule.ID),
-		Name:      types.StringValue(rule.Name),
-		Color:     types.StringValue(rule.Color),
-		Apps:      emptyOr(prior.Apps, int64Set(ctx, apps, diags), len(apps) == 0),
-		Blacklist: types.ListNull(types.StringType),
-		URL:       types.StringNull(),
+		ID:           types.StringValue(rule.ID),
+		Name:         types.StringValue(rule.Name),
+		Color:        types.StringValue(rule.Color),
+		Apps:         emptyOr(prior.Apps, int64Set(ctx, apps, diags), len(apps) == 0),
+		BlockList:    types.ListNull(types.StringType),
+		BlockListURL: types.StringNull(),
 	}
 
 	if !rule.Manual {
-		model.URL = stringOrNull(rule.URL)
+		model.BlockListURL = stringOrNull(rule.URL)
 		if rule.URL == "" {
-			model.URL = prior.URL
+			model.BlockListURL = prior.BlockListURL
 		}
 		return model
 	}
@@ -435,8 +437,14 @@ func rulesetModel(ctx context.Context, rule *glinet.ParentalControlRule, prior p
 		}
 	}
 	if len(lines) > 0 {
-		model.Blacklist = stringList(ctx, lines, diags)
+		model.BlockList = stringList(ctx, lines, diags)
 	}
-	model.Blacklist = emptyOr(prior.Blacklist, model.Blacklist, len(lines) == 0)
+	model.BlockList = emptyOr(prior.BlockList, model.BlockList, len(lines) == 0)
 	return model
+}
+
+// UpgradeState moves blacklist and url to block_list and block_list_url in a state of schema version 0
+// (release 0.2.0), because it is not known whether the router returns the URL, and Read then keeps the URL of the state.
+func (r *parentalControlRulesetResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{0: renameAttributes(map[string]string{"blacklist": "block_list", "url": "block_list_url"})}
 }

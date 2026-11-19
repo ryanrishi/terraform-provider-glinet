@@ -16,13 +16,13 @@ Manages the configuration and the options of the WireGuard server of the router 
 # Initializes the WireGuard server when it has no keys, and keeps the private key of the router.
 # The server must be stopped for a change of address_v4, address_v6, listen_port or private_key.
 resource "glinet_wireguard_server" "this" {
-  address_v4       = "10.0.0.1/24"
-  address_v6       = "fd00:db8::1/64"
-  listen_port      = 51820
-  client_to_client = false
-  local_access     = true
-  masquerade       = true
-  mtu              = 1420
+  address_v4               = "10.0.0.1/24"
+  address_v6               = "fd00:db8::1/64"
+  listen_port              = 51820
+  client_to_client_enabled = false
+  local_access_enabled     = true
+  masquerade_enabled       = true
+  mtu                      = 1420
 }
 ```
 
@@ -33,10 +33,10 @@ resource "glinet_wireguard_server" "this" {
 
 - `address_v4` (String) IPv4 address of the server in the tunnel with a prefix length, for example `10.0.0.1/24` (`address_v4` in the router API). It must be in a private network (`10.0.0.0/8`, `172.16.0.0/12` or `192.168.0.0/16`), and the prefix length must be 30 or less. When it is not set, the router value does not change.
 - `address_v6` (String) IPv6 address of the server in the tunnel with a prefix length up to 126, for example `fd00:db8::1/64` (`address_v6` in the router API). The client documents prefix lengths up to 126 for the web UI, with 64 as the default. The web UI of firmware 4.8.3 accepts only an address in `fd00::/8` with the prefix length 64; what a router with firmware 4.8.3 does with another address is not known. `""` removes the address, as the web UI sends it for an empty input; what the router does with `""` is not known. When it is not set, the router value does not change.
-- `client_to_client` (Boolean) Whether the peers can reach each other (`client_to_client` in the router API). When it is not set, the router value does not change.
+- `client_to_client_enabled` (Boolean) Whether the peers can reach each other (`client_to_client` in the router API). When it is not set, the router value does not change.
 - `listen_port` (Number) UDP port of the server, from 1 to 65535 (`port` in the router API). When it is not set, the router value does not change.
-- `local_access` (Boolean) Whether the peers can reach the LAN of the router (`local_access` in the router API). When it is not set, the router value does not change.
-- `masquerade` (Boolean) Whether the router translates the source address of the traffic of the peers (NAT) (`masq` in the router API). When it is not set, the router value does not change.
+- `local_access_enabled` (Boolean) Whether the peers can reach the LAN of the router (`local_access` in the router API). When it is not set, the router value does not change.
+- `masquerade_enabled` (Boolean) Whether the router translates the source address of the traffic of the peers (NAT) (`masq` in the router API). When it is not set, the router value does not change.
 - `mtu` (Number) MTU of the tunnel, from 68 to 65535, or `0` for no MTU value (`mtu` in the router API). The web UI sends `0` for an empty input; what the router does with `0` is not known. When it is not set, the router value does not change.
 - `private_key` (String, Sensitive) Private key of the server, 44 characters of base64 (`private_key` in the router API). When it is not set, the router value does not change. The provider never sends an empty key, because it is not known what the router does with it.
 

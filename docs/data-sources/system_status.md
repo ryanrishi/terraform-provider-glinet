@@ -45,7 +45,7 @@ output "online_interfaces" {
 - `networks` (Attributes List) Network interfaces (`network`). (see [below for nested schema](#nestedatt--networks))
 - `services` (Attributes List) Services (`service`). (see [below for nested schema](#nestedatt--services))
 - `timestamp` (Number) Clock of the router, as a Unix time in seconds.
-- `tzoffset` (String) Current offset from UTC, for example `+0100`.
+- `timezone_offset` (String) Current offset from UTC, for example `+0100`.
 - `uptime` (Number) Time since the start of the router, in seconds.
 - `wifi_interfaces` (Attributes List) Wi-Fi interfaces (`wifi`). (see [below for nested schema](#nestedatt--wifi_interfaces))
 

@@ -34,9 +34,9 @@ type systemTimezoneResource struct {
 
 type systemTimezoneResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
-	Zonename            types.String `tfsdk:"zonename"`
+	ZoneName            types.String `tfsdk:"zone_name"`
 	Timezone            types.String `tfsdk:"timezone"`
-	TZOffset            types.String `tfsdk:"tzoffset"`
+	TimezoneOffset      types.String `tfsdk:"timezone_offset"`
 	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
 }
 
@@ -56,7 +56,7 @@ func (r *systemTimezoneResource) Schema(_ context.Context, _ resource.SchemaRequ
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"zonename": schema.StringAttribute{
+			"zone_name": schema.StringAttribute{
 				Description: "Time zone name as the router shows it, for example `Europe/Berlin`.",
 				Required:    true,
 			},
@@ -64,7 +64,7 @@ func (r *systemTimezoneResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Description: "POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.",
 				Required:    true,
 			},
-			"tzoffset": schema.StringAttribute{
+			"timezone_offset": schema.StringAttribute{
 				Description: "Current offset from UTC, for example `+0100`. It changes with daylight saving time.",
 				Computed:    true,
 			},
@@ -118,7 +118,7 @@ func (r *systemTimezoneResource) set(ctx context.Context, plan tfsdk.Plan, state
 	}
 
 	err := r.client.System.SetTimezoneConfig(ctx, glinet.SetTimezoneConfigRequest{
-		Zonename: model.Zonename.ValueString(),
+		Zonename: model.ZoneName.ValueString(),
 		Timezone: model.Timezone.ValueString(),
 	})
 	if err != nil {
@@ -138,9 +138,9 @@ func (r *systemTimezoneResource) read(ctx context.Context, state *tfsdk.State, d
 
 	diags.Append(state.Set(ctx, &systemTimezoneResourceModel{
 		ID:                  types.StringValue(systemTimezoneID),
-		Zonename:            types.StringValue(config.Zonename),
+		ZoneName:            types.StringValue(config.Zonename),
 		Timezone:            types.StringValue(config.Timezone),
-		TZOffset:            types.StringValue(config.TZOffset),
+		TimezoneOffset:      types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),
 	})...)
 }

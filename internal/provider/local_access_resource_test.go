@@ -47,15 +47,15 @@ func expectLocalAccessState(c glinettest.LocalAccessConfig) []statecheck.StateCh
 		statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New("id"), knownvalue.StringExact("local_access")),
 	}
 	for name, value := range map[string]knownvalue.Check{
-		"http_port":           knownvalue.Int64Exact(int64(c.HTTPPort)),
-		"https_port":          knownvalue.Int64Exact(int64(c.HTTPSPort)),
-		"redirect_https":      knownvalue.Bool(c.RedirectHTTPS),
-		"luci_http_port":      knownvalue.Int64Exact(int64(c.LuCIHTTPPort)),
-		"luci_https_port":     knownvalue.Int64Exact(int64(c.LuCIHTTPSPort)),
-		"luci_redirect_https": knownvalue.Bool(c.LuCIRedirectHTTPS),
-		"session_timeout":     knownvalue.Int64Exact(int64(c.SessionTimeout)),
-		"ssh_enabled":         sshEnabled,
-		"ssh_port":            knownvalue.Int64Exact(int64(c.SSHPort)),
+		"http_port":                   knownvalue.Int64Exact(int64(c.HTTPPort)),
+		"https_port":                  knownvalue.Int64Exact(int64(c.HTTPSPort)),
+		"redirect_https_enabled":      knownvalue.Bool(c.RedirectHTTPS),
+		"luci_http_port":              knownvalue.Int64Exact(int64(c.LuCIHTTPPort)),
+		"luci_https_port":             knownvalue.Int64Exact(int64(c.LuCIHTTPSPort)),
+		"luci_redirect_https_enabled": knownvalue.Bool(c.LuCIRedirectHTTPS),
+		"session_timeout":             knownvalue.Int64Exact(int64(c.SessionTimeout)),
+		"ssh_enabled":                 sshEnabled,
+		"ssh_port":                    knownvalue.Int64Exact(int64(c.SSHPort)),
 	} {
 		checks = append(checks, statecheck.ExpectKnownValue(localAccessAddress, tfjsonpath.New(name), value))
 	}
@@ -101,7 +101,7 @@ func TestLocalAccessResource(t *testing.T) {
 				Config: localAccessConfig(srv, `
   session_timeout     = 1800
   ssh_port            = 2222
-  luci_redirect_https = true
+  luci_redirect_https_enabled = true
   ssh_enabled         = false
 `),
 				ConfigStateChecks: expectLocalAccessState(second),

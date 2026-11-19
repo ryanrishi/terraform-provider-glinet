@@ -28,7 +28,7 @@ type wgRoute struct {
 
 func (r wgRoute) config() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "\nresource \"glinet_wireguard_server_route\" \"test\" {\n  dest = %q\n", r.dest)
+	fmt.Fprintf(&b, "\nresource \"glinet_wireguard_server_route\" \"test\" {\n  destination = %q\n", r.dest)
 	if r.gateway != "" {
 		fmt.Fprintf(&b, "  gateway = %q\n", r.gateway)
 	}
@@ -82,7 +82,7 @@ func TestWireGuardServerRouteResource(t *testing.T) {
 			{
 				Config: fakeRouterConfig(srv) + full.config(),
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectWGRoute("dest", knownvalue.StringExact("192.168.10.0/24")),
+					expectWGRoute("destination", knownvalue.StringExact("192.168.10.0/24")),
 					expectWGRoute("gateway", knownvalue.StringExact("10.0.0.2")),
 					expectWGRoute("metric", knownvalue.Int64Exact(10)),
 					expectWGRoute("mtu", knownvalue.Int64Exact(1400)),
@@ -118,7 +118,7 @@ func TestWireGuardServerRouteResource(t *testing.T) {
 				ImportState:                          true,
 				ImportStateId:                        "192.168.10.0/24",
 				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "dest",
+				ImportStateVerifyIdentifierAttribute: "destination",
 			},
 		},
 	})
@@ -302,10 +302,10 @@ func TestWireGuardServerRouteResourceInvalidConfig(t *testing.T) {
 		route wgRoute
 		error string
 	}{
-		{wgRoute{dest: "192.168.10.1"}, `dest must be an IP address with a prefix length`},
+		{wgRoute{dest: "192.168.10.1"}, `destination must be an IP address with a prefix length`},
 		{wgRoute{dest: "192.168.10.0/24", gateway: "gw.example.com"}, `gateway must be an IP address`},
-		{wgRoute{dest: "192.168.10.0/24", gateway: "fd00:db8::2"}, wrapped("gateway fd00:db8::2 must have the address family of dest 192.168.10.0/24")},
-		{wgRoute{dest: "fd00:db8:10::/64", gateway: "10.0.0.2"}, wrapped("gateway 10.0.0.2 must have the address family of dest fd00:db8:10::/64")},
+		{wgRoute{dest: "192.168.10.0/24", gateway: "fd00:db8::2"}, wrapped("gateway fd00:db8::2 must have the address family of destination 192.168.10.0/24")},
+		{wgRoute{dest: "fd00:db8:10::/64", gateway: "10.0.0.2"}, wrapped("gateway 10.0.0.2 must have the address family of destination fd00:db8:10::/64")},
 		{wgRoute{dest: "192.168.10.0/24", metric: -1}, wrapped("metric value must be between 1 and 4294967295")},
 		{wgRoute{dest: "192.168.10.0/24", metric: 4294967296}, wrapped("metric value must be between 1 and 4294967295")},
 		{wgRoute{dest: "192.168.10.0/24", mtu: 67}, `mtu value must be between 68 and 65535`},
@@ -363,4 +363,24 @@ func TestWireGuardServerRouteResourceRouterErrors(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestWireGuardServerRouteResourceStateOf020 refreshes a state that release 0.2.0 wrote, with dest and schema
+// version 0. The upgrader moves dest to destination, so Read finds the route rule and keeps all values.
+func TestWireGuardServerRouteResourceStateOf020(t *testing.T) {
+	parallel(t)
+	srv, client := wgServerTestRouter(t)
+	route := glinet.VPNRoute{Dest: "192.168.10.0/24", Gateway: "10.0.0.2", Metric: 10, MTU: 1400}
+	if err := client.WireGuardServer.AddRoute(context.Background(), route); err != nil {
+		t.Fatal(err)
+	}
+
+	state := refreshPriorState(t, srv, "glinet_wireguard_server_route", `{"dest":"192.168.10.0/24","gateway":"10.0.0.2","metric":10,"mtu":1400}`)
+	if state == nil {
+		t.Fatal("Read removed the resource")
+	}
+	expectStringAttribute(t, state, "destination", "192.168.10.0/24")
+	expectStringAttribute(t, state, "gateway", "10.0.0.2")
+	expectInt64Attribute(t, state, "metric", 10)
+	expectInt64Attribute(t, state, "mtu", 1400)
 }

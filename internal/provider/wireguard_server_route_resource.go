@@ -22,6 +22,7 @@ import (
 var (
 	_ resource.Resource                   = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithConfigure      = &wireGuardServerRouteResource{}
+	_ resource.ResourceWithUpgradeState   = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithImportState    = &wireGuardServerRouteResource{}
 	_ resource.ResourceWithValidateConfig = &wireGuardServerRouteResource{}
 )
@@ -35,10 +36,10 @@ type wireGuardServerRouteResource struct {
 }
 
 type wireGuardServerRouteResourceModel struct {
-	Dest    types.String `tfsdk:"dest"`
-	Gateway types.String `tfsdk:"gateway"`
-	Metric  types.Int64  `tfsdk:"metric"`
-	MTU     types.Int64  `tfsdk:"mtu"`
+	Destination types.String `tfsdk:"destination"`
+	Gateway     types.String `tfsdk:"gateway"`
+	Metric      types.Int64  `tfsdk:"metric"`
+	MTU         types.Int64  `tfsdk:"mtu"`
 }
 
 func (r *wireGuardServerRouteResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -47,10 +48,11 @@ func (r *wireGuardServerRouteResource) Metadata(_ context.Context, req resource.
 
 func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages a route rule of the WireGuard server of the router (`wg-server.add_route` in the router API). " +
-			"The destination network identifies the route rule, so a change of `dest` replaces it. " +
-			"The router gives each route rule an ID (`rule_id`); the provider finds the ID from `dest` before each call and does not keep it in the state, because it is not known whether the ID stays the same. " +
-			"The web UI permits one route rule for each destination, so create fails when the router already has a route rule for `dest`. " +
+			"The destination network identifies the route rule, so a change of `destination` replaces it. " +
+			"The router gives each route rule an ID (`rule_id`); the provider finds the ID from `destination` before each call and does not keep it in the state, because it is not known whether the ID stays the same. " +
+			"The web UI permits one route rule for each destination, so create fails when the router already has a route rule for `destination`. " +
 			"An IPv6 destination makes an IPv6 route rule, and an IPv4 destination an IPv4 route rule. " +
 			"The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with `glinet_wireguard_server` or in the web UI. " +
 			"The provider sends `gateway`, `metric` and `mtu` in each write, with `\"\"` and `0` for a value that is not set, as the web UI of firmware 4.8.3 does; what the router does with `\"\"` and `0` is not known. " +
@@ -59,7 +61,7 @@ func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.Sche
 			"Import the route rule with its destination, for example `terraform import glinet_wireguard_server_route.example 192.168.10.0/24`. " +
 			untestedWriteNote,
 		Attributes: map[string]schema.Attribute{
-			"dest": schema.StringAttribute{
+			"destination": schema.StringAttribute{
 				Description: "Destination network with a prefix length, for example `192.168.10.0/24` or `fd00:db8:10::/64` (`dest` in the router API). Changing it replaces the route rule.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
@@ -70,7 +72,7 @@ func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.Sche
 				},
 			},
 			"gateway": schema.StringAttribute{
-				Description: "IP address of the gateway, of the same address family as `dest` (`gateway` in the router API).",
+				Description: "IP address of the gateway, of the same address family as `destination` (`gateway` in the router API).",
 				Optional:    true,
 				Validators: []validator.String{
 					stringCheck{description: "must be an IP address", valid: validIP},
@@ -90,21 +92,21 @@ func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.Sche
 	}
 }
 
-// ValidateConfig checks that gateway has the address family of dest, as the web UI does.
+// ValidateConfig checks that gateway has the address family of destination, as the web UI does.
 func (r *wireGuardServerRouteResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var model wireGuardServerRouteResourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	if resp.Diagnostics.HasError() || model.Dest.IsNull() || model.Dest.IsUnknown() || model.Gateway.IsNull() || model.Gateway.IsUnknown() {
+	if resp.Diagnostics.HasError() || model.Destination.IsNull() || model.Destination.IsUnknown() || model.Gateway.IsNull() || model.Gateway.IsUnknown() {
 		return
 	}
 
-	dest, err := netip.ParsePrefix(model.Dest.ValueString())
+	dest, err := netip.ParsePrefix(model.Destination.ValueString())
 	gateway, gerr := netip.ParseAddr(model.Gateway.ValueString())
 	if err != nil || gerr != nil || dest.Addr().Is4() == gateway.Is4() {
 		return
 	}
 	resp.Diagnostics.AddAttributeError(path.Root("gateway"), invalidCombination,
-		fmt.Sprintf("gateway %s must have the address family of dest %s.", gateway, dest))
+		fmt.Sprintf("gateway %s must have the address family of destination %s.", gateway, dest))
 }
 
 func (r *wireGuardServerRouteResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -132,7 +134,7 @@ func (r *wireGuardServerRouteResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	dest := plan.Dest.ValueString()
+	dest := plan.Destination.ValueString()
 	route, err := r.find(ctx, dest)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Route Rules", err.Error())
@@ -160,7 +162,7 @@ func (r *wireGuardServerRouteResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	route, err := r.find(ctx, state.Dest.ValueString())
+	route, err := r.find(ctx, state.Destination.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Route Rules", err.Error())
 		return
@@ -183,7 +185,7 @@ func (r *wireGuardServerRouteResource) Update(ctx context.Context, req resource.
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	dest := plan.Dest.ValueString()
+	dest := plan.Destination.ValueString()
 	route, err := r.find(ctx, dest)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Route Rules", err.Error())
@@ -214,7 +216,7 @@ func (r *wireGuardServerRouteResource) Delete(ctx context.Context, req resource.
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	route, err := r.find(ctx, state.Dest.ValueString())
+	route, err := r.find(ctx, state.Destination.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Route Rules", err.Error())
 		return
@@ -234,10 +236,10 @@ func (r *wireGuardServerRouteResource) ImportState(ctx context.Context, req reso
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("dest"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("destination"), req.ID)...)
 }
 
-// find returns the route rule for dest, or nil when the router has none.
+// find returns the route rule for destination, or nil when the router has none.
 func (r *wireGuardServerRouteResource) find(ctx context.Context, dest string) (*glinet.VPNRoute, error) {
 	routes, err := r.client.WireGuardServer.ListRoutes(ctx)
 	if err != nil {
@@ -271,7 +273,7 @@ func (r *wireGuardServerRouteResource) readBack(ctx context.Context, dest string
 func (m wireGuardServerRouteResourceModel) route(id int64) glinet.VPNRoute {
 	return glinet.VPNRoute{
 		ID:      id,
-		Dest:    m.Dest.ValueString(),
+		Dest:    m.Destination.ValueString(),
 		Gateway: m.Gateway.ValueString(),
 		Metric:  m.Metric.ValueInt64(),
 		MTU:     int(m.MTU.ValueInt64()),
@@ -280,9 +282,15 @@ func (m wireGuardServerRouteResourceModel) route(id int64) glinet.VPNRoute {
 
 func wireGuardServerRouteModel(route *glinet.VPNRoute) *wireGuardServerRouteResourceModel {
 	return &wireGuardServerRouteResourceModel{
-		Dest:    types.StringValue(route.Dest),
-		Gateway: stringOrNull(route.Gateway),
-		Metric:  int64OrNull(route.Metric),
-		MTU:     int64OrNull(route.MTU),
+		Destination: types.StringValue(route.Dest),
+		Gateway:     stringOrNull(route.Gateway),
+		Metric:      int64OrNull(route.Metric),
+		MTU:         int64OrNull(route.MTU),
 	}
+}
+
+// UpgradeState moves dest to destination in a state of schema version 0 (release 0.2.0), because Read finds the
+// route rule by destination.
+func (r *wireGuardServerRouteResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{0: renameAttributes(map[string]string{"dest": "destination"})}
 }

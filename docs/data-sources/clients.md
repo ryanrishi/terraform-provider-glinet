@@ -3,12 +3,12 @@
 page_title: "glinet_clients Data Source - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Get the client devices that the router knows, online and offline (clients.get_list). mac, name, alias, class, blocked, limit_rx and limit_tx are names and settings of the client. The other attributes change while the router runs.
+  Get the client devices that the router knows, online and offline (clients.get_list). mac, name, alias, icon, blocked, download_limit and upload_limit are names and settings of the client. The other attributes change while the router runs.
 ---
 
 # glinet_clients (Data Source)
 
-Get the client devices that the router knows, online and offline (`clients.get_list`). `mac`, `name`, `alias`, `class`, `blocked`, `limit_rx` and `limit_tx` are names and settings of the client. The other attributes change while the router runs.
+Get the client devices that the router knows, online and offline (`clients.get_list`). `mac`, `name`, `alias`, `icon`, `blocked`, `download_limit` and `upload_limit` are names and settings of the client. The other attributes change while the router runs.
 
 ## Example Usage
 
@@ -38,15 +38,14 @@ Read-Only:
 
 - `alias` (String) Name that is set for the client on the router. Null when none is set.
 - `blocked` (Boolean) Whether the router blocks the client.
-- `class` (String) Device class that is set for the client on the router, for example `laptop`. Null when none is set.
 - `connection` (String) Connection of the client (`iface`), for example `cable` or `5G`.
+- `download_limit` (Number) Download speed limit of the client in KiB/s (`limit_rx` in the router API). `0` is no limit. The value can have a fraction.
+- `icon` (String) Icon that is set for the client on the router (`class` in the router API), for example `laptop`. Null when none is set.
 - `ip` (String) IPv4 address of the client. The router also gives it for offline clients.
 - `ipv6` (List of String) IPv6 addresses of the client. Empty when the router gives none.
 - `last_rx` (List of Number) Numbers that the router gives as `last_rx`. On the test router, the list had 60 items, and the last item was equal to `total_rx`. The web UI does not use it, and its meaning is not known.
 - `last_tx` (List of Number) Numbers that the router gives as `last_tx`. On the test router, the list had 60 items, and the last item was equal to `total_tx`. The web UI does not use it, and its meaning is not known.
 - `last_update_rate` (Number) Unix time in seconds that the router gives as `last_update_rate`. On the test router, all clients had the same value. The web UI does not use it, and its meaning is not known.
-- `limit_rx` (Number) Download speed limit of the client in KiB/s (`limit_rx`). `0` is no limit. The value can have a fraction.
-- `limit_tx` (Number) Upload speed limit of the client in KiB/s (`limit_tx`). `0` is no limit. The value can have a fraction.
 - `mac` (String) MAC address of the client.
 - `name` (String) Name of the client, as the router detects it.
 - `online` (Boolean) Whether the client is online.
@@ -59,3 +58,4 @@ Read-Only:
 - `total_tx_init` (Number) Number that the router gives as `total_tx_init`. The web UI does not use it, and its meaning is not known.
 - `tx` (Number) Current transmit rate of the client, in bytes per second. The web UI shows it as the upload speed.
 - `type` (Number) Connection type number of the client. On the test router, 0 is `2.4G`, 1 is `5G` and 2 is `cable`. The web UI does not show clients of type 5 or 6. When it sorts the clients by network, it puts types 0, 1, 2, 8, 9 and 11 before the other types. The meaning of the other numbers is not known.
+- `upload_limit` (Number) Upload speed limit of the client in KiB/s (`limit_tx` in the router API). `0` is no limit. The value can have a fraction.
