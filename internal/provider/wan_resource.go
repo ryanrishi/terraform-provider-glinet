@@ -107,6 +107,7 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
 			"for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. " +
 			"The reads of the second WAN port were not tested on a router, and what `cable.get_config` and `cable.set_config` do for the second WAN port on a router without one is not known. " +
+			"The role and the MAC address of the same port are in `glinet_wan_port`, which uses another router method; the two resources have no attribute in common. " +
 			"Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. " +
 			"A wrong configuration cuts the wired uplink of the router. " +
 			untestedWriteNote + destroyNote,
@@ -303,7 +304,7 @@ func (r *wanResource) Create(ctx context.Context, req resource.CreateRequest, re
 func (r *wanResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var id types.String
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &id)...)
-	if resp.Diagnostics.HasError() || !r.checkPort(ctx, id.ValueString(), &resp.Diagnostics) {
+	if resp.Diagnostics.HasError() || !checkWANPort(ctx, r.client, id.ValueString(), &resp.Diagnostics) {
 		return
 	}
 
@@ -329,13 +330,13 @@ func (r *wanResource) ImportState(ctx context.Context, req resource.ImportStateR
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }
 
-// checkPort adds an error when port is the second WAN port and the router has none.
-func (r *wanResource) checkPort(ctx context.Context, port string, diags *diag.Diagnostics) bool {
+// checkWANPort adds an error when port is the second WAN port and the router has none.
+func checkWANPort(ctx context.Context, client *glinet.Client, port string, diags *diag.Diagnostics) bool {
 	if wanPorts[port] != glinet.SecondWANPort {
 		return true
 	}
 
-	info, err := r.client.System.GetInfo(ctx)
+	info, err := client.System.GetInfo(ctx)
 	if err != nil {
 		diags.AddError("Unable to Read System Information", err.Error())
 		return false
@@ -386,7 +387,7 @@ func (r *wanResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.Sta
 		}
 	}
 	port := model.Port.ValueString()
-	if diags.HasError() || !r.checkPort(ctx, port, diags) {
+	if diags.HasError() || !checkWANPort(ctx, r.client, port, diags) {
 		return
 	}
 
