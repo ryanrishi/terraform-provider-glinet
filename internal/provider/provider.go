@@ -53,8 +53,9 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"[`glinet_access_control`](" + registryDocs + "resources/access_control), " +
 			"[`glinet_client_allow`](" + registryDocs + "resources/client_allow), " +
 			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
-			"[`glinet_lan`](" + registryDocs + "resources/lan) and " +
-			"[`glinet_wifi_interface`](" + registryDocs + "resources/wifi_interface). " +
+			"[`glinet_lan`](" + registryDocs + "resources/lan), " +
+			"[`glinet_wifi_interface`](" + registryDocs + "resources/wifi_interface) and " +
+			"[`glinet_wifi_radio`](" + registryDocs + "resources/wifi_radio). " +
 			"Read the warnings on their pages before you apply them.\n\n" +
 			"Destroy of a resource disables a feature that exposes the router or acts on its own " +
 			"(`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), " +
