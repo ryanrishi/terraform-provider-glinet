@@ -7,6 +7,7 @@ description: |-
   The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add replace_triggered_by with the earlier rule to the lifecycle block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
   Destroy removes the rule from the router.
   Rules with no destination port: firmware 4.7.0 cannot remove a rule with no destination port, but can change it. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again. Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because set_rule and remove_rule return HTTP status 500. The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. When a write to such a rule fails, the error tells how to remove the rule with SSH and uci. The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). Other firmware versions were not tested.
+  Rules with IPv6 addresses, IPv4 and IPv6 CIDR blocks, the protocols esp and icmpv6, and a source MAC address in upper case were tested on a GL-AXT1800 with firmware 4.8.3: the router accepted the write, and the nftables rule set of the firewall had the rule.
   The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 ---
 
@@ -19,6 +20,8 @@ The firewall applies the first rule in the list that matches the traffic. The ro
 Destroy removes the rule from the router.
 
 Rules with no destination port: firmware 4.7.0 cannot remove a rule with no destination port, but can change it. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again. Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because `set_rule` and `remove_rule` return HTTP status 500. The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. When a write to such a rule fails, the error tells how to remove the rule with SSH and `uci`. The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). Other firmware versions were not tested.
+
+Rules with IPv6 addresses, IPv4 and IPv6 CIDR blocks, the protocols `esp` and `icmpv6`, and a source MAC address in upper case were tested on a GL-AXT1800 with firmware 4.8.3: the router accepted the write, and the nftables rule set of the firewall had the rule.
 
 The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 

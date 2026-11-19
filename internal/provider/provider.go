@@ -48,19 +48,30 @@ func (p *GLiNetProvider) Metadata(ctx context.Context, req provider.MetadataRequ
 func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages GL.iNet routers that run v4 firmware. " +
-			"The provider is tested on a GL-AXT1800 with firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.\n\n" +
-			"~> **Warning:** some resources can cut the access to the router: " +
+			"The provider is tested on a GL-AXT1800 with firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods. " +
+			"Many writes come from the web UI code of firmware 4.8.3 and were not tested on a router: the page of each resource states this.\n\n" +
+			"~> **Warning:** some resources can cut the access to the router, or the Internet access of the router and its clients: " +
 			"[`glinet_access_control`](" + registryDocs + "resources/access_control), " +
 			"[`glinet_client_allow`](" + registryDocs + "resources/client_allow), " +
+			"[`glinet_parental_control`](" + registryDocs + "resources/parental_control), " +
+			"[`glinet_parental_control_group`](" + registryDocs + "resources/parental_control_group), " +
+			"[`glinet_local_access`](" + registryDocs + "resources/local_access), " +
+			"[`glinet_wan_access`](" + registryDocs + "resources/wan_access), " +
 			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
+			"[`glinet_wan_port`](" + registryDocs + "resources/wan_port), " +
+			"[`glinet_multiwan`](" + registryDocs + "resources/multiwan), " +
+			"[`glinet_multiwan_interface`](" + registryDocs + "resources/multiwan_interface), " +
+			"[`glinet_multiwan_sensitivity`](" + registryDocs + "resources/multiwan_sensitivity), " +
+			"[`glinet_repeater`](" + registryDocs + "resources/repeater), " +
 			"[`glinet_lan`](" + registryDocs + "resources/lan), " +
 			"[`glinet_wifi_interface`](" + registryDocs + "resources/wifi_interface) and " +
 			"[`glinet_wifi_radio`](" + registryDocs + "resources/wifi_radio). " +
 			"Read the warnings on their pages before you apply them.\n\n" +
 			"Destroy of a resource disables a feature that exposes the router or acts on its own " +
-			"(`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), " +
-			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_client_allow`, `glinet_firewall_port_forward`, `glinet_firewall_rule`, " +
-			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`), " +
+			"(`glinet_firewall_dmz`, `glinet_wan_access`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`, `glinet_parental_control`), " +
+			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_client_allow`, `glinet_client_speed_limit`, " +
+			"`glinet_firewall_port_forward`, `glinet_firewall_rule`, `glinet_parental_control_group`, `glinet_parental_control_ruleset`, " +
+			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`, `glinet_wireguard_server_route`), " +
 			"and leaves a plain setting unchanged on the router (the other resources).",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
