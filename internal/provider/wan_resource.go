@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -22,7 +23,10 @@ import (
 	"github.com/ryanrishi/glinet-client-go"
 )
 
-const wanID = "wan"
+var wanPorts = map[string]glinet.WANPort{
+	"wan":       glinet.FirstWANPort,
+	"secondwan": glinet.SecondWANPort,
+}
 
 var (
 	_ resource.Resource                     = &wanResource{}
@@ -41,6 +45,7 @@ type wanResource struct {
 
 type wanResourceModel struct {
 	ID       types.String `tfsdk:"id"`
+	Port     types.String `tfsdk:"port"`
 	Protocol types.String `tfsdk:"protocol"`
 	IPv4     types.Object `tfsdk:"ipv4"`
 	IPv6     types.Object `tfsdk:"ipv6"`
@@ -93,17 +98,33 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	ipv6Validator := stringCheck{description: "must be an IPv6 address", valid: validIPv6}
 
 	resp.Schema = schema.Schema{
-		Description: "Manages the wired WAN port of the router (`cable.set_config` in the router API). " +
-			"The router has one wired WAN port, so use one instance of this resource. " +
+		Description: "Manages a wired WAN port of the router (`cable.set_config` in the router API). " +
+			"Use one instance of this resource for each wired WAN port. " +
+			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
+			"for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. " +
+			"The reads of the second WAN port were not tested on a router, and what `cable.get_config` and `cable.set_config` do for the second WAN port on a router without one is not known. " +
 			"Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. " +
 			"A wrong configuration cuts the wired uplink of the router. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Always `" + wanID + "`.",
+				Description: "Same as `port`.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"port": schema.StringAttribute{
+				Description: "The wired WAN port: `wan` for the first port or `secondwan` for the second port (`secondwan` in the router API). " +
+					"Default `wan`. Changing it replaces the resource.",
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString("wan"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("wan", "secondwan"),
 				},
 			},
 			"protocol": schema.StringAttribute{
@@ -250,8 +271,15 @@ func (r *wanResource) Create(ctx context.Context, req resource.CreateRequest, re
 	r.set(ctx, req.Plan, &resp.State, &resp.Diagnostics)
 }
 
-func (r *wanResource) Read(ctx context.Context, _ resource.ReadRequest, resp *resource.ReadResponse) {
-	r.read(ctx, &resp.State, &resp.Diagnostics)
+// Read takes the port from the ID, because a state without port has the ID of the first port.
+func (r *wanResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var id types.String
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &id)...)
+	if resp.Diagnostics.HasError() || !r.checkPort(ctx, id.ValueString(), &resp.Diagnostics) {
+		return
+	}
+
+	r.read(ctx, id.ValueString(), &resp.State, &resp.Diagnostics)
 }
 
 func (r *wanResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -262,15 +290,36 @@ func (r *wanResource) Delete(context.Context, resource.DeleteRequest, *resource.
 }
 
 func (r *wanResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	if req.ID != wanID {
+	if _, ok := wanPorts[req.ID]; !ok {
 		resp.Diagnostics.AddError(
 			"Invalid Import ID",
-			fmt.Sprintf("The import ID of glinet_wan must be %q, got %q.", wanID, req.ID),
+			fmt.Sprintf("The import ID of glinet_wan must be \"wan\" or \"secondwan\", got %q.", req.ID),
 		)
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), wanID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// checkPort adds an error when port is the second WAN port and the router has none.
+func (r *wanResource) checkPort(ctx context.Context, port string, diags *diag.Diagnostics) bool {
+	if wanPorts[port] != glinet.SecondWANPort {
+		return true
+	}
+
+	info, err := r.client.System.GetInfo(ctx)
+	if err != nil {
+		diags.AddError("Unable to Read System Information", err.Error())
+		return false
+	}
+	if !info.SoftwareFeature.SecondWAN {
+		diags.AddError(
+			"No Second WAN Port",
+			"The router has no second wired WAN port (software_feature.secondwan of system.get_info is false), so port \"secondwan\" cannot be used.",
+		)
+		return false
+	}
+	return true
 }
 
 func (r *wanResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.State, diags *diag.Diagnostics) {
@@ -308,35 +357,37 @@ func (r *wanResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.Sta
 			DNS:     listStrings(ctx, ipv6.DNS, diags),
 		}
 	}
-	if diags.HasError() {
+	port := model.Port.ValueString()
+	if diags.HasError() || !r.checkPort(ctx, port, diags) {
 		return
 	}
 
-	if err := r.client.Cable.SetConfig(ctx, glinet.FirstWANPort, config); err != nil {
+	if err := r.client.Cable.SetConfig(ctx, wanPorts[port], config); err != nil {
 		diags.AddError("Unable to Set WAN Configuration", err.Error())
 		return
 	}
 
-	model.ID = types.StringValue(wanID)
+	model.ID = model.Port
 	diags.Append(state.Set(ctx, &model)...)
 	if diags.HasError() {
 		return
 	}
 
-	r.read(ctx, state, diags)
+	r.read(ctx, port, state, diags)
 }
 
 // read takes the addresses and the PPPoE account only for the protocol that uses them, because the
 // router can keep the values of another protocol.
-func (r *wanResource) read(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
-	config, err := r.client.Cable.GetConfig(ctx, glinet.FirstWANPort)
+func (r *wanResource) read(ctx context.Context, port string, state *tfsdk.State, diags *diag.Diagnostics) {
+	config, err := r.client.Cable.GetConfig(ctx, wanPorts[port])
 	if err != nil {
 		diags.AddError("Unable to Read WAN Configuration", err.Error())
 		return
 	}
 
 	model := wanResourceModel{
-		ID:       types.StringValue(wanID),
+		ID:       types.StringValue(port),
+		Port:     types.StringValue(port),
 		Protocol: types.StringValue(config.Protocol),
 		IPv4:     types.ObjectNull(wanIPv4Types),
 		IPv6:     types.ObjectNull(wanIPv6Types),
