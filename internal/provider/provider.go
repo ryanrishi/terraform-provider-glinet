@@ -160,6 +160,9 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewFirewallRuleResource,
 		NewLEDResource,
 		NewLEDScheduleResource,
+		NewParentalControlResource,
+		NewParentalControlGroupResource,
+		NewParentalControlRulesetResource,
 		NewFanResource,
 		NewScreenScheduleResource,
 		NewSwitchButtonResource,
@@ -191,7 +194,9 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewWifiRadioResource,
 		NewWireGuardClientGroupResource,
 		NewWireGuardClientConfigResource,
+		NewWireGuardServerResource,
 		NewWireGuardServerPeerResource,
+		NewWireGuardServerRouteResource,
 	}
 }
 
@@ -202,6 +207,7 @@ func (p *GLiNetProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewSystemStatusDataSource,
 		NewClientsDataSource,
 		NewFirewallZonesDataSource,
+		NewParentalControlAppsDataSource,
 		NewWANStatusDataSource,
 		NewMultiWANStatusDataSource,
 		NewRepeaterStatusDataSource,

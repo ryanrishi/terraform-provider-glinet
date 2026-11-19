@@ -57,6 +57,9 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
+| Resource | `glinet_parental_control` | [docs/resources/parental_control.md](docs/resources/parental_control.md) |
+| Resource | `glinet_parental_control_group` | [docs/resources/parental_control_group.md](docs/resources/parental_control_group.md) |
+| Resource | `glinet_parental_control_ruleset` | [docs/resources/parental_control_ruleset.md](docs/resources/parental_control_ruleset.md) |
 | Resource | `glinet_multiwan` | [docs/resources/multiwan.md](docs/resources/multiwan.md) |
 | Resource | `glinet_multiwan_interface` | [docs/resources/multiwan_interface.md](docs/resources/multiwan_interface.md) |
 | Resource | `glinet_multiwan_sensitivity` | [docs/resources/multiwan_sensitivity.md](docs/resources/multiwan_sensitivity.md) |
@@ -76,13 +79,16 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
 | Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
 | Resource | `glinet_wireguard_client_group` | [docs/resources/wireguard_client_group.md](docs/resources/wireguard_client_group.md) |
+| Resource | `glinet_wireguard_server` | [docs/resources/wireguard_server.md](docs/resources/wireguard_server.md) |
 | Resource | `glinet_wireguard_server_peer` | [docs/resources/wireguard_server_peer.md](docs/resources/wireguard_server_peer.md) |
+| Resource | `glinet_wireguard_server_route` | [docs/resources/wireguard_server_route.md](docs/resources/wireguard_server_route.md) |
 | Resource | `glinet_zerotier` | [docs/resources/zerotier.md](docs/resources/zerotier.md) |
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
 | Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
+| Data source | `glinet_parental_control_apps` | [docs/data-sources/parental_control_apps.md](docs/data-sources/parental_control_apps.md) |
 | Data source | `glinet_multiwan_status` | [docs/data-sources/multiwan_status.md](docs/data-sources/multiwan_status.md) |
 | Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
 | Data source | `glinet_repeater_status` | [docs/data-sources/repeater_status.md](docs/data-sources/repeater_status.md) |
