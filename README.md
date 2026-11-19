@@ -33,7 +33,7 @@ variable "glinet_password" {
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
 
 > [!WARNING]
-> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md) and [`glinet_wifi_interface`](docs/resources/wifi_interface.md).
+> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
 > Read the warnings on their pages before you apply them.
 
 | Type | Name | Documentation |
@@ -55,6 +55,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
+| Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
 | Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
 | Resource | `glinet_wireguard_client_group` | [docs/resources/wireguard_client_group.md](docs/resources/wireguard_client_group.md) |
 | Resource | `glinet_wireguard_server_peer` | [docs/resources/wireguard_server_peer.md](docs/resources/wireguard_server_peer.md) |
