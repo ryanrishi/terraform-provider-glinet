@@ -43,7 +43,7 @@ resource "glinet_client_info" "test" {
 func expectClientInfo(alias, class string) []statecheck.StateCheck {
 	return []statecheck.StateCheck{
 		statecheck.ExpectKnownValue(clientInfoAddress, tfjsonpath.New("alias"), knownvalue.StringExact(alias)),
-		statecheck.ExpectKnownValue(clientInfoAddress, tfjsonpath.New("class"), knownvalue.StringExact(class)),
+		statecheck.ExpectKnownValue(clientInfoAddress, tfjsonpath.New("icon"), knownvalue.StringExact(class)),
 	}
 }
 
@@ -71,7 +71,7 @@ func TestClientInfoResource(t *testing.T) {
 				),
 			},
 			{
-				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`+"\n"+`class = ""`),
+				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`+"\n"+`icon = ""`),
 				ConfigPlanChecks:  expectResourceAction(clientInfoAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectClientInfo("tablet", ""),
 				Check: resource.ComposeTestCheckFunc(
@@ -80,7 +80,7 @@ func TestClientInfoResource(t *testing.T) {
 				),
 			},
 			{
-				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `class = "pad"`),
+				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `icon = "pad"`),
 				ConfigStateChecks: expectClientInfo("tablet", "pad"),
 				Check:             writes.expect(fmt.Sprintf(`{"mac": %q, "alias": "tablet", "class": "pad"}`, testClientMAC)),
 			},
@@ -171,7 +171,7 @@ func TestClientInfoResourceEmptyValues(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = ""`+"\n"+`class = ""`),
+				Config:            fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = ""`+"\n"+`icon = ""`),
 				ConfigStateChecks: expectClientInfo("", ""),
 			},
 			{
@@ -188,7 +188,7 @@ func TestClientInfoResourceDrift(t *testing.T) {
 	srv := clientListServer(t, "")
 	client := testClient(t, srv.URL, srv.Username, srv.Password)
 	writes := recordCalls(t, srv, "clients", "set_info")
-	config := fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`+"\n"+`class = "pad"`)
+	config := fakeRouterConfig(srv) + clientInfoConfig(testClientMAC, `alias = "tablet"`+"\n"+`icon = "pad"`)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -246,7 +246,7 @@ func TestClientInfoResourceInvalidValues(t *testing.T) {
 		`alias = "a,b"`,
 		`alias = "a\"b"`,
 		`alias = "123456789012345678901234567890123"`,
-		`class = "a,b"`,
+		`icon = "a,b"`,
 	} {
 		t.Run(attributes, func(t *testing.T) {
 			resource.UnitTest(t, resource.TestCase{

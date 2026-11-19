@@ -14,8 +14,8 @@ Manages the time zone of the router. The router has one time zone configuration,
 
 ```terraform
 resource "glinet_system_timezone" "this" {
-  zonename = "Europe/Berlin"
-  timezone = "CET-1CEST,M3.5.0,M10.5.0/3"
+  zone_name = "Europe/Berlin"
+  timezone  = "CET-1CEST,M3.5.0,M10.5.0/3"
 }
 ```
 
@@ -25,13 +25,13 @@ resource "glinet_system_timezone" "this" {
 ### Required
 
 - `timezone` (String) POSIX TZ string, for example `CET-1CEST,M3.5.0,M10.5.0/3`.
-- `zonename` (String) Time zone name as the router shows it, for example `Europe/Berlin`.
+- `zone_name` (String) Time zone name as the router shows it, for example `Europe/Berlin`.
 
 ### Read-Only
 
 - `auto_timezone_enabled` (Boolean) Whether the router sets the time zone automatically. The router does not let this resource change it.
 - `id` (String) Always `system_timezone`.
-- `tzoffset` (String) Current offset from UTC, for example `+0100`. It changes with daylight saving time.
+- `timezone_offset` (String) Current offset from UTC, for example `+0100`. It changes with daylight saving time.
 
 ## Import
 

@@ -84,7 +84,7 @@ func TestSystemStatusDataSource(t *testing.T) {
 		"nat_enabled":       knownvalue.Bool(true),
 		"mode":              knownvalue.Int64Exact(2),
 		"timestamp":         knownvalue.Int64Exact(1794517485),
-		"tzoffset":          knownvalue.StringExact("+0100"),
+		"timezone_offset":   knownvalue.StringExact("+0100"),
 		"client_counts": knownvalue.ListExact([]knownvalue.Check{
 			knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"cable_total":    knownvalue.Int64Exact(1),
@@ -157,7 +157,7 @@ func TestSystemStatusDataSourceAbsentFields(t *testing.T) {
 		"cpu_temperature": knownvalue.Null(),
 		"mode":            knownvalue.Int64Exact(0),
 		"timestamp":       knownvalue.Int64Exact(0),
-		"tzoffset":        knownvalue.StringExact(""),
+		"timezone_offset": knownvalue.StringExact(""),
 		"client_counts":   knownvalue.ListExact([]knownvalue.Check{}),
 		"networks":        knownvalue.ListExact([]knownvalue.Check{}),
 		"services":        knownvalue.ListExact([]knownvalue.Check{}),
@@ -196,7 +196,7 @@ func realRouterSystemStatusChecks() map[string]knownvalue.Check {
 		"nat_enabled":       anyBool,
 		"mode":              anyInt64,
 		"timestamp":         positiveInt64,
-		"tzoffset":          nonEmptyString,
+		"timezone_offset":   nonEmptyString,
 		"client_counts": knownvalue.ListPartial(map[int]knownvalue.Check{
 			0: knownvalue.ObjectExact(map[string]knownvalue.Check{
 				"cable_total":    anyInt64,

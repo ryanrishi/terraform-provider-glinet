@@ -41,9 +41,9 @@ type wireGuardServerResourceModel struct {
 	ListenPort     types.Int64  `tfsdk:"listen_port"`
 	PrivateKey     types.String `tfsdk:"private_key"`
 	PublicKey      types.String `tfsdk:"public_key"`
-	ClientToClient types.Bool   `tfsdk:"client_to_client"`
-	LocalAccess    types.Bool   `tfsdk:"local_access"`
-	Masquerade     types.Bool   `tfsdk:"masquerade"`
+	ClientToClient types.Bool   `tfsdk:"client_to_client_enabled"`
+	LocalAccess    types.Bool   `tfsdk:"local_access_enabled"`
+	Masquerade     types.Bool   `tfsdk:"masquerade_enabled"`
 	MTU            types.Int64  `tfsdk:"mtu"`
 }
 
@@ -130,17 +130,17 @@ func (r *wireGuardServerResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Public key of the server, which the router gives from the private key (`public_key` in the router API).",
 				Computed:    true,
 			},
-			"client_to_client": schema.BoolAttribute{
+			"client_to_client_enabled": schema.BoolAttribute{
 				Description: "Whether the peers can reach each other (`client_to_client` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,
 			},
-			"local_access": schema.BoolAttribute{
+			"local_access_enabled": schema.BoolAttribute{
 				Description: "Whether the peers can reach the LAN of the router (`local_access` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,
 			},
-			"masquerade": schema.BoolAttribute{
+			"masquerade_enabled": schema.BoolAttribute{
 				Description: "Whether the router translates the source address of the traffic of the peers (NAT) (`masq` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,

@@ -24,27 +24,27 @@ type repeaterStatusDataSource struct {
 }
 
 type repeaterStatusModel struct {
-	State      types.String     `tfsdk:"state"`
-	StateCode  int              `tfsdk:"state_code"`
-	Running    bool             `tfsdk:"running"`
-	FailType   types.String     `tfsdk:"fail_type"`
-	SSID       types.String     `tfsdk:"ssid"`
-	BSSID      types.String     `tfsdk:"bssid"`
-	Band       types.String     `tfsdk:"band"`
-	Channel    types.Int64      `tfsdk:"channel"`
-	HTMode     types.String     `tfsdk:"htmode"`
-	DFS        bool             `tfsdk:"dfs"`
-	Signal     types.Int64      `tfsdk:"signal"`
-	Device     types.String     `tfsdk:"device"`
-	Network    types.String     `tfsdk:"network"`
-	MACAddress types.String     `tfsdk:"mac_address"`
-	Connected  types.String     `tfsdk:"connected"`
-	EAP        bool             `tfsdk:"eap"`
-	Portal     bool             `tfsdk:"portal"`
-	PortalURL  types.String     `tfsdk:"portal_url"`
-	BareMode   bool             `tfsdk:"bare_mode"`
-	Protocol   types.String     `tfsdk:"protocol"`
-	IPv4       *uplinkIPv4Model `tfsdk:"ipv4"`
+	State     types.String     `tfsdk:"state"`
+	StateCode int              `tfsdk:"state_code"`
+	Running   bool             `tfsdk:"running"`
+	FailType  types.String     `tfsdk:"fail_type"`
+	SSID      types.String     `tfsdk:"ssid"`
+	BSSID     types.String     `tfsdk:"bssid"`
+	Band      types.String     `tfsdk:"band"`
+	Channel   types.Int64      `tfsdk:"channel"`
+	HTMode    types.String     `tfsdk:"htmode"`
+	DFS       bool             `tfsdk:"dfs"`
+	Signal    types.Int64      `tfsdk:"signal"`
+	Device    types.String     `tfsdk:"device"`
+	Network   types.String     `tfsdk:"network"`
+	MAC       types.String     `tfsdk:"mac"`
+	Connected types.String     `tfsdk:"connected"`
+	EAP       bool             `tfsdk:"eap"`
+	Portal    bool             `tfsdk:"portal"`
+	PortalURL types.String     `tfsdk:"portal_url"`
+	BareMode  bool             `tfsdk:"bare_mode"`
+	Protocol  types.String     `tfsdk:"protocol"`
+	IPv4      *uplinkIPv4Model `tfsdk:"ipv4"`
 }
 
 type uplinkIPv4Model struct {
@@ -78,7 +78,7 @@ func (d *repeaterStatusDataSource) Schema(_ context.Context, _ datasource.Schema
 			"signal":    computedInt64("Signal strength of the uplink in dBm (`signal`). Null when the router gives no signal."),
 			"device":    computedString("Radio of the repeater (`device`), for example `radio0`. Null when the router gives no radio."),
 			"network":   computedString("Network interface of the repeater (`network`), for example `wwan`. Null when the router gives no interface."),
-			"mac_address": computedString("MAC address of the repeater interface (`macaddr`). " +
+			"mac": computedString("MAC address of the repeater interface (`macaddr`). " +
 				"Null when the router gives no MAC address."),
 			"connected": computedString("Time since the repeater connected, as the router gives it (`connected`), for example `40m,13s`. " +
 				"Null when the router gives no time."),
@@ -119,27 +119,27 @@ func (d *repeaterStatusDataSource) Read(ctx context.Context, _ datasource.ReadRe
 	}
 
 	state := repeaterStatusModel{
-		State:      stringOrNull(status.StateS),
-		StateCode:  status.State,
-		Running:    status.Running,
-		FailType:   stringOrNull(status.FailType),
-		SSID:       stringOrNull(status.SSID),
-		BSSID:      stringOrNull(status.BSSID),
-		Band:       stringOrNull(status.Band),
-		Channel:    channelOrNull(status.Channel),
-		HTMode:     stringOrNull(status.HTMode),
-		DFS:        status.DFS,
-		Signal:     int64OrNull(status.Signal),
-		Device:     stringOrNull(status.Device),
-		Network:    stringOrNull(status.Network),
-		MACAddress: stringOrNull(status.MACAddr),
-		Connected:  stringOrNull(status.Connected),
-		EAP:        status.EAP,
-		Portal:     status.Portal,
-		PortalURL:  stringOrNull(status.PortalURL),
-		BareMode:   status.BareMode,
-		Protocol:   types.StringNull(),
-		IPv4:       uplinkIPv4(ctx, status.IPv4, &resp.Diagnostics),
+		State:     stringOrNull(status.StateS),
+		StateCode: status.State,
+		Running:   status.Running,
+		FailType:  stringOrNull(status.FailType),
+		SSID:      stringOrNull(status.SSID),
+		BSSID:     stringOrNull(status.BSSID),
+		Band:      stringOrNull(status.Band),
+		Channel:   channelOrNull(status.Channel),
+		HTMode:    stringOrNull(status.HTMode),
+		DFS:       status.DFS,
+		Signal:    int64OrNull(status.Signal),
+		Device:    stringOrNull(status.Device),
+		Network:   stringOrNull(status.Network),
+		MAC:       stringOrNull(status.MACAddr),
+		Connected: stringOrNull(status.Connected),
+		EAP:       status.EAP,
+		Portal:    status.Portal,
+		PortalURL: stringOrNull(status.PortalURL),
+		BareMode:  status.BareMode,
+		Protocol:  types.StringNull(),
+		IPv4:      uplinkIPv4(ctx, status.IPv4, &resp.Diagnostics),
 	}
 	if status.Config != nil {
 		state.Protocol = stringOrNull(status.Config.Protocol)

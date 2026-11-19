@@ -107,7 +107,7 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
 			"for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. " +
 			"The reads of the second WAN port were not tested on a router, and what `cable.get_config` and `cable.set_config` do for the second WAN port on a router without one is not known. " +
-			"The role and the MAC address of the same port are in `glinet_wan_port`, which uses another router method; the two resources have no attribute in common. " +
+			"The role and the MAC address of the same port are in `glinet_wan_port`, which uses another router method; the two resources have only `port` in common. " +
 			"Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. " +
 			"A wrong configuration cuts the wired uplink of the router. " +
 			untestedWriteNote + destroyNote,

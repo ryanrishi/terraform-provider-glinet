@@ -33,8 +33,8 @@ type networkAdvancedResource struct {
 
 type networkAdvancedResourceModel struct {
 	ID          types.String `tfsdk:"id"`
-	FullConeNAT types.Bool   `tfsdk:"full_cone_nat"`
-	SIPALG      types.Bool   `tfsdk:"sip_alg"`
+	FullConeNAT types.Bool   `tfsdk:"full_cone_nat_enabled"`
+	SIPALG      types.Bool   `tfsdk:"sip_alg_enabled"`
 }
 
 func (r *networkAdvancedResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -56,12 +56,12 @@ func (r *networkAdvancedResource) Schema(_ context.Context, _ resource.SchemaReq
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"full_cone_nat": schema.BoolAttribute{
+			"full_cone_nat_enabled": schema.BoolAttribute{
 				Description: "Whether the router uses Full Cone NAT (`nat_enable` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,
 			},
-			"sip_alg": schema.BoolAttribute{
+			"sip_alg_enabled": schema.BoolAttribute{
 				Description: "Whether the SIP ALG is enabled (`sip_enable` in the router API). When it is not set, the router value does not change.",
 				Optional:    true,
 				Computed:    true,

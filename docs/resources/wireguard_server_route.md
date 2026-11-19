@@ -3,21 +3,21 @@
 page_title: "glinet_wireguard_server_route Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a route rule of the WireGuard server of the router (wg-server.add_route in the router API). The destination network identifies the route rule, so a change of dest replaces it. The router gives each route rule an ID (rule_id); the provider finds the ID from dest before each call and does not keep it in the state, because it is not known whether the ID stays the same. The web UI permits one route rule for each destination, so create fails when the router already has a route rule for dest. An IPv6 destination makes an IPv6 route rule, and an IPv4 destination an IPv4 route rule. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with glinet_wireguard_server or in the web UI. The provider sends gateway, metric and mtu in each write, with "" and 0 for a value that is not set, as the web UI of firmware 4.8.3 does; what the router does with "" and 0 is not known. The web UI of firmware 4.8.3 does not send a scope, so the provider does not manage it. Destroy removes the route rule from the router. Import the route rule with its destination, for example terraform import glinet_wireguard_server_route.example 192.168.10.0/24. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+  Manages a route rule of the WireGuard server of the router (wg-server.add_route in the router API). The destination network identifies the route rule, so a change of destination replaces it. The router gives each route rule an ID (rule_id); the provider finds the ID from destination before each call and does not keep it in the state, because it is not known whether the ID stays the same. The web UI permits one route rule for each destination, so create fails when the router already has a route rule for destination. An IPv6 destination makes an IPv6 route rule, and an IPv4 destination an IPv4 route rule. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with glinet_wireguard_server or in the web UI. The provider sends gateway, metric and mtu in each write, with "" and 0 for a value that is not set, as the web UI of firmware 4.8.3 does; what the router does with "" and 0 is not known. The web UI of firmware 4.8.3 does not send a scope, so the provider does not manage it. Destroy removes the route rule from the router. Import the route rule with its destination, for example terraform import glinet_wireguard_server_route.example 192.168.10.0/24. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 ---
 
 # glinet_wireguard_server_route (Resource)
 
-Manages a route rule of the WireGuard server of the router (`wg-server.add_route` in the router API). The destination network identifies the route rule, so a change of `dest` replaces it. The router gives each route rule an ID (`rule_id`); the provider finds the ID from `dest` before each call and does not keep it in the state, because it is not known whether the ID stays the same. The web UI permits one route rule for each destination, so create fails when the router already has a route rule for `dest`. An IPv6 destination makes an IPv6 route rule, and an IPv4 destination an IPv4 route rule. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with `glinet_wireguard_server` or in the web UI. The provider sends `gateway`, `metric` and `mtu` in each write, with `""` and `0` for a value that is not set, as the web UI of firmware 4.8.3 does; what the router does with `""` and `0` is not known. The web UI of firmware 4.8.3 does not send a scope, so the provider does not manage it. Destroy removes the route rule from the router. Import the route rule with its destination, for example `terraform import glinet_wireguard_server_route.example 192.168.10.0/24`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+Manages a route rule of the WireGuard server of the router (`wg-server.add_route` in the router API). The destination network identifies the route rule, so a change of `destination` replaces it. The router gives each route rule an ID (`rule_id`); the provider finds the ID from `destination` before each call and does not keep it in the state, because it is not known whether the ID stays the same. The web UI permits one route rule for each destination, so create fails when the router already has a route rule for `destination`. An IPv6 destination makes an IPv6 route rule, and an IPv4 destination an IPv4 route rule. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with `glinet_wireguard_server` or in the web UI. The provider sends `gateway`, `metric` and `mtu` in each write, with `""` and `0` for a value that is not set, as the web UI of firmware 4.8.3 does; what the router does with `""` and `0` is not known. The web UI of firmware 4.8.3 does not send a scope, so the provider does not manage it. Destroy removes the route rule from the router. Import the route rule with its destination, for example `terraform import glinet_wireguard_server_route.example 192.168.10.0/24`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 
 ## Example Usage
 
 ```terraform
 # The network 192.168.10.0/24 is behind the peer with the tunnel address 10.0.0.2.
 resource "glinet_wireguard_server_route" "office" {
-  dest    = "192.168.10.0/24"
-  gateway = "10.0.0.2"
-  metric  = 10
+  destination = "192.168.10.0/24"
+  gateway     = "10.0.0.2"
+  metric      = 10
 }
 ```
 
@@ -26,11 +26,11 @@ resource "glinet_wireguard_server_route" "office" {
 
 ### Required
 
-- `dest` (String) Destination network with a prefix length, for example `192.168.10.0/24` or `fd00:db8:10::/64` (`dest` in the router API). Changing it replaces the route rule.
+- `destination` (String) Destination network with a prefix length, for example `192.168.10.0/24` or `fd00:db8:10::/64` (`dest` in the router API). Changing it replaces the route rule.
 
 ### Optional
 
-- `gateway` (String) IP address of the gateway, of the same address family as `dest` (`gateway` in the router API).
+- `gateway` (String) IP address of the gateway, of the same address family as `destination` (`gateway` in the router API).
 - `metric` (Number) Metric of the route, from 1 to 4294967295 (`metric` in the router API).
 - `mtu` (Number) MTU of the route, from 68 to 65535 (`mtu` in the router API).
 

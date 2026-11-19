@@ -68,7 +68,7 @@ func (s wgServer) config() string {
 	for _, a := range []struct {
 		name  string
 		value *bool
-	}{{"client_to_client", s.clientToClient}, {"local_access", s.localAccess}, {"masquerade", s.masquer}} {
+	}{{"client_to_client_enabled", s.clientToClient}, {"local_access_enabled", s.localAccess}, {"masquerade_enabled", s.masquer}} {
 		if a.value != nil {
 			fmt.Fprintf(&b, "  %s = %t\n", a.name, *a.value)
 		}
@@ -117,9 +117,9 @@ func TestWireGuardServerResource(t *testing.T) {
 					expectWGServer("listen_port", knownvalue.Int64Exact(51821)),
 					expectWGServer("private_key", knownvalue.StringExact(fakeServerPrivateKey)),
 					expectWGServer("public_key", knownvalue.StringExact(fakeServerPublicKey)),
-					expectWGServer("client_to_client", knownvalue.Bool(true)),
-					expectWGServer("local_access", knownvalue.Bool(true)),
-					expectWGServer("masquerade", knownvalue.Bool(false)),
+					expectWGServer("client_to_client_enabled", knownvalue.Bool(true)),
+					expectWGServer("local_access_enabled", knownvalue.Bool(true)),
+					expectWGServer("masquerade_enabled", knownvalue.Bool(false)),
 					expectWGServer("mtu", knownvalue.Int64Exact(1420)),
 				},
 				Check: resource.ComposeTestCheckFunc(
@@ -133,7 +133,7 @@ func TestWireGuardServerResource(t *testing.T) {
 				Config:           fakeRouterConfig(srv) + fullWGServer.with(func(s *wgServer) { s.masquer = ptr(true) }).config(),
 				ConfigPlanChecks: expectResourceAction(wgServerAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectWGServer("masquerade", knownvalue.Bool(true)),
+					expectWGServer("masquerade_enabled", knownvalue.Bool(true)),
 					expectWGServer("public_key", knownvalue.StringExact(fakeServerPublicKey)),
 				},
 				Check: resource.ComposeTestCheckFunc(
@@ -156,7 +156,7 @@ func TestWireGuardServerResource(t *testing.T) {
 				ConfigPlanChecks: expectResourceAction(wgServerAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectWGServer("listen_port", knownvalue.Int64Exact(51822)),
-					expectWGServer("masquerade", knownvalue.Bool(true)),
+					expectWGServer("masquerade_enabled", knownvalue.Bool(true)),
 				},
 				Check: resource.ComposeTestCheckFunc(
 					calls.setConfig.expect(`{"address_v4":"10.0.0.1/24","address_v6":"fd00:db8::1/64","ipv6_enable":false,"port":51822,
@@ -192,9 +192,9 @@ func TestWireGuardServerResourceMinimal(t *testing.T) {
 					expectWGServer("listen_port", knownvalue.Int64Exact(51820)),
 					expectWGServer("private_key", knownvalue.StringExact(fakeServerPrivateKey)),
 					expectWGServer("public_key", knownvalue.StringExact(fakeServerPublicKey)),
-					expectWGServer("client_to_client", knownvalue.Bool(false)),
-					expectWGServer("local_access", knownvalue.Bool(false)),
-					expectWGServer("masquerade", knownvalue.Bool(true)),
+					expectWGServer("client_to_client_enabled", knownvalue.Bool(false)),
+					expectWGServer("local_access_enabled", knownvalue.Bool(false)),
+					expectWGServer("masquerade_enabled", knownvalue.Bool(true)),
 					expectWGServer("mtu", knownvalue.Int64Exact(0)),
 				},
 				Check: resource.ComposeTestCheckFunc(calls.generateKey.expect(`{}`), calls.setConfig.expect(), calls.setSetting.expect()),

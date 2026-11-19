@@ -25,9 +25,9 @@ resource "glinet_network_advanced" "test" {
 
 func expectNetworkAdvancedState(fullConeNAT, sipALG bool) []statecheck.StateCheck {
 	return expectAttributes(networkAdvancedAddress, map[string]knownvalue.Check{
-		"id":            knownvalue.StringExact("network_advanced"),
-		"full_cone_nat": knownvalue.Bool(fullConeNAT),
-		"sip_alg":       knownvalue.Bool(sipALG),
+		"id":                    knownvalue.StringExact("network_advanced"),
+		"full_cone_nat_enabled": knownvalue.Bool(fullConeNAT),
+		"sip_alg_enabled":       knownvalue.Bool(sipALG),
 	})
 }
 
@@ -41,7 +41,7 @@ func TestNetworkAdvancedResource(t *testing.T) {
 		CheckDestroy:             expectRouterJSON(t, srv.Network.AdvancedConfig, `{"nat_enable":0,"sip_enable":1}`),
 		Steps: []resource.TestStep{
 			{
-				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = true\n  sip_alg = true\n"),
+				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat_enabled = true\n  sip_alg_enabled = true\n"),
 				ConfigStateChecks: expectNetworkAdvancedState(true, true),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(`{"nat_enable":1,"sip_enable":1}`),
@@ -55,13 +55,13 @@ func TestNetworkAdvancedResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = false\n  sip_alg = true\n"),
+				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat_enabled = false\n  sip_alg_enabled = true\n"),
 				ConfigPlanChecks:  expectResourceAction(networkAdvancedAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectNetworkAdvancedState(false, true),
 				Check:             calls.expect(`{"nat_enable":0,"sip_enable":1}`),
 			},
 			{
-				Config:           fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = false\n  sip_alg = true\n"),
+				Config:           fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat_enabled = false\n  sip_alg_enabled = true\n"),
 				ConfigPlanChecks: expectEmptyPlan,
 			},
 		},
@@ -80,13 +80,13 @@ func TestNetworkAdvancedResourceRouterValue(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = true\n"),
+				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat_enabled = true\n"),
 				ConfigStateChecks: expectNetworkAdvancedState(true, true),
 				Check:             calls.expect(`{"nat_enable":1,"sip_enable":1}`),
 			},
 			{
 				PreConfig:         func() { srv.Network.SetAdvancedConfig(json.RawMessage(`{"nat_enable":0,"sip_enable":0}`)) },
-				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat = true\n"),
+				Config:            fakeRouterConfig(srv) + networkAdvancedConfig("  full_cone_nat_enabled = true\n"),
 				ConfigPlanChecks:  expectResourceAction(networkAdvancedAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: expectNetworkAdvancedState(true, false),
 				Check: resource.ComposeTestCheckFunc(
@@ -131,7 +131,7 @@ func TestNetworkAdvancedResourceRouterErrors(t *testing.T) {
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 				Steps: []resource.TestStep{
 					{
-						Config:      fakeRouterConfig(srv) + networkAdvancedConfig("  sip_alg = true\n"),
+						Config:      fakeRouterConfig(srv) + networkAdvancedConfig("  sip_alg_enabled = true\n"),
 						ExpectError: regexp.MustCompile(tt.err),
 					},
 				},

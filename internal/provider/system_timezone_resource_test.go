@@ -24,7 +24,7 @@ const timezoneAddress = "glinet_system_timezone.test"
 func timezoneConfig(zonename, timezone string) string {
 	return fmt.Sprintf(`
 resource "glinet_system_timezone" "test" {
-  zonename = %q
+  zone_name = %q
   timezone = %q
 }
 `, zonename, timezone)
@@ -109,9 +109,9 @@ func TestSystemTimezoneResource(t *testing.T) {
 				Config: provider + timezoneConfig("Asia/Tokyo", "JST-9"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectTimezone("id", knownvalue.StringExact("system_timezone")),
-					expectTimezone("zonename", knownvalue.StringExact("Asia/Tokyo")),
+					expectTimezone("zone_name", knownvalue.StringExact("Asia/Tokyo")),
 					expectTimezone("timezone", knownvalue.StringExact("JST-9")),
-					expectTimezone("tzoffset", knownvalue.StringExact("+0900")),
+					expectTimezone("timezone_offset", knownvalue.StringExact("+0900")),
 					expectTimezone("auto_timezone_enabled", knownvalue.NotNull()),
 				},
 				Check: expectRouterZonename(client, "Asia/Tokyo"),
@@ -121,13 +121,13 @@ func TestSystemTimezoneResource(t *testing.T) {
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(timezoneAddress, plancheck.ResourceActionUpdate),
-						plancheck.ExpectUnknownValue(timezoneAddress, tfjsonpath.New("tzoffset")),
+						plancheck.ExpectUnknownValue(timezoneAddress, tfjsonpath.New("timezone_offset")),
 					},
 				},
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezone("zonename", knownvalue.StringExact("Asia/Kolkata")),
+					expectTimezone("zone_name", knownvalue.StringExact("Asia/Kolkata")),
 					expectTimezone("timezone", knownvalue.StringExact("IST-5:30")),
-					expectTimezone("tzoffset", knownvalue.StringExact("+0530")),
+					expectTimezone("timezone_offset", knownvalue.StringExact("+0530")),
 				},
 				Check: expectRouterZonename(client, "Asia/Kolkata"),
 			},
@@ -151,8 +151,8 @@ func TestSystemTimezoneResourceZonenameWithSpace(t *testing.T) {
 			{
 				Config: fakeRouterConfig(srv) + timezoneConfig("America/Sao Paulo", "<-03>3"),
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezone("zonename", knownvalue.StringExact("America/Sao Paulo")),
-					expectTimezone("tzoffset", knownvalue.StringExact("-0300")),
+					expectTimezone("zone_name", knownvalue.StringExact("America/Sao Paulo")),
+					expectTimezone("timezone_offset", knownvalue.StringExact("-0300")),
 				},
 			},
 		},
@@ -190,8 +190,8 @@ func TestSystemTimezoneResourceDrift(t *testing.T) {
 					},
 				},
 				ConfigStateChecks: []statecheck.StateCheck{
-					expectTimezone("zonename", knownvalue.StringExact("Asia/Tokyo")),
-					expectTimezone("tzoffset", knownvalue.StringExact("+0900")),
+					expectTimezone("zone_name", knownvalue.StringExact("Asia/Tokyo")),
+					expectTimezone("timezone_offset", knownvalue.StringExact("+0900")),
 					expectTimezone("auto_timezone_enabled", knownvalue.Bool(false)),
 				},
 			},

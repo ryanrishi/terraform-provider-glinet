@@ -35,8 +35,8 @@ type parentalControlResource struct {
 type parentalControlResourceModel struct {
 	ID               types.String `tfsdk:"id"`
 	Enabled          types.Bool   `tfsdk:"enabled"`
-	DropAnonymous    types.Bool   `tfsdk:"drop_anonymous"`
-	AutoUpdate       types.Bool   `tfsdk:"auto_update"`
+	DropAnonymous    types.Bool   `tfsdk:"drop_anonymous_enabled"`
+	AutoUpdate       types.Bool   `tfsdk:"auto_update_enabled"`
 	AppFilterEnabled types.Bool   `tfsdk:"app_filter_enabled"`
 }
 
@@ -51,10 +51,10 @@ func (r *parentalControlResource) Schema(_ context.Context, _ resource.SchemaReq
 			parentalControlWarning + "\n\n" +
 			"Parental control applies rule sets (`glinet_parental_control_ruleset`) to groups of clients (`glinet_parental_control_group`). " +
 			parentalControlAccelerationNote + " " +
-			"When `drop_anonymous` or `auto_update` is not set, the provider sends the router value. " +
+			"When `drop_anonymous_enabled` or `auto_update_enabled` is not set, the provider sends the router value. " +
 			untestedWriteNote +
 			"Destroy disables parental control on the router, because parental control acts on its own and can block clients. " +
-			"Destroy keeps `drop_anonymous` and `auto_update`, the groups and the rule sets.",
+			"Destroy keeps `drop_anonymous_enabled` and `auto_update_enabled`, the groups and the rule sets.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Always `" + parentalControlID + "`.",
@@ -67,7 +67,7 @@ func (r *parentalControlResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description: "Whether parental control is enabled (`enable` in the router API).",
 				Required:    true,
 			},
-			"drop_anonymous": schema.BoolAttribute{
+			"drop_anonymous_enabled": schema.BoolAttribute{
 				Description: "Whether the router blocks the clients that are in no group (`drop_anonymous` in the router API), " +
 					"also the computer that runs Terraform. When it is not set, the provider keeps the router value.",
 				Optional: true,
@@ -76,7 +76,7 @@ func (r *parentalControlResource) Schema(_ context.Context, _ resource.SchemaReq
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"auto_update": schema.BoolAttribute{
+			"auto_update_enabled": schema.BoolAttribute{
 				Description: "Whether the router updates its app feature library automatically (`auto_update` in the router API). " +
 					"The web UI shows this setting only when `app_filter_enabled` is true. When it is not set, the provider keeps the router value.",
 				Optional: true,
@@ -87,7 +87,7 @@ func (r *parentalControlResource) Schema(_ context.Context, _ resource.SchemaReq
 			},
 			"app_filter_enabled": schema.BoolAttribute{
 				Description: "Whether the router has the app feature library (`enable_app` in the router API). " +
-					"The router sets this value. The web UI shows the apps of a rule set and `auto_update` only when it is true.",
+					"The router sets this value. The web UI shows the apps of a rule set and `auto_update_enabled` only when it is true.",
 				Computed: true,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),

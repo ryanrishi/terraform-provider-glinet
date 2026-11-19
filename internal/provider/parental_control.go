@@ -16,7 +16,7 @@ import (
 
 const (
 	parentalControlWarning = "~> **Warning:** parental control can block clients, also the computer that runs Terraform: " +
-		"`drop_anonymous` of `glinet_parental_control` blocks each client that is in no group, " +
+		"`drop_anonymous_enabled` of `glinet_parental_control` blocks each client that is in no group, " +
 		"and a group with the default rule set `drop` blocks its clients when no schedule applies. " +
 		"Then Terraform and the web UI can lose the access to the router."
 	parentalControlAccelerationNote = "The web UI says that parental control does not work while network acceleration is on."

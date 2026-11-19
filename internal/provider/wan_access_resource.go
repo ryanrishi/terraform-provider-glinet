@@ -39,11 +39,11 @@ type wanAccessResource struct {
 
 type wanAccessResourceModel struct {
 	ID               types.String `tfsdk:"id"`
-	HTTPS            types.Bool   `tfsdk:"https"`
-	SSH              types.Bool   `tfsdk:"ssh"`
-	Ping             types.Bool   `tfsdk:"ping"`
-	WhitelistEnabled types.Bool   `tfsdk:"whitelist_enabled"`
-	Whitelist        types.Map    `tfsdk:"whitelist"`
+	HTTPSEnabled     types.Bool   `tfsdk:"https_enabled"`
+	SSHEnabled       types.Bool   `tfsdk:"ssh_enabled"`
+	PingEnabled      types.Bool   `tfsdk:"ping_enabled"`
+	AllowListEnabled types.Bool   `tfsdk:"allow_list_enabled"`
+	AllowList        types.Map    `tfsdk:"allow_list"`
 }
 
 func (r *wanAccessResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -55,15 +55,15 @@ func (r *wanAccessResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 		Description: "Manages the access to the router from the WAN (remote access): the web UI over HTTPS, SSH and ping (`firewall.set_wan_access` in the router API). " +
 			"The router has one WAN access configuration, so use one instance of this resource.\n\n" +
 			"~> **Warning:** this resource can cut the management of the router over the WAN: " +
-			"when `https` or `ssh` is `false`, or when `whitelist_enabled` is `true` and the whitelist does not have your address, " +
+			"when `https_enabled` or `ssh_enabled` is `false`, or when `allow_list_enabled` is `true` and `allow_list` does not have your address, " +
 			"you cannot get access to the web UI, the API or SSH from the WAN. The access from the LAN does not change. " +
-			"When `https` or `ssh` is `true`, the router is open to the WAN on that service; use the whitelist to limit the sources.\n\n" +
-			"Each write sends all attributes, as the web UI does. When `whitelist_enabled` or `whitelist` is not set, the provider sends back the router value that it reads just before the write. " +
+			"When `https_enabled` or `ssh_enabled` is `true`, the router is open to the WAN on that service; use `allow_list` to limit the sources.\n\n" +
+			"Each write sends all attributes, as the web UI does. When `allow_list_enabled` or `allow_list` is not set, the provider sends back the router value that it reads just before the write. " +
 			"After the write, the web UI reads the firewall rules again: it is not known whether the write adds or changes firewall rules, " +
 			"and so changes the positional IDs of the firewall rules and port forwards on the router. " +
 			"`glinet_firewall_rule` and `glinet_firewall_port_forward` look up the router ID before each call, so they do not keep an ID in the state. " +
 			untestedWriteNote +
-			"Destroy disables the access from the WAN: the provider sends `false` for `https`, `ssh`, `ping` and `whitelist_enabled`, and an empty whitelist.",
+			"Destroy disables the access from the WAN: the provider sends `false` for `https_enabled`, `ssh_enabled`, `ping_enabled` and `allow_list_enabled`, and an empty `allow_list`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Always `" + wanAccessID + "`.",
@@ -72,28 +72,28 @@ func (r *wanAccessResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"https": schema.BoolAttribute{
+			"https_enabled": schema.BoolAttribute{
 				Description: "Whether the web UI and the API of the router accept connections over HTTPS from the WAN (`enable_https` in the router API).",
 				Required:    true,
 			},
-			"ssh": schema.BoolAttribute{
+			"ssh_enabled": schema.BoolAttribute{
 				Description: "Whether the SSH server of the router accepts connections from the WAN (`enable_ssh` in the router API). " +
 					"The web UI shows this switch only while SSH is enabled on the LAN (`ssh_enabled` of `glinet_local_access`). The provider does not check this.",
 				Required: true,
 			},
-			"ping": schema.BoolAttribute{
+			"ping_enabled": schema.BoolAttribute{
 				Description: "Whether the router answers ping from the WAN (`enable_ping` in the router API).",
 				Required:    true,
 			},
-			"whitelist_enabled": schema.BoolAttribute{
-				Description: "Whether only the addresses in `whitelist` have the access from the WAN (`enable_whitelist` in the router API). " +
-					"The web UI shows this switch only while `https`, `ssh` or `ping` is `true`. " +
+			"allow_list_enabled": schema.BoolAttribute{
+				Description: "Whether only the addresses in `allow_list` have the access from the WAN (`enable_whitelist` in the router API). " +
+					"The web UI shows this switch only while `https_enabled`, `ssh_enabled` or `ping_enabled` is `true`. " +
 					"When it is not set, the router value does not change.",
 				Optional: true,
 				Computed: true,
 			},
-			"whitelist": schema.MapAttribute{
-				Description: "Addresses that have the access from the WAN when `whitelist_enabled` is `true` (`whitelist` in the router API). " +
+			"allow_list": schema.MapAttribute{
+				Description: "Addresses that have the access from the WAN when `allow_list_enabled` is `true` (`whitelist` in the router API). " +
 					"Each key is an IPv4 or IPv6 address without a prefix length (`ipaddr`), and each value is a description of at most 64 characters, or `\"\"` (`name`). " +
 					"It is not known whether the router accepts an address with a prefix length. " +
 					"The provider sends the addresses in the order of the keys. When the router has an address two times, the provider keeps only one of them in a write. " +
@@ -159,34 +159,34 @@ func (r *wanAccessResource) set(ctx context.Context, plan tfsdk.Plan, state *tfs
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	if model.WhitelistEnabled.IsUnknown() || model.Whitelist.IsUnknown() {
+	if model.AllowListEnabled.IsUnknown() || model.AllowList.IsUnknown() {
 		access, err := r.client.Firewall.GetWANAccess(ctx)
 		if err != nil {
 			diags.AddError("Unable to Read WAN Access", err.Error())
 			return
 		}
 		current := wanAccessModel(access, diags)
-		if model.WhitelistEnabled.IsUnknown() {
-			model.WhitelistEnabled = current.WhitelistEnabled
+		if model.AllowListEnabled.IsUnknown() {
+			model.AllowListEnabled = current.AllowListEnabled
 		}
-		if model.Whitelist.IsUnknown() {
-			model.Whitelist = current.Whitelist
+		if model.AllowList.IsUnknown() {
+			model.AllowList = current.AllowList
 		}
 	}
 
-	var whitelist map[string]string
-	diags.Append(model.Whitelist.ElementsAs(ctx, &whitelist, false)...)
+	var allowList map[string]string
+	diags.Append(model.AllowList.ElementsAs(ctx, &allowList, false)...)
 	if diags.HasError() {
 		return
 	}
 	request := glinet.WANAccess{
-		EnableHTTPS:     model.HTTPS.ValueBool(),
-		EnableSSH:       model.SSH.ValueBool(),
-		EnablePing:      model.Ping.ValueBool(),
-		EnableWhitelist: model.WhitelistEnabled.ValueBool(),
+		EnableHTTPS:     model.HTTPSEnabled.ValueBool(),
+		EnableSSH:       model.SSHEnabled.ValueBool(),
+		EnablePing:      model.PingEnabled.ValueBool(),
+		EnableWhitelist: model.AllowListEnabled.ValueBool(),
 	}
-	for _, ip := range slices.Sorted(maps.Keys(whitelist)) {
-		request.Whitelist = append(request.Whitelist, glinet.WANAccessSource{IPAddr: ip, Name: whitelist[ip]})
+	for _, ip := range slices.Sorted(maps.Keys(allowList)) {
+		request.Whitelist = append(request.Whitelist, glinet.WANAccessSource{IPAddr: ip, Name: allowList[ip]})
 	}
 
 	if err := r.client.Firewall.SetWANAccess(ctx, request); err != nil {
@@ -222,15 +222,15 @@ func wanAccessModel(access *glinet.WANAccess, diags *diag.Diagnostics) *wanAcces
 	for _, s := range access.Whitelist {
 		sources[s.IPAddr] = types.StringValue(s.Name)
 	}
-	whitelist, d := types.MapValue(types.StringType, sources)
+	allowList, d := types.MapValue(types.StringType, sources)
 	diags.Append(d...)
 
 	return &wanAccessResourceModel{
 		ID:               types.StringValue(wanAccessID),
-		HTTPS:            types.BoolValue(access.EnableHTTPS),
-		SSH:              types.BoolValue(access.EnableSSH),
-		Ping:             types.BoolValue(access.EnablePing),
-		WhitelistEnabled: types.BoolValue(access.EnableWhitelist),
-		Whitelist:        whitelist,
+		HTTPSEnabled:     types.BoolValue(access.EnableHTTPS),
+		SSHEnabled:       types.BoolValue(access.EnableSSH),
+		PingEnabled:      types.BoolValue(access.EnablePing),
+		AllowListEnabled: types.BoolValue(access.EnableWhitelist),
+		AllowList:        allowList,
 	}
 }

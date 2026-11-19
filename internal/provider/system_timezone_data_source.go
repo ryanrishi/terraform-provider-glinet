@@ -19,8 +19,8 @@ func NewSystemTimezoneDataSource() datasource.DataSource {
 }
 
 type systemTimezoneDataSourceModel struct {
-	Zonename            types.String `tfsdk:"zonename"`
-	TZOffset            types.String `tfsdk:"tzoffset"`
+	ZoneName            types.String `tfsdk:"zone_name"`
+	TimezoneOffset      types.String `tfsdk:"timezone_offset"`
 	AutoTimezoneEnabled types.Bool   `tfsdk:"auto_timezone_enabled"`
 	Localtime           types.Int64  `tfsdk:"localtime"`
 	Timestamp           types.Int64  `tfsdk:"timestamp"`
@@ -39,11 +39,11 @@ func (d *systemTimezoneDataSource) Schema(_ context.Context, _ datasource.Schema
 	resp.Schema = schema.Schema{
 		Description: "Get the time zone configuration of the router (`system.get_timezone_config`). To change it, use `glinet_system_timezone`.",
 		Attributes: map[string]schema.Attribute{
-			"zonename": schema.StringAttribute{
+			"zone_name": schema.StringAttribute{
 				Description: "Time zone name as the router shows it, for example `Europe/Berlin`. Empty when the router gives none.",
 				Computed:    true,
 			},
-			"tzoffset": schema.StringAttribute{
+			"timezone_offset": schema.StringAttribute{
 				Description: "Current offset from UTC, for example `+0100`. It changes with daylight saving time.",
 				Computed:    true,
 			},
@@ -79,8 +79,8 @@ func (d *systemTimezoneDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	state := systemTimezoneDataSourceModel{
-		Zonename:            types.StringValue(config.Zonename),
-		TZOffset:            types.StringValue(config.TZOffset),
+		ZoneName:            types.StringValue(config.Zonename),
+		TimezoneOffset:      types.StringValue(config.TZOffset),
 		AutoTimezoneEnabled: types.BoolValue(config.AutoTimezoneEnabled),
 		Localtime:           types.Int64Value(config.Localtime),
 		Timestamp:           types.Int64Value(config.Timestamp),

@@ -32,13 +32,13 @@ output "saved_ssids" {
 
 Read-Only:
 
-- `auto_portal` (Boolean) Whether the captive portal option of the web UI is enabled (`auto_portal`).
+- `auto_portal_enabled` (Boolean) Whether the captive portal option of the web UI is enabled (`auto_portal_enabled`).
 - `bssid` (String) BSSID of the one access point that the repeater uses for this network (`bssid`). Null when the network has no BSSID lock.
-- `disguise` (Boolean) Whether the disguise option of the web UI is enabled (`disguise`).
+- `disguise_enabled` (Boolean) Whether the disguise option of the web UI is enabled (`disguise_enabled`).
 - `dns` (List of String) DNS servers of the static address (`dns`). Empty when the network has no static address.
 - `gateway` (String) Gateway of the static address (`gateway`). Null when the network has no static address.
 - `ip` (String) Static IPv4 address (`ip`). Null when the network has no static address.
-- `mac_address` (Attributes) MAC address that the repeater uses on this network (`macaddr`). Null when the router gives no MAC address setting. (see [below for nested schema](#nestedatt--networks--mac_address))
+- `mac_clone` (Attributes) MAC address that the repeater uses on this network (`macaddr`). Null when the router gives no MAC address setting. (see [below for nested schema](#nestedatt--networks--mac_clone))
 - `manual` (Boolean) The `manual` value of the router. Its meaning is not known.
 - `mtu` (Number) MTU (`mtu`). Null when it is not set.
 - `netmask` (String) Netmask of the static address (`netmask`). Null when the network has no static address.
@@ -47,12 +47,12 @@ Read-Only:
 - `ttl` (Number) IPv4 TTL (`ttl`). Null when it is not set.
 - `ttl_ipv6` (Number) IPv6 hop limit (`ttl_ipv6`). Null when it is not set.
 
-<a id="nestedatt--networks--mac_address"></a>
-### Nested Schema for `networks.mac_address`
+<a id="nestedatt--networks--mac_clone"></a>
+### Nested Schema for `networks.mac_clone`
 
 Read-Only:
 
 - `mac` (String) MAC address for the modes `clone` and `random` (`macaddr`). Null when the router gives no MAC address.
 - `mode` (String) `default` (the MAC address of the router), `clone` (the MAC address of a client) or `random` (a random MAC address).
-- `period` (Number) Period in hours for `update` `time` (`period`). Null when the router gives no period.
-- `update` (String) When the router changes a random MAC address (`update`): `none`, `time` (every `period` hours) or `reboot`. Null when the router gives no value.
+- `period_hours` (Number) Period in hours for `update` `time` (`period`). Null when the router gives no period.
+- `update` (String) When the router changes a random MAC address (`update`): `none`, `time` (every `period_hours` hours) or `reboot`. Null when the router gives no value.

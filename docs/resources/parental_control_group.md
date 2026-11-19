@@ -4,24 +4,24 @@ page_title: "glinet_parental_control_group Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
   Manages a group of clients of parental control (parental-control.add_group in the router API). The group applies its default rule set to its clients, and in the time of a schedule the rule set of the schedule.
-  ~> Warning: parental control can block clients, also the computer that runs Terraform: drop_anonymous of glinet_parental_control blocks each client that is in no group, and a group with the default rule set drop blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
-  The web UI says that parental control does not work while network acceleration is on. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. The API reference does not say that group names are unique. The provider uses a name only when one group has it: create and a rename fail when another group has the name, and the search by name and the import fail when more than one group has it. The router gives each schedule an ID; the provider does not show these IDs, and sends a schedule with its ID when the router has the same schedule. The provider writes the schedules only when they are different from the router schedules. The resource does not manage the temporary rule set of the group. Import the group with its name, for example terraform import glinet_parental_control_group.example kids. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the group from the router. Its clients are then in no group, and drop_anonymous of glinet_parental_control blocks them.
+  ~> Warning: parental control can block clients, also the computer that runs Terraform: drop_anonymous_enabled of glinet_parental_control blocks each client that is in no group, and a group with the default rule set drop blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
+  The web UI says that parental control does not work while network acceleration is on. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. The API reference does not say that group names are unique. The provider uses a name only when one group has it: create and a rename fail when another group has the name, and the search by name and the import fail when more than one group has it. The router gives each schedule an ID; the provider does not show these IDs, and sends a schedule with its ID when the router has the same schedule. The provider writes the schedules only when they are different from the router schedules. The resource does not manage the temporary rule set of the group. Import the group with its name, for example terraform import glinet_parental_control_group.example kids. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the group from the router. Its clients are then in no group, and drop_anonymous_enabled of glinet_parental_control blocks them.
 ---
 
 # glinet_parental_control_group (Resource)
 
 Manages a group of clients of parental control (`parental-control.add_group` in the router API). The group applies its default rule set to its clients, and in the time of a schedule the rule set of the schedule.
 
-~> **Warning:** parental control can block clients, also the computer that runs Terraform: `drop_anonymous` of `glinet_parental_control` blocks each client that is in no group, and a group with the default rule set `drop` blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
+~> **Warning:** parental control can block clients, also the computer that runs Terraform: `drop_anonymous_enabled` of `glinet_parental_control` blocks each client that is in no group, and a group with the default rule set `drop` blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
 
-The web UI says that parental control does not work while network acceleration is on. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. The API reference does not say that group names are unique. The provider uses a name only when one group has it: create and a rename fail when another group has the name, and the search by name and the import fail when more than one group has it. The router gives each schedule an ID; the provider does not show these IDs, and sends a schedule with its ID when the router has the same schedule. The provider writes the schedules only when they are different from the router schedules. The resource does not manage the temporary rule set of the group. Import the group with its name, for example `terraform import glinet_parental_control_group.example kids`. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the group from the router. Its clients are then in no group, and `drop_anonymous` of `glinet_parental_control` blocks them.
+The web UI says that parental control does not work while network acceleration is on. The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. The API reference does not say that group names are unique. The provider uses a name only when one group has it: create and a rename fail when another group has the name, and the search by name and the import fail when more than one group has it. The router gives each schedule an ID; the provider does not show these IDs, and sends a schedule with its ID when the router has the same schedule. The provider writes the schedules only when they are different from the router schedules. The resource does not manage the temporary rule set of the group. Import the group with its name, for example `terraform import glinet_parental_control_group.example kids`. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the group from the router. Its clients are then in no group, and `drop_anonymous_enabled` of `glinet_parental_control` blocks them.
 
 ## Example Usage
 
 ```terraform
 resource "glinet_parental_control_ruleset" "homework" {
-  name      = "homework"
-  blacklist = ["games.example.com"]
+  name       = "homework"
+  block_list = ["games.example.com"]
 }
 
 # The group blocks nothing, uses the rule set "homework" from 16:00 to 18:00 on weekdays,
@@ -33,16 +33,16 @@ resource "glinet_parental_control_group" "kids" {
 
   schedules = [
     {
-      days    = [1, 2, 3, 4, 5]
-      begin   = "16:00"
-      end     = "18:00"
-      ruleset = glinet_parental_control_ruleset.homework.id
+      days       = [1, 2, 3, 4, 5]
+      start_time = "16:00"
+      end_time   = "18:00"
+      ruleset    = glinet_parental_control_ruleset.homework.id
     },
     {
-      days    = [0, 1, 2, 3, 4, 5, 6]
-      begin   = "21:00"
-      end     = "24:00"
-      ruleset = "drop"
+      days       = [0, 1, 2, 3, 4, 5, 6]
+      start_time = "21:00"
+      end_time   = "24:00"
+      ruleset    = "drop"
     },
   ]
 }
@@ -59,7 +59,7 @@ resource "glinet_parental_control_group" "kids" {
 ### Optional
 
 - `macs` (Set of String) MAC addresses of the clients of the group, in lower case or upper case, for example `02:00:00:00:00:01`. The provider sends the MAC addresses as configured, and compares them without letter case, as the web UI does. It is not known what the router does with a MAC address that is also in another group.
-- `schedules` (Attributes Set) Weekly schedule of the group: from `begin` to `end` on each day of `days`, the group uses the rule set `ruleset`. As in the web UI, a schedule must be at least 15 minutes long, and the schedules of a day must not overlap. Two schedules with the same `begin`, `end` and `ruleset` must be one schedule with all their days, because the router keeps one schedule for each day. (see [below for nested schema](#nestedatt--schedules))
+- `schedules` (Attributes Set) Weekly schedule of the group: from `start_time` to `end_time` on each day of `days`, the group uses the rule set `ruleset`. As in the web UI, a schedule must be at least 15 minutes long, and the schedules of a day must not overlap. Two schedules with the same `start_time`, `end_time` and `ruleset` must be one schedule with all their days, because the router keeps one schedule for each day. (see [below for nested schema](#nestedatt--schedules))
 
 ### Read-Only
 
@@ -70,10 +70,10 @@ resource "glinet_parental_control_group" "kids" {
 
 Required:
 
-- `begin` (String) Start time, format `HH:MM`, 24 hours, in the time zone of the router.
 - `days` (Set of Number) Days of the schedule. Each day is a number from 0 (Sunday) to 6 (Saturday) (`week` in the router API).
-- `end` (String) End time, format `HH:MM`, 24 hours, in the time zone of the router. `24:00` is the end of the day. The web UI also treats `23:59` as the end of the day, so refresh shows a router end `23:59` as `24:00`, and the configuration must use `24:00`. It is not known whether the router keeps `24:00`.
+- `end_time` (String) End time, format `HH:MM`, 24 hours, in the time zone of the router. `24:00` is the end of the day. The web UI also treats `23:59` as the end of the day, so refresh shows a router end `23:59` as `24:00`, and the configuration must use `24:00`. It is not known whether the router keeps `24:00`.
 - `ruleset` (String) ID of the rule set of the schedule, as in `default_ruleset`.
+- `start_time` (String) Start time, format `HH:MM`, 24 hours, in the time zone of the router.
 
 ## Import
 

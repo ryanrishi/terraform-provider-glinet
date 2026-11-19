@@ -36,9 +36,9 @@ func (s dnsSettings) config() string {
 	}
 	return fmt.Sprintf(`
 resource "glinet_dns" "test" {
-%s  force_dns         = %t
-  rebind_protection = %t
-  override_vpn      = %t
+%s  force_dns_enabled         = %t
+  rebind_protection_enabled = %t
+  override_vpn_enabled      = %t
 }
 `, mode, s.forceDNS, s.rebindProtection, s.overrideVPN)
 }
@@ -55,9 +55,9 @@ func expectDNSState(c glinet.DNSConfig) []statecheck.StateCheck {
 	return []statecheck.StateCheck{
 		expect("id", knownvalue.StringExact("dns")),
 		expect("mode", knownvalue.StringExact(c.Mode)),
-		expect("force_dns", knownvalue.Bool(c.ForceDNS)),
-		expect("rebind_protection", knownvalue.Bool(c.RebindProtection)),
-		expect("override_vpn", knownvalue.Bool(c.OverrideVPN)),
+		expect("force_dns_enabled", knownvalue.Bool(c.ForceDNS)),
+		expect("rebind_protection_enabled", knownvalue.Bool(c.RebindProtection)),
+		expect("override_vpn_enabled", knownvalue.Bool(c.OverrideVPN)),
 		expect("servers", knownvalue.ListExact(servers)),
 		expect("protocol", knownvalue.Null()),
 		expect("dot_provider", knownvalue.Null()),
@@ -145,7 +145,7 @@ func dnsTestRouter(t *testing.T) (string, *glinet.Client, glinet.DNSConfig) {
 	return provider, client, *initial
 }
 
-// TestDNSResource changes only rebind_protection, because it also runs on the real router.
+// TestDNSResource changes only rebind_protection_enabled, because it also runs on the real router.
 func TestDNSResource(t *testing.T) {
 	parallel(t)
 	provider, client, initial := dnsTestRouter(t)
@@ -429,23 +429,23 @@ func TestDNSResourceInvalidConfig(t *testing.T) {
 	}{
 		{"mode empty", `resource "glinet_dns" "test" {
   mode              = ""
-  force_dns         = false
-  rebind_protection = false
-  override_vpn      = true
+  force_dns_enabled         = false
+  rebind_protection_enabled = false
+  override_vpn_enabled      = true
 }`, `mode value must be one of: \["auto" "manual" "proxy" "secure"\]`},
 		{"mode unknown", dnsSettings{"custom", false, false, true}.config(), `mode value must be one of`},
-		{"no force_dns", `resource "glinet_dns" "test" {
-  rebind_protection = false
-  override_vpn      = true
-}`, `The argument "force_dns" is required`},
-		{"no rebind_protection", `resource "glinet_dns" "test" {
-  force_dns    = false
-  override_vpn = true
-}`, `The argument "rebind_protection" is required`},
-		{"no override_vpn", `resource "glinet_dns" "test" {
-  force_dns         = false
-  rebind_protection = false
-}`, `The argument "override_vpn" is required`},
+		{"no force_dns_enabled", `resource "glinet_dns" "test" {
+  rebind_protection_enabled = false
+  override_vpn_enabled      = true
+}`, `The argument "force_dns_enabled" is required`},
+		{"no rebind_protection_enabled", `resource "glinet_dns" "test" {
+  force_dns_enabled    = false
+  override_vpn_enabled = true
+}`, `The argument "rebind_protection_enabled" is required`},
+		{"no override_vpn_enabled", `resource "glinet_dns" "test" {
+  force_dns_enabled         = false
+  rebind_protection_enabled = false
+}`, `The argument "override_vpn_enabled" is required`},
 		{"servers without mode", dnsModeConfig(`servers = ["192.0.2.1"]`), wrapped("servers cannot be set when mode is not set.")},
 		{"protocol without mode", dnsModeConfig(`protocol = "DoH"`), wrapped("protocol cannot be set when mode is not set.")},
 		{"servers in auto", dnsModeConfig(`mode = "auto"`, `servers = ["wan 192.168.100.1"]`), wrapped("servers cannot be set when mode is auto.")},
@@ -530,7 +530,7 @@ func TestDNSResourceRouterErrors(t *testing.T) {
 					Config:           fakeRouterConfig(srv) + s.config(),
 					ConfigPlanChecks: expectResourceAction(dnsAddress, plancheck.ResourceActionDestroyBeforeCreate),
 					ConfigStateChecks: []statecheck.StateCheck{
-						statecheck.ExpectKnownValue(dnsAddress, tfjsonpath.New("rebind_protection"), knownvalue.Bool(true)),
+						statecheck.ExpectKnownValue(dnsAddress, tfjsonpath.New("rebind_protection_enabled"), knownvalue.Bool(true)),
 					},
 				},
 			},
@@ -618,9 +618,9 @@ func TestAllowDNSRebindProtection(t *testing.T) {
 func dnsModeConfig(lines ...string) string {
 	return fmt.Sprintf(`
 resource "glinet_dns" "test" {
-  force_dns         = false
-  rebind_protection = false
-  override_vpn      = true
+  force_dns_enabled         = false
+  rebind_protection_enabled = false
+  override_vpn_enabled      = true
   %s
 }
 `, strings.Join(lines, "\n  "))
@@ -649,14 +649,14 @@ func expectDNSModeState(mode string, servers []string, protocol, provider, resol
 		return knownvalue.StringExact(s)
 	}
 	checks := map[string]knownvalue.Check{
-		"id":                knownvalue.StringExact("dns"),
-		"mode":              knownvalue.StringExact(mode),
-		"force_dns":         knownvalue.Bool(false),
-		"rebind_protection": knownvalue.Bool(false),
-		"override_vpn":      knownvalue.Bool(true),
-		"protocol":          stringOrNull(protocol),
-		"dot_provider":      stringOrNull(provider),
-		"dot_resolver_id":   stringOrNull(resolverID),
+		"id":                        knownvalue.StringExact("dns"),
+		"mode":                      knownvalue.StringExact(mode),
+		"force_dns_enabled":         knownvalue.Bool(false),
+		"rebind_protection_enabled": knownvalue.Bool(false),
+		"override_vpn_enabled":      knownvalue.Bool(true),
+		"protocol":                  stringOrNull(protocol),
+		"dot_provider":              stringOrNull(provider),
+		"dot_resolver_id":           stringOrNull(resolverID),
 	}
 	if servers != nil {
 		checks["servers"] = stringsExact(servers)

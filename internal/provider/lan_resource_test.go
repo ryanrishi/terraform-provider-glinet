@@ -23,7 +23,7 @@ const (
 )
 
 // lanNetwork is the configuration of a glinet_lan resource. Fields with their zero value are not in the configuration.
-// The router value of wan_isolation and dhcp_lpr_servers is that of the configuration, or false and none when they
+// The router value of wan_isolation_enabled and dhcp_lpr_servers is that of the configuration, or false and none when they
 // are not in the configuration. An empty lpr that is not nil is the configuration dhcp_lpr_servers = [].
 type lanNetwork struct {
 	label, iface, ip, netmask string
@@ -44,7 +44,7 @@ resource "glinet_lan" %q {
   name         = %q
   ip           = %q
   netmask      = %q
-  ap_isolation = %t
+  ap_isolation_enabled = %t
   dhcp_enabled = %t
 `, label, c.iface, c.ip, c.netmask, c.isolation, c.dhcp)
 	for attr, v := range map[string]string{"dhcp_start": c.start, "dhcp_end": c.end, "dhcp_lease_time": c.lease, "dhcp_gateway": c.gateway} {
@@ -59,7 +59,7 @@ resource "glinet_lan" %q {
 		res += fmt.Sprintf("  dhcp_lpr_servers = [%s]\n", quoteList(c.lpr))
 	}
 	if c.wanIsolation != nil {
-		res += fmt.Sprintf("  wan_isolation = %t\n", *c.wanIsolation)
+		res += fmt.Sprintf("  wan_isolation_enabled = %t\n", *c.wanIsolation)
 	}
 	return res + "}\n"
 }
@@ -86,7 +86,7 @@ func stringListOrNullCheck(values []string) knownvalue.Check {
 	return stringListExact(values...)
 }
 
-// routerWANIsolation returns the wan_isolation of the router for c.
+// routerWANIsolation returns the wan_isolation_enabled of the router for c.
 func (c lanNetwork) routerWANIsolation() bool {
 	return c.wanIsolation != nil && *c.wanIsolation
 }
@@ -101,18 +101,18 @@ func (c lanNetwork) state(address string) []statecheck.StateCheck {
 		lpr = stringListExact()
 	}
 	return expectAttributes(address, map[string]knownvalue.Check{
-		"name":             knownvalue.StringExact(c.iface),
-		"ip":               knownvalue.StringExact(c.ip),
-		"netmask":          knownvalue.StringExact(c.netmask),
-		"ap_isolation":     knownvalue.Bool(c.isolation),
-		"wan_isolation":    wanIsolation,
-		"dhcp_enabled":     knownvalue.Bool(c.dhcp),
-		"dhcp_start":       stringOrNullCheck(c.start),
-		"dhcp_end":         stringOrNullCheck(c.end),
-		"dhcp_lease_time":  stringOrNullCheck(c.lease),
-		"dhcp_gateway":     stringOrNullCheck(c.gateway),
-		"dhcp_dns":         stringListOrNullCheck(c.dns),
-		"dhcp_lpr_servers": lpr,
+		"name":                  knownvalue.StringExact(c.iface),
+		"ip":                    knownvalue.StringExact(c.ip),
+		"netmask":               knownvalue.StringExact(c.netmask),
+		"ap_isolation_enabled":  knownvalue.Bool(c.isolation),
+		"wan_isolation_enabled": wanIsolation,
+		"dhcp_enabled":          knownvalue.Bool(c.dhcp),
+		"dhcp_start":            stringOrNullCheck(c.start),
+		"dhcp_end":              stringOrNullCheck(c.end),
+		"dhcp_lease_time":       stringOrNullCheck(c.lease),
+		"dhcp_gateway":          stringOrNullCheck(c.gateway),
+		"dhcp_dns":              stringListOrNullCheck(c.dns),
+		"dhcp_lpr_servers":      lpr,
 	})
 }
 
@@ -502,7 +502,7 @@ func TestLANResourceLANAddressChange(t *testing.T) {
 	})
 }
 
-// TestLANResourceNotConfigured sends back the wan_isolate and lpr values of the router when wan_isolation and
+// TestLANResourceNotConfigured sends back the wan_isolate and lpr values of the router when wan_isolation_enabled and
 // dhcp_lpr_servers are not in the configuration, also after the router values change.
 func TestLANResourceNotConfigured(t *testing.T) {
 	parallel(t)
@@ -702,7 +702,7 @@ func TestLANResourceDrift(t *testing.T) {
 	}{
 		{"ip", guestDHCP, map[string]any{"ip": "192.168.9.2"}, addressCall},
 		{"netmask", guestDHCP, map[string]any{"netmask": "255.255.0.0"}, addressCall},
-		{"ap_isolation", guestDHCP, map[string]any{"ap_isolate": 0}, addressCall},
+		{"ap_isolation_enabled", guestDHCP, map[string]any{"ap_isolate": 0}, addressCall},
 		{"dhcp disabled", guestDHCP, map[string]any{"enable": 0}, dhcpCall},
 		{"dhcp enabled", guestDisabled, map[string]any{"enable": 1}, dhcpCall},
 		{"dhcp_start", guestDHCP, map[string]any{"start": "192.168.9.50"}, dhcpCall},
@@ -859,8 +859,8 @@ func TestLANResourceInvalidConfig(t *testing.T) {
 		{with(func(c *lanNetwork) { c.lpr = []string{"2001:db8::5"} }), `must be an IPv4 address`},
 		{with(func(c *lanNetwork) {
 			c.iface, c.ip, c.start, c.end, c.wanIsolation = "lan", "192.168.8.1", "192.168.8.100", "192.168.8.200", new(false)
-		}), `wan_isolation cannot be set for the lan network`},
-		{strings.Replace(guestDisabled.config(), "  ap_isolation = true\n", "", 1), `The argument "ap_isolation" is required`},
+		}), `wan_isolation_enabled cannot be set for the lan network`},
+		{strings.Replace(guestDisabled.config(), "  ap_isolation_enabled = true\n", "", 1), `The argument "ap_isolation_enabled" is required`},
 	}
 
 	for _, tt := range tests {
@@ -889,7 +889,7 @@ resource "glinet_lan" "test" {
   name            = "guest"
   ip              = var.ip
   netmask         = var.netmask
-  ap_isolation    = true
+  ap_isolation_enabled    = true
   dhcp_enabled    = var.dhcp
   dhcp_start      = var.start
   dhcp_end        = var.end

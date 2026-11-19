@@ -66,14 +66,14 @@ func TestParentalControlResource(t *testing.T) {
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_parental_control" "test" {
   enabled        = true
-  drop_anonymous = false
+  drop_anonymous_enabled = false
 }
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectParentalControl("id", knownvalue.StringExact("parental_control")),
 					expectParentalControl("enabled", knownvalue.Bool(true)),
-					expectParentalControl("drop_anonymous", knownvalue.Bool(false)),
-					expectParentalControl("auto_update", knownvalue.Bool(false)),
+					expectParentalControl("drop_anonymous_enabled", knownvalue.Bool(false)),
+					expectParentalControl("auto_update_enabled", knownvalue.Bool(false)),
 					expectParentalControl("app_filter_enabled", knownvalue.Bool(false)),
 				},
 				Check: writes.expect(`{"enable":true,"drop_anonymous":false,"auto_update":false}`),
@@ -90,8 +90,8 @@ resource "glinet_parental_control" "test" {
 				ConfigPlanChecks: expectResourceAction(parentalControlAddress, plancheck.ResourceActionUpdate),
 				ConfigStateChecks: []statecheck.StateCheck{
 					expectParentalControl("enabled", knownvalue.Bool(false)),
-					expectParentalControl("drop_anonymous", knownvalue.Bool(false)),
-					expectParentalControl("auto_update", knownvalue.Bool(true)),
+					expectParentalControl("drop_anonymous_enabled", knownvalue.Bool(false)),
+					expectParentalControl("auto_update_enabled", knownvalue.Bool(true)),
 				},
 				Check: writes.expect(`{"enable":false,"drop_anonymous":false,"auto_update":true}`),
 			},
@@ -130,7 +130,7 @@ func TestParentalControlResourceDestroyKeepsSettings(t *testing.T) {
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_parental_control" "test" {
   enabled        = true
-  drop_anonymous = true
+  drop_anonymous_enabled = true
 }
 `,
 				Check: expectRouterParentalControl(client, glinet.ParentalControlSettings{Enabled: true, DropAnonymous: true}),

@@ -32,10 +32,10 @@ var scheduleEndValidator = stringCheck{
 }
 
 var scheduleAttrTypes = map[string]attr.Type{
-	"days":    types.SetType{ElemType: types.Int64Type},
-	"begin":   types.StringType,
-	"end":     types.StringType,
-	"ruleset": types.StringType,
+	"days":       types.SetType{ElemType: types.Int64Type},
+	"start_time": types.StringType,
+	"end_time":   types.StringType,
+	"ruleset":    types.StringType,
 }
 
 var (
@@ -62,10 +62,10 @@ type parentalControlGroupModel struct {
 }
 
 type parentalControlScheduleModel struct {
-	Days    types.Set    `tfsdk:"days"`
-	Begin   types.String `tfsdk:"begin"`
-	End     types.String `tfsdk:"end"`
-	Ruleset types.String `tfsdk:"ruleset"`
+	Days      types.Set    `tfsdk:"days"`
+	StartTime types.String `tfsdk:"start_time"`
+	EndTime   types.String `tfsdk:"end_time"`
+	Ruleset   types.String `tfsdk:"ruleset"`
 }
 
 // daySchedule is a schedule of the router API for one day. begin and end are "HH:MM", and end can be "24:00".
@@ -92,7 +92,7 @@ func (r *parentalControlGroupResource) Schema(_ context.Context, _ resource.Sche
 			"The resource does not manage the temporary rule set of the group. " +
 			"Import the group with its name, for example `terraform import glinet_parental_control_group.example kids`. " +
 			untestedWriteNote +
-			"Destroy removes the group from the router. Its clients are then in no group, and `drop_anonymous` of `glinet_parental_control` blocks them.",
+			"Destroy removes the group from the router. Its clients are then in no group, and `drop_anonymous_enabled` of `glinet_parental_control` blocks them.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "ID of the group, which the router gives.",
@@ -127,19 +127,19 @@ func (r *parentalControlGroupResource) Schema(_ context.Context, _ resource.Sche
 				},
 			},
 			"schedules": schema.SetNestedAttribute{
-				Description: "Weekly schedule of the group: from `begin` to `end` on each day of `days`, the group uses the rule set `ruleset`. " +
+				Description: "Weekly schedule of the group: from `start_time` to `end_time` on each day of `days`, the group uses the rule set `ruleset`. " +
 					"As in the web UI, a schedule must be at least 15 minutes long, and the schedules of a day must not overlap. " +
-					"Two schedules with the same `begin`, `end` and `ruleset` must be one schedule with all their days, because the router keeps one schedule for each day.",
+					"Two schedules with the same `start_time`, `end_time` and `ruleset` must be one schedule with all their days, because the router keeps one schedule for each day.",
 				Optional: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"days": daysAttribute("Days of the schedule."),
-						"begin": schema.StringAttribute{
+						"start_time": schema.StringAttribute{
 							Description: "Start time, format `HH:MM`, 24 hours, in the time zone of the router.",
 							Required:    true,
 							Validators:  []validator.String{clockValidator},
 						},
-						"end": schema.StringAttribute{
+						"end_time": schema.StringAttribute{
 							Description: "End time, format `HH:MM`, 24 hours, in the time zone of the router. `24:00` is the end of the day. " +
 								"The web UI also treats `23:59` as the end of the day, so refresh shows a router end `23:59` as `24:00`, and the configuration must use `24:00`. " +
 								"It is not known whether the router keeps `24:00`.",
@@ -202,16 +202,16 @@ func validateSchedules(ctx context.Context, schedules types.Set, diags *diag.Dia
 	var days []daySchedule
 	seen := map[[3]string]bool{}
 	for _, item := range items {
-		if item.Begin.IsUnknown() || item.End.IsUnknown() {
+		if item.StartTime.IsUnknown() || item.EndTime.IsUnknown() {
 			continue
 		}
-		begin, end := item.Begin.ValueString(), item.End.ValueString()
+		begin, end := item.StartTime.ValueString(), item.EndTime.ValueString()
 		if !validClock(begin) || !scheduleEndValidator.valid(end) {
 			continue
 		}
 		if clockMinutes(end)-clockMinutes(begin) < minScheduleMinutes {
 			diags.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
-				fmt.Sprintf("The schedule from %s to %s is shorter than %d minutes. end must be at least %d minutes after begin.",
+				fmt.Sprintf("The schedule from %s to %s is shorter than %d minutes. end_time must be at least %d minutes after start_time.",
 					begin, end, minScheduleMinutes, minScheduleMinutes))
 			continue
 		}
@@ -220,7 +220,7 @@ func validateSchedules(ctx context.Context, schedules types.Set, diags *diag.Dia
 			k := [3]string{begin, end, item.Ruleset.ValueString()}
 			if seen[k] {
 				diags.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
-					fmt.Sprintf("Two schedules have the begin %s, the end %s and the rule set %q. Make them one schedule with all their days.", begin, end, k[2]))
+					fmt.Sprintf("Two schedules have the start_time %s, the end_time %s and the rule set %q. Make them one schedule with all their days.", begin, end, k[2]))
 			}
 			seen[k] = true
 		}
@@ -510,7 +510,7 @@ func planSchedules(ctx context.Context, plan parentalControlGroupModel, diags *d
 	var days []daySchedule
 	for _, item := range items {
 		for _, week := range routerDays(ctx, item.Days, diags) {
-			days = append(days, newDaySchedule(week, item.Begin.ValueString(), item.End.ValueString(), item.Ruleset.ValueString()))
+			days = append(days, newDaySchedule(week, item.StartTime.ValueString(), item.EndTime.ValueString(), item.Ruleset.ValueString()))
 		}
 	}
 	sortDaySchedules(days)
@@ -602,10 +602,10 @@ func scheduleSet(ctx context.Context, schedules []glinet.ParentalControlSchedule
 	elements := make([]attr.Value, len(keys))
 	for i, k := range keys {
 		object, d := types.ObjectValueFrom(ctx, scheduleAttrTypes, parentalControlScheduleModel{
-			Days:    daysSet(weeks[k]),
-			Begin:   types.StringValue(k.begin),
-			End:     types.StringValue(k.end),
-			Ruleset: types.StringValue(k.rule),
+			Days:      daysSet(weeks[k]),
+			StartTime: types.StringValue(k.begin),
+			EndTime:   types.StringValue(k.end),
+			Ruleset:   types.StringValue(k.rule),
 		})
 		diags.Append(d...)
 		elements[i] = object

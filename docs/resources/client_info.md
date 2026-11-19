@@ -3,12 +3,12 @@
 page_title: "glinet_client_info Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the name and the icon of a client device in the client list of the router, as the edit dialog of the clients page of the web UI does. The write was not tested on a router; the parameters come from the router's web UI. Create fails when the client list of the router has no client with the MAC address, because it is not known whether the router accepts a name or an icon for a MAC address that is not in the list. When the client goes out of the client list, refresh removes the resource from the state. The provider finds the client without letter case and writes the MAC address in the letter case of the client list. When the client list has the MAC address in more than one letter case, update fails when mac would select another client. Import sets mac in the letter case of the client list. Destroy removes the resource from the Terraform state and does not change the router. To set the name or the icon back to automatic, set alias or class to an empty string before destroy.
+  Manages the name and the icon of a client device in the client list of the router, as the edit dialog of the clients page of the web UI does. The write was not tested on a router; the parameters come from the router's web UI. Create fails when the client list of the router has no client with the MAC address, because it is not known whether the router accepts a name or an icon for a MAC address that is not in the list. When the client goes out of the client list, refresh removes the resource from the state. The provider finds the client without letter case and writes the MAC address in the letter case of the client list. When the client list has the MAC address in more than one letter case, update fails when mac would select another client. Import sets mac in the letter case of the client list. Destroy removes the resource from the Terraform state and does not change the router. To set the name or the icon back to automatic, set alias or icon to an empty string before destroy.
 ---
 
 # glinet_client_info (Resource)
 
-Manages the name and the icon of a client device in the client list of the router, as the edit dialog of the clients page of the web UI does. The write was not tested on a router; the parameters come from the router's web UI. Create fails when the client list of the router has no client with the MAC address, because it is not known whether the router accepts a name or an icon for a MAC address that is not in the list. When the client goes out of the client list, refresh removes the resource from the state. The provider finds the client without letter case and writes the MAC address in the letter case of the client list. When the client list has the MAC address in more than one letter case, update fails when `mac` would select another client. Import sets `mac` in the letter case of the client list. Destroy removes the resource from the Terraform state and does not change the router. To set the name or the icon back to automatic, set `alias` or `class` to an empty string before destroy.
+Manages the name and the icon of a client device in the client list of the router, as the edit dialog of the clients page of the web UI does. The write was not tested on a router; the parameters come from the router's web UI. Create fails when the client list of the router has no client with the MAC address, because it is not known whether the router accepts a name or an icon for a MAC address that is not in the list. When the client goes out of the client list, refresh removes the resource from the state. The provider finds the client without letter case and writes the MAC address in the letter case of the client list. When the client list has the MAC address in more than one letter case, update fails when `mac` would select another client. Import sets `mac` in the letter case of the client list. Destroy removes the resource from the Terraform state and does not change the router. To set the name or the icon back to automatic, set `alias` or `icon` to an empty string before destroy.
 
 ## Example Usage
 
@@ -16,7 +16,7 @@ Manages the name and the icon of a client device in the client list of the route
 resource "glinet_client_info" "tablet" {
   mac   = "02:00:00:00:00:01"
   alias = "tablet"
-  class = "pad"
+  icon  = "pad"
 }
 ```
 
@@ -30,7 +30,7 @@ resource "glinet_client_info" "tablet" {
 ### Optional
 
 - `alias` (String) Name of the client, at most 32 characters, without `,` and `"`. An empty string sets the name back to automatic: the router then shows the name that it found. When not set, the provider sends the name that the router has.
-- `class` (String) Icon of the client. The web UI of firmware 4.8.3 offers `computer`, `phone`, `pad`, `camera`, `watch`, `laptop`, `printer`, `sound`, `television`, `smartappliances`, `games`, `gateway`, `nas`, `server` and `switch`. The provider does not limit the value to this list, because other firmware versions can have other icons. An empty string sets the icon back to automatic. When not set, the provider sends the icon that the router has.
+- `icon` (String) Icon of the client (`class` in the router API). The web UI of firmware 4.8.3 offers `computer`, `phone`, `pad`, `camera`, `watch`, `laptop`, `printer`, `sound`, `television`, `smartappliances`, `games`, `gateway`, `nas`, `server` and `switch`. The provider does not limit the value to this list, because other firmware versions can have other icons. An empty string sets the icon back to automatic. When not set, the provider sends the icon that the router has.
 
 ## Import
 

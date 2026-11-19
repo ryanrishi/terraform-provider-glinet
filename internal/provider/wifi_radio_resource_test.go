@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -38,14 +39,14 @@ func (v radioValues) state(name, band string) []statecheck.StateCheck {
 		psc = knownvalue.Bool(*v.psc)
 	}
 	return expectAttributes(wifiRadioAddress, map[string]knownvalue.Check{
-		"name":              knownvalue.StringExact(name),
-		"band":              knownvalue.StringExact(band),
-		"channel":           knownvalue.Int64Exact(v.channel),
-		"channel_width":     knownvalue.StringExact(v.channelWidth),
-		"mode":              knownvalue.StringExact(v.mode),
-		"tx_power":          knownvalue.StringExact(v.power),
-		"random_bssid":      knownvalue.Bool(v.randomBSSID),
-		"psc_channels_only": psc,
+		"name":                 knownvalue.StringExact(name),
+		"band":                 knownvalue.StringExact(band),
+		"channel":              knownvalue.Int64Exact(v.channel),
+		"channel_width":        knownvalue.StringExact(v.channelWidth),
+		"mode":                 knownvalue.StringExact(v.mode),
+		"tx_power":             knownvalue.StringExact(strings.ToLower(v.power)),
+		"random_bssid_enabled": knownvalue.Bool(v.randomBSSID),
+		"psc_channels_only":    psc,
 	})
 }
 
@@ -132,21 +133,21 @@ func TestWifiRadioResource(t *testing.T) {
 		settings, power []string
 	}{
 		{"", radio0Values, nil, nil},
-		{`  tx_power = "Low"` + "\n", lowPower, nil, []string{`{"device":"radio0","txpower":"Low"}`}},
+		{`  tx_power = "low"` + "\n", lowPower, nil, []string{`{"device":"radio0","txpower":"Low"}`}},
 		{
-			"  tx_power = \"Low\"\n  channel = 36\n  channel_width = \"80\"\n", channel36,
+			"  tx_power = \"low\"\n  channel = 36\n  channel_width = \"80\"\n", channel36,
 			[]string{`{` + radio0Iface + `,"hwmode":"11a/n/ac/ax","txpower":"Low","random_bssid":true,"channel":36,"htmode":"80"}`}, nil,
 		},
 		{
-			"  tx_power = \"Low\"\n  channel = 36\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n", mode,
+			"  tx_power = \"low\"\n  channel = 36\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n", mode,
 			[]string{`{` + radio0Iface + `,"hwmode":"11ac/ax","txpower":"Low","random_bssid":true}`}, nil,
 		},
 		{
-			"  tx_power = \"High\"\n  channel = 36\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n  random_bssid = false\n", random,
+			"  tx_power = \"high\"\n  channel = 36\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n  random_bssid_enabled = false\n", random,
 			[]string{`{` + radio0Iface + `,"hwmode":"11ac/ax","txpower":"High","random_bssid":false}`}, nil,
 		},
 		{
-			"  tx_power = \"High\"\n  channel = 0\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n  random_bssid = false\n", auto,
+			"  tx_power = \"high\"\n  channel = 0\n  channel_width = \"80\"\n  mode = \"11ac/ax\"\n  random_bssid_enabled = false\n", auto,
 			[]string{`{` + radio0Iface + `,"hwmode":"11ac/ax","txpower":"High","random_bssid":false,"channel":0,"htmode":"80"}`}, nil,
 		},
 	}
@@ -224,8 +225,8 @@ func TestWifiRadioResourceWithInterface(t *testing.T) {
 	iface := wifiInterface{name: "default_radio0", ssid: "main", key: testWifiKey, encryption: "psk2", enabled: true}
 	renamed := iface
 	renamed.ssid = "main-new"
-	radio := wifiRadioConfig("radio0", "  channel = 36\n  channel_width = \"80\"\n  tx_power = \"Low\"\n")
-	newMode := wifiRadioConfig("radio0", "  channel = 36\n  channel_width = \"80\"\n  tx_power = \"Low\"\n  mode = \"11ac/ax\"\n")
+	radio := wifiRadioConfig("radio0", "  channel = 36\n  channel_width = \"80\"\n  tx_power = \"low\"\n")
+	newMode := wifiRadioConfig("radio0", "  channel = 36\n  channel_width = \"80\"\n  tx_power = \"low\"\n  mode = \"11ac/ax\"\n")
 	values := radioValues{channel: 36, channelWidth: "80", mode: "11a/n/ac/ax", power: "Low", randomBSSID: true}
 	newModeValues := values
 	newModeValues.mode = "11ac/ax"
@@ -352,7 +353,7 @@ func TestWifiRadioResourceInvalidValues(t *testing.T) {
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 				Steps: []resource.TestStep{
 					{
-						Config:      fakeRouterConfig(srv) + wifiRadioConfig(tt.device, tt.attributes+"  tx_power = \"Low\"\n"),
+						Config:      fakeRouterConfig(srv) + wifiRadioConfig(tt.device, tt.attributes+"  tx_power = \"low\"\n"),
 						ExpectError: regexp.MustCompile(err),
 					},
 				},
@@ -436,7 +437,7 @@ func TestWifiRadioResourceDestroy(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: fakeRouterConfig(srv) + wifiRadioConfig("radio0", `  tx_power = "Low"`+"\n"),
+				Config: fakeRouterConfig(srv) + wifiRadioConfig("radio0", `  tx_power = "low"`+"\n"),
 				Check:  txPower.expect(`{"device":"radio0","txpower":"Low"}`),
 			},
 			{
@@ -457,7 +458,7 @@ func TestWifiRadioResourceRouterErrors(t *testing.T) {
 	for _, tt := range []struct{ method, attributes, err string }{
 		{"get_config", "  channel = 36\n", `(?s)Unable to Read Wi-Fi Configuration.*Method not found`},
 		{"set_config", "  channel = 36\n", `(?s)Unable to Set Wi-Fi Radio.*Method not found`},
-		{"set_txpower", `  tx_power = "Low"` + "\n", `(?s)Unable to Set Wi-Fi Transmit Power.*Method not found`},
+		{"set_txpower", `  tx_power = "low"` + "\n", `(?s)Unable to Set Wi-Fi Transmit Power.*Method not found`},
 	} {
 		t.Run(tt.method, func(t *testing.T) {
 			srv := glinettest.NewServer(t)

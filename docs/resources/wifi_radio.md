@@ -17,7 +17,7 @@ resource "glinet_wifi_radio" "radio5g" {
   name          = "radio0"
   channel       = 36
   channel_width = "80"
-  tx_power      = "High"
+  tx_power      = "high"
 }
 ```
 
@@ -34,8 +34,8 @@ resource "glinet_wifi_radio" "radio5g" {
 - `channel_width` (String) Channel width in MHz, `20`, `40`, `80`, `160` or `320`, or `auto` (`htmode` in the router API). The router lists the largest width for each mode of the radio, and whether the radio supports `auto`; create and update fail when the value is not available for `mode`. When it is not set, the router value does not change.
 - `mode` (String) Wi-Fi mode of the radio, for example `11a/n/ac/ax` (`hwmode` in the router API). The router lists the modes of each radio; create and update fail when the radio does not support the value. When it is not set, the router value does not change.
 - `psc_channels_only` (Boolean) Whether a 6 GHz radio uses only the preferred scanning channels (PSC) (`chan_6g_only_psc` in the router API). Only for a radio with the band `6G`: create and update fail when it is set for another radio, and it is always null there. When it is `true`, `channel` must be `0` or a PSC channel; the web UI then sets a channel that is not a PSC channel to `0`, but the provider fails instead. The option is in the web UI code of firmware 4.8.3 and was not seen on a router. When it is not set, the router value does not change.
-- `random_bssid` (Boolean) Whether the radio uses a random BSSID (`random_bssid` in the router API). When it is not set, the router value does not change.
-- `tx_power` (String) Transmit power: `Max`, `High`, `Medium` or `Low` (`txpower` in the router API). When it is not set, the router value does not change.
+- `random_bssid_enabled` (Boolean) Whether the radio uses a random BSSID (`random_bssid` in the router API). When it is not set, the router value does not change.
+- `tx_power` (String) Transmit power: `max`, `high`, `medium` or `low` (`txpower` in the router API, which has the values `Max`, `High`, `Medium` and `Low`). When it is not set, the router value does not change.
 
 ### Read-Only
 

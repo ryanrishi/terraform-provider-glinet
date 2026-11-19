@@ -48,9 +48,9 @@ type dnsResource struct {
 type dnsResourceModel struct {
 	ID               types.String `tfsdk:"id"`
 	Mode             types.String `tfsdk:"mode"`
-	ForceDNS         types.Bool   `tfsdk:"force_dns"`
-	RebindProtection types.Bool   `tfsdk:"rebind_protection"`
-	OverrideVPN      types.Bool   `tfsdk:"override_vpn"`
+	ForceDNS         types.Bool   `tfsdk:"force_dns_enabled"`
+	RebindProtection types.Bool   `tfsdk:"rebind_protection_enabled"`
+	OverrideVPN      types.Bool   `tfsdk:"override_vpn_enabled"`
 	Servers          types.List   `tfsdk:"servers"`
 	Protocol         types.String `tfsdk:"protocol"`
 	DoTProvider      types.String `tfsdk:"dot_provider"`
@@ -90,15 +90,15 @@ func (r *dnsResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					stringvalidator.OneOf("auto", "manual", "proxy", "secure"),
 				},
 			},
-			"force_dns": schema.BoolAttribute{
+			"force_dns_enabled": schema.BoolAttribute{
 				Description: "Whether the router makes the clients use its own DNS server (`force_dns` in the router API).",
 				Required:    true,
 			},
-			"rebind_protection": schema.BoolAttribute{
+			"rebind_protection_enabled": schema.BoolAttribute{
 				Description: "Whether DNS rebinding protection is enabled (`rebind_protection` in the router API).",
 				Required:    true,
 			},
-			"override_vpn": schema.BoolAttribute{
+			"override_vpn_enabled": schema.BoolAttribute{
 				Description: "Whether the DNS settings of the router override the DNS servers of a VPN client (`override_vpn` in the router API). " +
 					"A change can change the DNS servers that an active VPN client tunnel uses.",
 				Required: true,

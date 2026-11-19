@@ -4,25 +4,25 @@ page_title: "glinet_parental_control Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
   Manages the global settings of parental control on the router (parental-control.set_config). The router has one parental control configuration, so use one instance of this resource.
-  ~> Warning: parental control can block clients, also the computer that runs Terraform: drop_anonymous of glinet_parental_control blocks each client that is in no group, and a group with the default rule set drop blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
-  Parental control applies rule sets (glinet_parental_control_ruleset) to groups of clients (glinet_parental_control_group). The web UI says that parental control does not work while network acceleration is on. When drop_anonymous or auto_update is not set, the provider sends the router value. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy disables parental control on the router, because parental control acts on its own and can block clients. Destroy keeps drop_anonymous and auto_update, the groups and the rule sets.
+  ~> Warning: parental control can block clients, also the computer that runs Terraform: drop_anonymous_enabled of glinet_parental_control blocks each client that is in no group, and a group with the default rule set drop blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
+  Parental control applies rule sets (glinet_parental_control_ruleset) to groups of clients (glinet_parental_control_group). The web UI says that parental control does not work while network acceleration is on. When drop_anonymous_enabled or auto_update_enabled is not set, the provider sends the router value. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy disables parental control on the router, because parental control acts on its own and can block clients. Destroy keeps drop_anonymous_enabled and auto_update_enabled, the groups and the rule sets.
 ---
 
 # glinet_parental_control (Resource)
 
 Manages the global settings of parental control on the router (`parental-control.set_config`). The router has one parental control configuration, so use one instance of this resource.
 
-~> **Warning:** parental control can block clients, also the computer that runs Terraform: `drop_anonymous` of `glinet_parental_control` blocks each client that is in no group, and a group with the default rule set `drop` blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
+~> **Warning:** parental control can block clients, also the computer that runs Terraform: `drop_anonymous_enabled` of `glinet_parental_control` blocks each client that is in no group, and a group with the default rule set `drop` blocks its clients when no schedule applies. Then Terraform and the web UI can lose the access to the router.
 
-Parental control applies rule sets (`glinet_parental_control_ruleset`) to groups of clients (`glinet_parental_control_group`). The web UI says that parental control does not work while network acceleration is on. When `drop_anonymous` or `auto_update` is not set, the provider sends the router value. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy disables parental control on the router, because parental control acts on its own and can block clients. Destroy keeps `drop_anonymous` and `auto_update`, the groups and the rule sets.
+Parental control applies rule sets (`glinet_parental_control_ruleset`) to groups of clients (`glinet_parental_control_group`). The web UI says that parental control does not work while network acceleration is on. When `drop_anonymous_enabled` or `auto_update_enabled` is not set, the provider sends the router value. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy disables parental control on the router, because parental control acts on its own and can block clients. Destroy keeps `drop_anonymous_enabled` and `auto_update_enabled`, the groups and the rule sets.
 
 ## Example Usage
 
 ```terraform
 # Clients that are in no group keep their access, also the computer that runs Terraform.
 resource "glinet_parental_control" "this" {
-  enabled        = true
-  drop_anonymous = false
+  enabled                = true
+  drop_anonymous_enabled = false
 }
 ```
 
@@ -35,12 +35,12 @@ resource "glinet_parental_control" "this" {
 
 ### Optional
 
-- `auto_update` (Boolean) Whether the router updates its app feature library automatically (`auto_update` in the router API). The web UI shows this setting only when `app_filter_enabled` is true. When it is not set, the provider keeps the router value.
-- `drop_anonymous` (Boolean) Whether the router blocks the clients that are in no group (`drop_anonymous` in the router API), also the computer that runs Terraform. When it is not set, the provider keeps the router value.
+- `auto_update_enabled` (Boolean) Whether the router updates its app feature library automatically (`auto_update` in the router API). The web UI shows this setting only when `app_filter_enabled` is true. When it is not set, the provider keeps the router value.
+- `drop_anonymous_enabled` (Boolean) Whether the router blocks the clients that are in no group (`drop_anonymous` in the router API), also the computer that runs Terraform. When it is not set, the provider keeps the router value.
 
 ### Read-Only
 
-- `app_filter_enabled` (Boolean) Whether the router has the app feature library (`enable_app` in the router API). The router sets this value. The web UI shows the apps of a rule set and `auto_update` only when it is true.
+- `app_filter_enabled` (Boolean) Whether the router has the app feature library (`enable_app` in the router API). The router sets this value. The web UI shows the apps of a rule set and `auto_update_enabled` only when it is true.
 - `id` (String) Always `parental_control`.
 
 ## Import
