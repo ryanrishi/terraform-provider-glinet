@@ -25,14 +25,12 @@ const (
 		"finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again."
 )
 
-// parentalControlPresets are the IDs and the names of the preset rule sets, which cannot be changed or removed.
-var parentalControlPresets = []string{
-	glinet.ParentalControlRuleDrop, glinet.ParentalControlRuleAccept, "drop_all", "accept_all",
-}
-
-func isParentalControlPreset(s string) bool {
-	return slices.Contains(parentalControlPresets, s)
-}
+// The preset rule sets cannot be changed or removed. Their IDs are "drop" and "accept", and their names
+// parentalControlPresetNames.
+var (
+	parentalControlPresetIDs   = []string{glinet.ParentalControlRuleDrop, glinet.ParentalControlRuleAccept}
+	parentalControlPresetNames = []string{"drop_all", "accept_all"}
+)
 
 // findParentalControlItem returns the index of the item with the ID id and the name name.
 // When no item has both, it returns the index of the only item with the name name.
@@ -65,7 +63,7 @@ func groupKey(g glinet.ParentalControlGroup) (string, string) { return g.ID, g.N
 func customRules(config *glinet.ParentalControlConfig) []glinet.ParentalControlRule {
 	var rules []glinet.ParentalControlRule
 	for _, r := range config.Rules {
-		if !r.Preset && !isParentalControlPreset(r.ID) {
+		if !r.Preset && !slices.Contains(parentalControlPresetIDs, r.ID) {
 			rules = append(rules, r)
 		}
 	}

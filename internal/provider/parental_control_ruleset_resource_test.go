@@ -307,7 +307,7 @@ func TestParentalControlRulesetResourceImportPreset(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 
-	for _, id := range []string{"drop", "accept_all"} {
+	for _, id := range []string{"drop_all", "accept_all"} {
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
@@ -325,6 +325,38 @@ resource "glinet_parental_control_ruleset" "test" {
 			},
 		})
 	}
+}
+
+// TestParentalControlRulesetResourceImportPresetIDName checks that a rule set with the name of a preset ID is not a preset.
+func TestParentalControlRulesetResourceImportPresetIDName(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	if _, err := client.ParentalControl.AddRule(context.Background(), glinet.ParentalControlRuleSettings{Name: "drop", Color: "#123456", Manual: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + `
+resource "glinet_parental_control_ruleset" "test" {
+  name = "drop"
+}
+`,
+				ResourceName:  rulesetAddress,
+				ImportState:   true,
+				ImportStateId: "drop",
+				ImportStateCheck: func(states []*terraform.InstanceState) error {
+					if len(states) != 1 || states[0].Attributes["id"] != "cfg000001" || states[0].Attributes["color"] != "#123456" {
+						return fmt.Errorf("imported %v, want the rule set cfg000001", states)
+					}
+					return nil
+				},
+			},
+		},
+	})
 }
 
 func TestParentalControlRulesetResourceInvalidConfig(t *testing.T) {

@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -501,6 +503,122 @@ resource "glinet_parental_control_group" "test" {
 				Config:            config,
 				ConfigStateChecks: []statecheck.StateCheck{expectGroup("id", knownvalue.StringExact("cfg000002"))},
 				Check:             expectRouterGroupNames(client, "kids"),
+			},
+		},
+	})
+}
+
+// TestParentalControlGroupResourceUnknownValues checks the schedules when the rule set or a day is not known at plan time.
+func TestParentalControlGroupResourceUnknownValues(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	adds := recordCalls(t, srv, "parental-control", "add_group")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + groupRulesetConfig + `
+resource "glinet_parental_control_group" "test" {
+  name            = "kids"
+  default_ruleset = "accept"
+  schedules = [
+    { days = [1], begin = "08:00", end = "08:10", ruleset = glinet_parental_control_ruleset.homework.id },
+  ]
+}
+`,
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`shorter than 15 minutes`),
+			},
+			{
+				Config: fakeRouterConfig(srv) + groupRulesetConfig + `
+resource "glinet_parental_control_group" "test" {
+  name            = "kids"
+  default_ruleset = "accept"
+  schedules = [
+    { days = [1, 2], begin = "08:00", end = "10:00", ruleset = glinet_parental_control_ruleset.homework.id },
+    { days = [2], begin = "09:00", end = "11:00", ruleset = "drop" },
+  ]
+}
+`,
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`(?s)Overlapping Schedules.*` + wrapped(`On day 2, the schedule from 08:00 to 10:00`)),
+			},
+			{
+				Config: fakeRouterConfig(srv) + groupRulesetConfig + `
+resource "glinet_parental_control_group" "test" {
+  name            = "kids"
+  default_ruleset = "accept"
+  schedules = [
+    { days = [1, length(glinet_parental_control_ruleset.homework.id) > 0 ? 2 : 3], begin = "08:00", end = "10:00", ruleset = "accept" },
+    { days = [2], begin = "09:00", end = "11:00", ruleset = "drop" },
+  ]
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)Overlapping Schedules.*` + wrapped(`On day 2, the schedule from 08:00 to 10:00`)),
+			},
+			{
+				PreConfig: func() {
+					if got := adds.take(); len(got) != 0 {
+						t.Errorf("parental-control.add_group was called with %q", got)
+					}
+				},
+				Config: fakeRouterConfig(srv),
+			},
+		},
+	})
+}
+
+// TestParentalControlGroupResourceRenameSchedulesError checks the state when the rename succeeds and the schedule write fails.
+func TestParentalControlGroupResourceRenameSchedulesError(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	adds := recordCalls(t, srv, "parental-control", "add_group")
+	group := func(name, begin string) string {
+		return fakeRouterConfig(srv) + fmt.Sprintf(`
+resource "glinet_parental_control_group" "test" {
+  name            = %q
+  default_ruleset = "accept"
+  schedules = [
+    { days = [1], begin = %q, end = "10:00", ruleset = "drop" },
+  ]
+}
+`, name, begin)
+	}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectRouterGroupNames(client),
+		Steps: []resource.TestStep{
+			{
+				Config: group("kids", "08:00"),
+				Check:  adds.expect(`{"name":"kids","default_rule":"accept","macs":[]}`),
+			},
+			{
+				PreConfig: func() {
+					next := srv.Handler("parental-control", "set_group")
+					srv.Handle("parental-control", "set_group", func(params json.RawMessage) (any, error) {
+						if strings.Contains(string(params), "schedules") {
+							return nil, glinettest.ErrMethodNotFound
+						}
+						return next(params)
+					})
+				},
+				Config:      group("children", "09:00"),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Set Parental Control Group Schedules.*Method not found`),
+			},
+			{
+				Config:           group("children", "08:00"),
+				ConfigPlanChecks: expectEmptyPlan,
+				ConfigStateChecks: []statecheck.StateCheck{
+					expectGroup("id", knownvalue.StringExact("cfg000001")),
+					expectGroup("name", knownvalue.StringExact("children")),
+				},
+				Check: resource.ComposeTestCheckFunc(
+					adds.expect(),
+					expectRouterGroupNames(client, "children"),
+				),
 			},
 		},
 	})

@@ -186,43 +186,57 @@ func (r *parentalControlGroupResource) ValidateConfig(ctx context.Context, req r
 		}
 	}
 
-	if config.Schedules.IsUnknown() || config.Schedules.IsNull() {
+	validateSchedules(ctx, config.Schedules, &resp.Diagnostics)
+}
+
+// validateSchedules checks the rules of the web UI for the known values of schedules: the duration of each schedule,
+// no overlap on a day, and one item for the same times and rule set. Terraform validates the configuration also
+// before it knows all values, so Create and Update check the schedules again.
+func validateSchedules(ctx context.Context, schedules types.Set, diags *diag.Diagnostics) {
+	if schedules.IsUnknown() || schedules.IsNull() {
 		return
 	}
 	var items []parentalControlScheduleModel
-	resp.Diagnostics.Append(config.Schedules.ElementsAs(ctx, &items, false)...)
+	diags.Append(schedules.ElementsAs(ctx, &items, false)...)
 
 	var days []daySchedule
 	seen := map[[3]string]bool{}
 	for _, item := range items {
-		if item.Begin.IsUnknown() || item.End.IsUnknown() || item.Ruleset.IsUnknown() || item.Days.IsUnknown() {
+		if item.Begin.IsUnknown() || item.End.IsUnknown() {
 			continue
 		}
-		begin, end, rule := item.Begin.ValueString(), item.End.ValueString(), item.Ruleset.ValueString()
+		begin, end := item.Begin.ValueString(), item.End.ValueString()
 		if !validClock(begin) || !scheduleEndValidator.valid(end) {
 			continue
 		}
 		if clockMinutes(end)-clockMinutes(begin) < minScheduleMinutes {
-			resp.Diagnostics.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
+			diags.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
 				fmt.Sprintf("The schedule from %s to %s is shorter than %d minutes. end must be at least %d minutes after begin.",
 					begin, end, minScheduleMinutes, minScheduleMinutes))
 			continue
 		}
-		k := [3]string{begin, end, rule}
-		if seen[k] {
-			resp.Diagnostics.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
-				fmt.Sprintf("Two schedules have the begin %s, the end %s and the rule set %q. Make them one schedule with all their days.", begin, end, rule))
+
+		if !item.Ruleset.IsUnknown() {
+			k := [3]string{begin, end, item.Ruleset.ValueString()}
+			if seen[k] {
+				diags.AddAttributeError(path.Root("schedules"), "Invalid Schedule",
+					fmt.Sprintf("Two schedules have the begin %s, the end %s and the rule set %q. Make them one schedule with all their days.", begin, end, k[2]))
+			}
+			seen[k] = true
 		}
-		seen[k] = true
-		for _, week := range routerDays(ctx, item.Days, &resp.Diagnostics) {
-			days = append(days, daySchedule{week, begin, end, rule})
+
+		if item.Days.IsUnknown() || slices.ContainsFunc(item.Days.Elements(), attr.Value.IsUnknown) {
+			continue
+		}
+		for _, week := range routerDays(ctx, item.Days, diags) {
+			days = append(days, daySchedule{week: week, begin: begin, end: end})
 		}
 	}
 
 	for i, a := range days {
 		for _, b := range days[i+1:] {
 			if a.week == b.week && a.begin < b.end && b.begin < a.end {
-				resp.Diagnostics.AddAttributeError(path.Root("schedules"), "Overlapping Schedules",
+				diags.AddAttributeError(path.Root("schedules"), "Overlapping Schedules",
 					fmt.Sprintf("On day %d, the schedule from %s to %s overlaps the schedule from %s to %s.", a.week, a.begin, a.end, b.begin, b.end))
 			}
 		}
@@ -250,6 +264,7 @@ func (r *parentalControlGroupResource) Create(ctx context.Context, req resource.
 			fmt.Sprintf("The router already has the parental control group %q (ID %q). Import it with the ID %q, or use another name.", name, config.Groups[i].ID, name))
 		return
 	}
+	validateSchedules(ctx, plan.Schedules, &resp.Diagnostics)
 	schedules := planSchedules(ctx, plan, &resp.Diagnostics)
 	checkRulesets(config, groupRulesets(plan, schedules), &resp.Diagnostics)
 	settings := groupSettings(ctx, plan, &resp.Diagnostics)
@@ -332,6 +347,7 @@ func (r *parentalControlGroupResource) Update(ctx context.Context, req resource.
 			fmt.Sprintf("The router already has another parental control group with the name %q (ID %q).", name, config.Groups[i].ID))
 		return
 	}
+	validateSchedules(ctx, plan.Schedules, &resp.Diagnostics)
 	schedules := planSchedules(ctx, plan, &resp.Diagnostics)
 	checkRulesets(config, groupRulesets(plan, schedules), &resp.Diagnostics)
 	settings := groupSettings(ctx, plan, &resp.Diagnostics)
@@ -345,6 +361,13 @@ func (r *parentalControlGroupResource) Update(ctx context.Context, req resource.
 			return
 		}
 	}
+
+	written := state
+	written.ID = types.StringValue(group.ID)
+	written.Name = plan.Name
+	written.DefaultRuleset = plan.DefaultRuleset
+	written.MACs = plan.MACs
+	resp.Diagnostics.Append(resp.State.Set(ctx, written)...)
 
 	if !slices.Equal(schedules, daySchedules(group.Schedules)) {
 		if err := r.client.ParentalControl.SetSchedules(ctx, group.ID, routerSchedules(schedules, group.Schedules)); err != nil {

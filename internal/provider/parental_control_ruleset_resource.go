@@ -97,7 +97,7 @@ func (r *parentalControlRulesetResource) Schema(_ context.Context, _ resource.Sc
 				Required:    true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 64),
-					stringvalidator.NoneOf("drop_all", "accept_all"),
+					stringvalidator.NoneOf(parentalControlPresetNames...),
 				},
 			},
 			"color": schema.StringAttribute{
@@ -308,9 +308,9 @@ func (r *parentalControlRulesetResource) Delete(ctx context.Context, req resourc
 
 // ImportState sets the name. The next read finds the rule set by its name.
 func (r *parentalControlRulesetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	if isParentalControlPreset(req.ID) {
+	if slices.Contains(parentalControlPresetNames, req.ID) {
 		resp.Diagnostics.AddError("Preset Parental Control Rule Set",
-			fmt.Sprintf("%q is a preset rule set. The preset rule sets drop and accept cannot be changed or removed, so the provider does not manage them. "+
+			fmt.Sprintf("%q is the name of a preset rule set. The preset rule sets cannot be changed or removed, so the provider does not manage them. "+
 				"Use their IDs \"drop\" and \"accept\" directly in glinet_parental_control_group.", req.ID))
 		return
 	}
