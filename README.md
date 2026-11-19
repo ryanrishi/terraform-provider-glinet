@@ -55,6 +55,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
+| Resource | `glinet_repeater` | [docs/resources/repeater.md](docs/resources/repeater.md) |
 | Resource | `glinet_screen_schedule` | [docs/resources/screen_schedule.md](docs/resources/screen_schedule.md) |
 | Resource | `glinet_switch_button` | [docs/resources/switch_button.md](docs/resources/switch_button.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
@@ -72,9 +73,12 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
 | Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
+| Data source | `glinet_repeater_saved_networks` | [docs/data-sources/repeater_saved_networks.md](docs/data-sources/repeater_saved_networks.md) |
+| Data source | `glinet_repeater_status` | [docs/data-sources/repeater_status.md](docs/data-sources/repeater_status.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
 | Data source | `glinet_system_status` | [docs/data-sources/system_status.md](docs/data-sources/system_status.md) |
 | Data source | `glinet_system_timezone` | [docs/data-sources/system_timezone.md](docs/data-sources/system_timezone.md) |
+| Data source | `glinet_tethering_status` | [docs/data-sources/tethering_status.md](docs/data-sources/tethering_status.md) |
 | Data source | `glinet_wan_status` | [docs/data-sources/wan_status.md](docs/data-sources/wan_status.md) |
 | Data source | `glinet_wifi_status` | [docs/data-sources/wifi_status.md](docs/data-sources/wifi_status.md) |
 
