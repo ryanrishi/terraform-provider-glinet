@@ -31,8 +31,10 @@ type clientList struct {
 	description string
 	add         func(*glinet.AccessControlService, context.Context, string) error
 	remove      func(*glinet.AccessControlService, context.Context, string) error
-	// deleteOutsideModeAdvice tells the user what to do when destroy fails because the router is not in mode.
-	deleteOutsideModeAdvice string
+	// writesInOtherMode is true when the router accepts a write to the list also while it is not in mode.
+	writesInOtherMode bool
+	// otherModeAdvice tells the user what to do when a write fails because the router is not in mode.
+	otherModeAdvice string
 	// keepLastEntry makes destroy fail when it would empty the list while the router uses it.
 	keepLastEntry bool
 }
@@ -97,9 +99,7 @@ func (r *clientListResource) Create(ctx context.Context, req resource.CreateRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	_, entries := r.listEntries(ctx, mac,
-		fmt.Sprintf("Set the access control mode to %q first, for example with glinet_access_control.", accessControlModeName(r.list.mode)),
-		&resp.Diagnostics)
+	_, entries, _ := r.listEntries(ctx, mac, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -142,7 +142,7 @@ func (r *clientListResource) Read(ctx context.Context, req resource.ReadRequest,
 		resp.Diagnostics.AddError("Unable to Read Client "+r.list.title(), err.Error())
 		return
 	}
-	if config.Mode != r.list.mode {
+	if config.Mode != r.list.mode && !r.list.writesInOtherMode {
 		resp.Diagnostics.AddWarning(
 			"Router Is Not in "+r.list.modeTitle(),
 			fmt.Sprintf("The access control mode of the router is %q, not %q, so the %s is not used. "+
@@ -179,18 +179,18 @@ func (r *clientListResource) Delete(ctx context.Context, req resource.DeleteRequ
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	list, entries := r.listEntries(ctx, mac, r.list.deleteOutsideModeAdvice, &resp.Diagnostics)
+	list, entries, inMode := r.listEntries(ctx, mac, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if r.list.keepLastEntry && len(entries) > 0 && len(entries) == len(list) {
+	if r.list.keepLastEntry && inMode && len(entries) > 0 && len(entries) == len(list) {
 		resp.Diagnostics.AddError(
 			"Last "+r.list.title()+"-List Entry",
 			fmt.Sprintf("MAC address %s is the last entry of the %s, and the router is in %q mode. "+
 				"An empty %s can block all clients, also the computer that runs Terraform, so the provider does not remove it. "+
 				"Keep another entry in the %s, or remove the resource from the configuration and then from the state with terraform state rm: "+
 				"the entry then stays on the router and is not managed. "+
-				"A change of the access control mode does not help, because this resource removes entries only in %q mode.",
+				"Or change the access control mode first: while the router is not in %q mode, destroy removes the last entry.",
 				mac, r.list.name(), accessControlModeName(r.list.mode), r.list.name(), r.list.name(), accessControlModeName(r.list.mode)),
 		)
 		return
@@ -214,28 +214,29 @@ func (r *clientListResource) ImportState(ctx context.Context, req resource.Impor
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("mac"), mac)...)
 }
 
-// listEntries reads the access control configuration and returns the list of the resource and its entries for mac.
-// It adds an error when the router is not in the mode of the list: the web UI writes a single MAC address only
-// to the list of the current mode, and it is not known what such a write does in the other mode.
-func (r *clientListResource) listEntries(ctx context.Context, mac, advice string, diags *diag.Diagnostics) (list, entries []string) {
+// listEntries reads the access control configuration and returns the list of the resource, its entries for mac,
+// and whether the router is in the mode of the list.
+// It adds an error when the router is not in the mode of the list and the list does not accept writes in the other mode.
+func (r *clientListResource) listEntries(ctx context.Context, mac string, diags *diag.Diagnostics) (list, entries []string, inMode bool) {
 	config, err := r.client.AccessControl.GetConfig(ctx)
 	if err != nil {
 		diags.AddError("Unable to Read "+r.list.title()+" List", err.Error())
-		return nil, nil
+		return nil, nil, false
 	}
-	if config.Mode != r.list.mode {
+	inMode = config.Mode == r.list.mode
+	if !inMode && !r.list.writesInOtherMode {
 		diags.AddError(
 			"Router Is Not in "+r.list.modeTitle(),
 			fmt.Sprintf("The access control mode of the router is %q, not %q. "+
-				"This resource writes to the %s only in %q mode, because it is not known what the write does in another mode. %s",
+				"This resource writes to the %s only in %q mode, because it was not tested what the write does in another mode. %s",
 				accessControlModeName(config.Mode), accessControlModeName(r.list.mode), r.list.name(),
-				accessControlModeName(r.list.mode), advice),
+				accessControlModeName(r.list.mode), r.list.otherModeAdvice),
 		)
-		return nil, nil
+		return nil, nil, false
 	}
 
 	list = accessControlList(config, r.list.mode)
-	return list, matchingMACs(list, mac)
+	return list, matchingMACs(list, mac), inMode
 }
 
 // matchingMACs returns the entries of list that are mac in any letter case.

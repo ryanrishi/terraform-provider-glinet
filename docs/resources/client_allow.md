@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   Allows a client by its MAC address: the MAC address is an entry in the allow list of the router (black_white_list). The router has one allow list for all clients, and uses it only in allow-list mode. In allow-list mode, the router blocks each client that is not in the allow list.
   ~> Warning: in allow-list mode, destroy of an entry can block that client, also when it is the computer that runs Terraform.
-  The resource does not manage the access control mode (see glinet_access_control): create and destroy fail when the router is not in allow-list mode, because the web UI writes to the allow list only in allow-list mode, and it is not known what such a write does in block-list mode. While the router is not in allow-list mode, refresh keeps the resource in the state and shows a warning. Destroy fails when the MAC address is the last entry of the allow list, because an empty allow list can block all clients. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps mac in the letter case of the configuration. Import sets mac in lower case. Destroy removes the MAC address in each letter case. The allow-list writes are from the web UI code of firmware 4.8.3 and were not tested on a router.
+  The resource does not manage the access control mode (see glinet_access_control). Create, update and destroy also work while the router is in block-list mode: the router then does not use the allow list, and an entry has no effect until the mode changes to allow-list mode. Thus you can add the allow-list entries first and then set glinet_access_control to allow_list, with depends_on or a reference. In allow-list mode, destroy fails when the MAC address is the last entry of the allow list, because an empty allow list can block all clients. In block-list mode, destroy also removes the last entry. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps mac in the letter case of the configuration. Import sets mac in lower case. Destroy removes the MAC address in each letter case. An add and a remove of an entry in block-list mode were tested on a GL-AXT1800 with firmware 4.8.3: the router changed the allow list and kept block-list mode. The other allow-list writes are from the web UI code of firmware 4.8.3 and were not tested on a router.
 ---
 
 # glinet_client_allow (Resource)
@@ -14,14 +14,29 @@ Allows a client by its MAC address: the MAC address is an entry in the allow lis
 
 ~> **Warning:** in allow-list mode, destroy of an entry can block that client, also when it is the computer that runs Terraform.
 
-The resource does not manage the access control mode (see `glinet_access_control`): create and destroy fail when the router is not in allow-list mode, because the web UI writes to the allow list only in allow-list mode, and it is not known what such a write does in block-list mode. While the router is not in allow-list mode, refresh keeps the resource in the state and shows a warning. Destroy fails when the MAC address is the last entry of the allow list, because an empty allow list can block all clients. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. Destroy removes the MAC address in each letter case. The allow-list writes are from the web UI code of firmware 4.8.3 and were not tested on a router.
+The resource does not manage the access control mode (see `glinet_access_control`). Create, update and destroy also work while the router is in block-list mode: the router then does not use the allow list, and an entry has no effect until the mode changes to allow-list mode. Thus you can add the allow-list entries first and then set `glinet_access_control` to `allow_list`, with `depends_on` or a reference. In allow-list mode, destroy fails when the MAC address is the last entry of the allow list, because an empty allow list can block all clients. In block-list mode, destroy also removes the last entry. The provider writes the MAC address in upper case, as the web UI does, and finds entries without letter case. The state keeps `mac` in the letter case of the configuration. Import sets `mac` in lower case. Destroy removes the MAC address in each letter case. An add and a remove of an entry in block-list mode were tested on a GL-AXT1800 with firmware 4.8.3: the router changed the allow list and kept block-list mode. The other allow-list writes are from the web UI code of firmware 4.8.3 and were not tested on a router.
 
 ## Example Usage
 
 ```terraform
-# The router must be in allow-list mode, for example with glinet_access_control and mode = "allow_list".
+# The allow list can be filled while the router is in block-list mode.
+# Add the computer that runs Terraform and each other client that must keep its access,
+# then start allow-list mode after the entries exist.
 resource "glinet_client_allow" "laptop" {
   mac = "02:00:00:00:00:01"
+}
+
+resource "glinet_client_allow" "phone" {
+  mac = "02:00:00:00:00:02"
+}
+
+resource "glinet_access_control" "this" {
+  mode = "allow_list"
+
+  depends_on = [
+    glinet_client_allow.laptop,
+    glinet_client_allow.phone,
+  ]
 }
 ```
 

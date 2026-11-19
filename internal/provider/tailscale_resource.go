@@ -82,11 +82,12 @@ func (r *tailscaleResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Default:  booldefault.StaticBool(false),
 			},
 			"exit_node_ip": schema.StringAttribute{
-				Description: "Tailscale IPv4 address of the exit node that the router uses (`exit_node_ip` in the router API). " +
+				Description: "Tailscale IPv4 or IPv6 address of the exit node that the router uses (`exit_node_ip` in the router API), " +
+					"for example `100.64.0.1` or `fd7a:115c:a1e0::1`. " +
 					"When it is not set, the router uses no exit node. Can be set only when `enabled` is `true`.",
 				Optional: true,
 				Validators: []validator.String{
-					stringCheck{description: "must be an IPv4 address", valid: validIPv4},
+					stringCheck{description: "must be an IPv4 or IPv6 address", valid: validIP},
 				},
 			},
 			"lan_subnet": schema.StringAttribute{

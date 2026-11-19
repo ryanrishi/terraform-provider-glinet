@@ -446,6 +446,44 @@ func TestWifiInterfaceResourceUnsupportedEncryption(t *testing.T) {
 	}
 }
 
+// TestWifiInterfaceResourceListedEncryption sets encryptions that the radio lists, but that the radio of the GL-AXT1800 does not have.
+// Only "wep" is not in the list, so it fails without a write.
+func TestWifiInterfaceResourceListedEncryption(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	setWifi(t, srv, "radio1", map[string]any{"encryptions": []string{"none", "psk2", "psk2+sae", "psk2+ccmp"}}, "", nil)
+	calls := recordCalls(t, srv, "wifi", "set_config")
+	hexKeyed := guest2g
+	hexKeyed.encryption, hexKeyed.key = "psk2+ccmp", hexKey
+	sae := guest2g
+	sae.encryption = "psk2+sae"
+	wep := guest2g
+	wep.encryption = "wep"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + hexKeyed.config(),
+				ConfigStateChecks: hexKeyed.state(),
+				Check:             calls.expect(hexKeyed.defaultSettingsParams()),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + sae.config(),
+				ConfigStateChecks: sae.state(),
+				Check:             calls.expect(sae.defaultSettingsParams()),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + wep.config(),
+				ExpectError: regexp.MustCompile(`(?s)Encryption Not Supported.*` + wrapped(`does not support the encryption "wep". It supports: none, psk2, psk2+sae, psk2+ccmp.`)),
+			},
+		},
+	})
+	if got := calls.take(); len(got) != 0 {
+		t.Errorf("wifi.set_config was called with %q", got)
+	}
+}
+
 func TestWifiInterfaceResourceImport(t *testing.T) {
 	parallel(t)
 	tests := []struct {
@@ -613,8 +651,6 @@ func TestWifiInterfaceResourceInvalidConfig(t *testing.T) {
 		{with(func(c *wifiInterface) { c.ssid = "" }), `ssid string length must be between 1 and 32`},
 		{with(func(c *wifiInterface) { c.ssid = strings.Repeat("a", 33) }), `ssid string length must be between 1 and 32`},
 		{with(func(c *wifiInterface) { c.ssid = strings.Repeat("é", 17) }), `ssid string length must be between 1 and 32`},
-		{with(func(c *wifiInterface) { c.encryption = "wep" }), `encryption value must be one of`},
-		{with(func(c *wifiInterface) { c.encryption = "psk" }), `encryption value must be one of`},
 		{with(func(c *wifiInterface) { c.key = "" }), `(?s)Invalid Attribute Combination.*key is required when encryption is psk2`},
 		{with(func(c *wifiInterface) { c.key, c.encryption = "", "sae" }), `key is required when encryption is sae`},
 		{with(func(c *wifiInterface) { c.encryption = "none" }), `key cannot be set when encryption is none`},
@@ -625,6 +661,8 @@ func TestWifiInterfaceResourceInvalidConfig(t *testing.T) {
 		{with(func(c *wifiInterface) { c.key = "pässwörter" }), `key must be 8 to 63 printable ASCII characters`},
 		{with(func(c *wifiInterface) { c.key, c.encryption = hexKey, "sae" }), `key must have at most 63 characters when encryption is sae`},
 		{with(func(c *wifiInterface) { c.key, c.encryption = hexKey, "sae-mixed" }), `key must have at most 63 characters when encryption is\s+sae-mixed`},
+		{with(func(c *wifiInterface) { c.key, c.encryption = hexKey, "psk2+sae" }), `key must have at most 63 characters when encryption is\s+psk2\+sae`},
+		{with(func(c *wifiInterface) { c.key, c.encryption = "", "psk2+sae" }), `key is required when encryption is psk2\+sae`},
 		{`resource "glinet_wifi_interface" "test" {
   name       = "guest2g"
   ssid       = "guest"

@@ -33,14 +33,14 @@ resource "glinet_wifi_interface" "guest" {
 ### Required
 
 - `enabled` (Boolean) Whether the interface is enabled (`enabled` in the router API).
-- `encryption` (String) Encryption (`encryption` in the router API): `none` (open), `psk2` (WPA2-PSK), `psk-mixed` (WPA/WPA2-PSK), `sae` (WPA3-SAE) or `sae-mixed` (WPA2-PSK/WPA3-SAE). The router lists the encryptions that each radio supports; create and update fail when the radio does not support the value.
+- `encryption` (String) Encryption (`encryption` in the router API), for example `none` (open), `psk2` (WPA2-PSK), `psk-mixed` (WPA/WPA2-PSK), `sae` (WPA3-SAE) or `sae-mixed` (WPA2-PSK/WPA3-SAE). The router lists the encryptions that each radio supports (`encryptions` in the router API), and the list can be different on other router models. Create and update fail without a write when the radio of the interface does not support the value. As in the web UI, each value other than `none` needs a key.
 - `name` (String) Name of the interface on the router, for example `default_radio0`, `guest5g`, `default_radio1` or `guest2g` (`iface_name` in the router API). Changing it replaces the resource.
 - `ssid` (String) Name of the Wi-Fi network, 1 to 32 bytes (`ssid` in the router API).
 
 ### Optional
 
 - `hidden` (Boolean) Whether the network name is hidden (`hidden` in the router API). Defaults to `false`.
-- `key` (String, Sensitive) Wi-Fi password (`key` in the router API): 8 to 63 printable ASCII characters, or 64 hex digits; at most 63 characters for `sae` and `sae-mixed`. Required unless `encryption` is `none`, and cannot be set then.
+- `key` (String, Sensitive) Wi-Fi password (`key` in the router API): 8 to 63 printable ASCII characters, or 64 hex digits; at most 63 characters when `encryption` contains `sae`, for example `sae` and `sae-mixed`. Required unless `encryption` is `none`, and cannot be set then.
 
 ### Read-Only
 

@@ -30,8 +30,6 @@ var (
 )
 
 var (
-	wifiEncryptions = []string{"none", "psk2", "psk-mixed", "sae", "sae-mixed"}
-
 	// The Wi-Fi key rules of the web UI: 8-63 printable ASCII characters or 64 hex digits.
 	asciiWifiKey = regexp.MustCompile(`^[\x20-\x7E]{8,63}$`)
 	hexWifiKey   = regexp.MustCompile(`^[0-9A-Fa-f]{64}$`)
@@ -101,7 +99,8 @@ func (r *wifiInterfaceResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"key": schema.StringAttribute{
-				Description: "Wi-Fi password (`key` in the router API): 8 to 63 printable ASCII characters, or 64 hex digits; at most 63 characters for `sae` and `sae-mixed`. " +
+				Description: "Wi-Fi password (`key` in the router API): 8 to 63 printable ASCII characters, or 64 hex digits; " +
+					"at most 63 characters when `encryption` contains `sae`, for example `sae` and `sae-mixed`. " +
 					"Required unless `encryption` is `none`, and cannot be set then.",
 				Optional:  true,
 				Sensitive: true,
@@ -110,12 +109,11 @@ func (r *wifiInterfaceResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"encryption": schema.StringAttribute{
-				Description: "Encryption (`encryption` in the router API): `none` (open), `psk2` (WPA2-PSK), `psk-mixed` (WPA/WPA2-PSK), `sae` (WPA3-SAE) or `sae-mixed` (WPA2-PSK/WPA3-SAE). " +
-					"The router lists the encryptions that each radio supports; create and update fail when the radio does not support the value.",
+				Description: "Encryption (`encryption` in the router API), for example `none` (open), `psk2` (WPA2-PSK), `psk-mixed` (WPA/WPA2-PSK), `sae` (WPA3-SAE) or `sae-mixed` (WPA2-PSK/WPA3-SAE). " +
+					"The router lists the encryptions that each radio supports (`encryptions` in the router API), and the list can be different on other router models. " +
+					"Create and update fail without a write when the radio of the interface does not support the value. " +
+					"As in the web UI, each value other than `none` needs a key.",
 				Required: true,
-				Validators: []validator.String{
-					stringvalidator.OneOf(wifiEncryptions...),
-				},
 			},
 			"hidden": schema.BoolAttribute{
 				Description: "Whether the network name is hidden (`hidden` in the router API). Defaults to `false`.",
@@ -154,7 +152,7 @@ func (r *wifiInterfaceResource) Schema(_ context.Context, _ resource.SchemaReque
 
 func (r *wifiInterfaceResource) ConfigValidators(context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{configRules{
-		description: "key is required unless encryption is none, and has at most 63 characters for sae and sae-mixed",
+		description: "key is required unless encryption is none, and has at most 63 characters when encryption contains sae",
 		validate: func(ctx context.Context, req resource.ValidateConfigRequest, diags *diag.Diagnostics) {
 			var config wifiInterfaceResourceModel
 			diags.Append(req.Config.Get(ctx, &config)...)
@@ -168,7 +166,7 @@ func (r *wifiInterfaceResource) ConfigValidators(context.Context) []resource.Con
 				return
 			}
 			require(diags, "key", config.Key, "when encryption is "+encryption)
-			if strings.HasPrefix(encryption, "sae") && !config.Key.IsUnknown() && len(config.Key.ValueString()) > 63 {
+			if strings.Contains(encryption, "sae") && !config.Key.IsUnknown() && len(config.Key.ValueString()) > 63 {
 				diags.AddAttributeError(path.Root("key"), invalidCombination, "key must have at most 63 characters when encryption is "+encryption+".")
 			}
 		},
