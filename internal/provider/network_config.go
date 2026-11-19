@@ -60,7 +60,7 @@ func listStrings(ctx context.Context, list types.List, diags *diag.Diagnostics) 
 }
 
 // int64OrNull returns null for 0, which the client gives for a number that the router leaves out.
-func int64OrNull(v int) types.Int64 {
+func int64OrNull[T int | int64](v T) types.Int64 {
 	if v == 0 {
 		return types.Int64Null()
 	}

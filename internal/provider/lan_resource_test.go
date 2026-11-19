@@ -116,6 +116,14 @@ func (c lanNetwork) state(address string) []statecheck.StateCheck {
 	})
 }
 
+// boolInt returns the 0 or 1 that the router API has for b.
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // addressParams returns the params of the address write of c. Only the guest network has wan_isolate.
 func (c lanNetwork) addressParams() string {
 	if c.iface == "guest" {

@@ -159,7 +159,7 @@ func TestMultiWANSensitivityResourceDrift(t *testing.T) {
 				Check:  setSensitivity.expect(`{"sensitivity":{"level":"custom","val":10}}`),
 			},
 			{
-				PreConfig:        func() { srv.MultiWAN.SetSensitivity(glinettest.MultiWANSensitivity{Level: "custom", Val: 20}) },
+				PreConfig:        func() { srv.MultiWAN.SetSensitivity(glinettest.MultiWANSensitivity{Level: "custom", Interval: 20}) },
 				Config:           config,
 				ConfigPlanChecks: expectResourceAction(multiWANSensitivityAddress, plancheck.ResourceActionUpdate),
 				Check:            setSensitivity.expect(`{"sensitivity":{"level":"custom","val":10}}`),

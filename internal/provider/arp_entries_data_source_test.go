@@ -31,7 +31,7 @@ func TestARPEntriesDataSource(t *testing.T) {
 	}
 
 	srv := glinettest.NewServer(t)
-	srv.Network.SetARPList(json.RawMessage(`{
+	srv.Network.SetARPEntries(json.RawMessage(`{
 		"entries": [
 			{"device": "br-lan", "ip": "192.168.8.130", "mac": "02:00:00:00:00:16"},
 			{"device": "sta0", "ip": "192.168.100.1", "mac": "02:00:00:00:00:37"}
@@ -57,7 +57,7 @@ func TestARPEntriesDataSource(t *testing.T) {
 func TestARPEntriesDataSourceEmpty(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	srv.Network.SetARPList(json.RawMessage(`{"entries": []}`))
+	srv.Network.SetARPEntries(json.RawMessage(`{"entries": []}`))
 
 	readDataSource(t, fakeRouterConfig(srv)+arpEntriesDataSourceConfig, expectAttributes(arpEntriesAddress, map[string]knownvalue.Check{
 		"entries": knownvalue.ListExact([]knownvalue.Check{}),

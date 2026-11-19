@@ -44,7 +44,7 @@ func expectRouterParentalControl(client *glinet.Client, want glinet.ParentalCont
 		if err != nil {
 			return err
 		}
-		got := glinet.ParentalControlSettings{Enable: config.Enable, DropAnonymous: config.DropAnonymous, AutoUpdate: config.AutoUpdate}
+		got := glinet.ParentalControlSettings{Enabled: config.Enabled, DropAnonymous: config.DropAnonymous, AutoUpdate: config.AutoUpdate}
 		if got != want {
 			return fmt.Errorf("router has %+v, want %+v", got, want)
 		}
@@ -103,7 +103,7 @@ resource "glinet_parental_control" "test" {
 			},
 			{
 				PreConfig: func() {
-					editParentalControl(t, srv, func(config *glinet.ParentalControlConfig) { config.Enable = true })
+					editParentalControl(t, srv, func(config *glinet.ParentalControlConfig) { config.Enabled = true })
 				},
 				Config: fakeRouterConfig(srv) + `
 resource "glinet_parental_control" "test" {
@@ -133,7 +133,7 @@ resource "glinet_parental_control" "test" {
   drop_anonymous = true
 }
 `,
-				Check: expectRouterParentalControl(client, glinet.ParentalControlSettings{Enable: true, DropAnonymous: true}),
+				Check: expectRouterParentalControl(client, glinet.ParentalControlSettings{Enabled: true, DropAnonymous: true}),
 			},
 		},
 	})

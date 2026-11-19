@@ -117,10 +117,10 @@ func (r *networkAdvancedResource) set(ctx context.Context, plan tfsdk.Plan, stat
 		return
 	}
 	if !model.FullConeNAT.IsUnknown() {
-		config.FullConeNAT = boolInt(model.FullConeNAT.ValueBool())
+		config.FullConeNATEnabled = model.FullConeNAT.ValueBool()
 	}
 	if !model.SIPALG.IsUnknown() {
-		config.SIPALG = boolInt(model.SIPALG.ValueBool())
+		config.SIPALGEnabled = model.SIPALG.ValueBool()
 	}
 
 	if err := r.client.Network.SetAdvancedConfig(ctx, *config); err != nil {
@@ -149,7 +149,7 @@ func (r *networkAdvancedResource) read(ctx context.Context, state *tfsdk.State, 
 func networkAdvancedModel(config *glinet.NetworkAdvancedConfig) *networkAdvancedResourceModel {
 	return &networkAdvancedResourceModel{
 		ID:          types.StringValue(networkAdvancedID),
-		FullConeNAT: types.BoolValue(config.FullConeNAT == 1),
-		SIPALG:      types.BoolValue(config.SIPALG == 1),
+		FullConeNAT: types.BoolValue(config.FullConeNATEnabled),
+		SIPALG:      types.BoolValue(config.SIPALGEnabled),
 	}
 }

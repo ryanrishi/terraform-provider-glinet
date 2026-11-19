@@ -74,10 +74,10 @@ func (r *firewallDMZResource) Schema(_ context.Context, _ resource.SchemaRequest
 					"When it is not set, the provider sends back the value of the router, so the router value does not change. " +
 					"The provider sends `priority` only when `enabled` is `true`, as the web UI does. While the router reports the DMZ as disabled, " +
 					"the provider keeps the value of the state and does not compare it with the router. " +
-					"When the router reports another priority after a write that enables the DMZ, the apply fails. " +
-					"Before the first write, the router reports no priority and the provider reads `false`; the web UI then shows `true`. " +
-					"The write of `priority` was not tested on a router: firmware 4.7.0 reports `false` after each write without `priority`, " +
-					"and what firmware without this option does with it is not known.",
+					"When the provider sends a priority in a write that enables the DMZ and the router then reports another priority or no priority, the apply fails. " +
+					"Before the first write, the router reports no priority: the provider reads null, and when `higher_priority` is not set, it sends no `priority`. " +
+					"The web UI then shows and sends `true`. Firmware 4.7.0 reports `false` after each write without `priority`. " +
+					"The write of `priority` was not tested on a router, and what firmware without this option does with it is not known.",
 				Optional: true,
 				Computed: true,
 			},
@@ -150,7 +150,8 @@ func (r *firewallDMZResource) ImportState(ctx context.Context, req resource.Impo
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), firewallDMZID)...)
 }
 
-// set writes the DMZ of plan. When higher_priority is not set, it sends back the priority of the router.
+// set writes the DMZ of plan. When higher_priority is not set, it sends back the priority of the router,
+// and no priority when the router reports none.
 func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *tfsdk.State, diags *diag.Diagnostics) {
 	var model firewallDMZResourceModel
 	diags.Append(plan.Get(ctx, &model)...)
@@ -169,7 +170,7 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 
 	priority := current.Priority
 	if !model.HigherPriority.IsUnknown() {
-		priority = model.HigherPriority.ValueBool()
+		priority = model.HigherPriority.ValueBoolPointer()
 	}
 
 	err = r.client.Firewall.SetDMZ(ctx, glinet.DMZ{
@@ -183,7 +184,7 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 	}
 
 	model.ID = types.StringValue(firewallDMZID)
-	model.HigherPriority = types.BoolValue(priority)
+	model.HigherPriority = types.BoolPointerValue(priority)
 	diags.Append(state.Set(ctx, &model)...)
 	if diags.HasError() {
 		return
@@ -198,9 +199,13 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 		diags.AddError("Firewall DMZ Host Not Found", "The router has no DMZ host after the write.")
 		return
 	}
-	if dmz.Enabled && dmz.Priority != priority {
+	if dmz.Enabled && priority != nil && (dmz.Priority == nil || *dmz.Priority != *priority) {
+		reported := "no DMZ priority"
+		if dmz.Priority != nil {
+			reported = fmt.Sprintf("the DMZ priority %t", *dmz.Priority)
+		}
 		diags.AddAttributeError(path.Root("higher_priority"), "Firewall DMZ Priority Not Applied",
-			fmt.Sprintf("The router reports the DMZ priority %t after the write of %t. The firmware of the router may not have the DMZ priority.", dmz.Priority, priority))
+			fmt.Sprintf("The router reports %s after the write of %t. The firmware of the router may not have the DMZ priority.", reported, *priority))
 		return
 	}
 
@@ -208,9 +213,9 @@ func (r *firewallDMZResource) set(ctx context.Context, plan tfsdk.Plan, state *t
 }
 
 // dmzModel takes the priority kept while the router reports the DMZ as disabled, because a disabled write does not send it.
-// When kept is null, as after an import, it takes the priority of the router.
+// When kept is null, as after an import, it takes the priority of the router, which is null when the router reports none.
 func dmzModel(dmz *glinet.DMZ, kept types.Bool) *firewallDMZResourceModel {
-	priority := types.BoolValue(dmz.Priority)
+	priority := types.BoolPointerValue(dmz.Priority)
 	if !dmz.Enabled && !kept.IsNull() && !kept.IsUnknown() {
 		priority = kept
 	}

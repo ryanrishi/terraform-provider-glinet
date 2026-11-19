@@ -51,7 +51,7 @@ func timezoneTestRouter(t *testing.T) (string, *glinet.Client) {
 
 	t.Cleanup(func() {
 		ctx := context.Background()
-		err := client.System.SetTimezoneConfig(ctx, &glinet.SetSystemTimezoneRequest{
+		err := client.System.SetTimezoneConfig(ctx, glinet.SetTimezoneConfigRequest{
 			Zonename: initial.Zonename,
 			Timezone: initial.Timezone,
 		})

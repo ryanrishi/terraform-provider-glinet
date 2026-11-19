@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -65,14 +67,14 @@ type ruleIdentity struct {
 	src, srcIP, srcMAC, srcPort, proto, dest, destIP, destPort string
 }
 
-func identityOfRule(r glinet.Rule) ruleIdentity {
+func identityOfRule(r glinet.FirewallRule) ruleIdentity {
 	return ruleIdentity{
 		src: r.Src, srcIP: r.SrcIP, srcMAC: r.SrcMAC, srcPort: r.SrcPort,
 		proto: r.Proto, dest: r.Dest, destIP: r.DestIP, destPort: r.DestPort,
 	}
 }
 
-func (id ruleIdentity) matches(r glinet.Rule) bool {
+func (id ruleIdentity) matches(r glinet.FirewallRule) bool {
 	other := identityOfRule(r)
 	if !strings.EqualFold(other.srcMAC, id.srcMAC) {
 		return false
@@ -146,7 +148,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because `set_rule` and `remove_rule` return HTTP status 500. " +
 			"The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. " +
 			"Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. " +
-			"When a write to such a rule fails, the error tells how to remove the rule with SSH and `uci`. " +
+			"When a write to such a rule fails with HTTP status 500, the error tells how to remove the rule with SSH and `uci`. " +
 			"The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). " +
 			"Other firmware versions were not tested.\n\n" +
 			"Rules with IPv6 addresses, IPv4 and IPv6 CIDR blocks, the protocols `esp` and `icmpv6`, and a source MAC address in upper case were tested on a GL-AXT1800 with firmware 4.8.3: " +
@@ -320,7 +322,7 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 
 	if err := r.client.Firewall.SetRule(ctx, plan.rule(rule.ID)); err != nil {
 		detail := err.Error()
-		if rule.DestPort == "" {
+		if rule.DestPort == "" && isNoDestinationPortFault(err) {
 			detail = fmt.Sprintf("The write to the rule %s failed. %s Error: %s", describeRule(*rule), noDestinationPortFault(rule.ID), err)
 		}
 		resp.Diagnostics.AddError("Unable to Update Firewall Rule", detail)
@@ -364,10 +366,14 @@ func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	removable.DestPort = removablePort
 	removable.Enabled = false
 	if err := r.client.Firewall.SetRule(ctx, removable); err != nil {
+		fault := ""
+		if isNoDestinationPortFault(err) {
+			fault = noDestinationPortFault(rule.ID) + " "
+		}
 		resp.Diagnostics.AddError("Unable to Delete Firewall Rule",
 			fmt.Sprintf("Firmware 4.7.0 cannot remove a rule with no destination port, so the provider first writes the destination port %s to the rule. "+
-				"This write to the rule %s failed. The rule may be unchanged, or disabled with the destination port %s. %s Error: %s",
-				removablePort, describeRule(*rule), removablePort, noDestinationPortFault(rule.ID), err))
+				"This write to the rule %s failed. The rule may be unchanged, or disabled with the destination port %s. %sError: %s",
+				removablePort, describeRule(*rule), removablePort, fault, err))
 		return
 	}
 	if err := r.client.Firewall.RemoveRule(ctx, rule.ID); err != nil {
@@ -400,7 +406,7 @@ func (r *firewallRuleResource) ImportState(ctx context.Context, req resource.Imp
 		return
 	}
 
-	var named []glinet.Rule
+	var named []glinet.FirewallRule
 	for _, rule := range rules {
 		if rule.Name == req.ID {
 			named = append(named, rule)
@@ -433,13 +439,13 @@ func (r *firewallRuleResource) ImportState(ctx context.Context, req resource.Imp
 
 // find returns the first rule with the identity id, because the firewall applies the first matching rule.
 // It adds a warning when the router has more than one.
-func (r *firewallRuleResource) find(ctx context.Context, id ruleIdentity, diags *diag.Diagnostics) (*glinet.Rule, error) {
+func (r *firewallRuleResource) find(ctx context.Context, id ruleIdentity, diags *diag.Diagnostics) (*glinet.FirewallRule, error) {
 	rules, err := r.client.Firewall.ListRules(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var found []glinet.Rule
+	var found []glinet.FirewallRule
 	for _, rule := range rules {
 		if id.matches(rule) {
 			found = append(found, rule)
@@ -471,6 +477,14 @@ func (r *firewallRuleResource) readBack(ctx context.Context, id ruleIdentity, st
 	diags.Append(state.Set(ctx, ruleModel(rule))...)
 }
 
+// isNoDestinationPortFault reports whether err is the HTTP status 500 that firmware 4.8.3 returns for set_rule and
+// remove_rule of a rule with no destination port.
+func isNoDestinationPortFault(err error) bool {
+	var httpErr *glinet.HTTPError
+	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusInternalServerError && httpErr.Module == "firewall" &&
+		(httpErr.Method == "set_rule" || httpErr.Method == "remove_rule")
+}
+
 // noDestinationPortFault explains the fault of firmware 4.8.3 with a rule with no destination port, and how to remove the rule with the router ID id.
 func noDestinationPortFault(id string) string {
 	return fmt.Sprintf("The rule has no destination port. Firmware 4.8.3 cannot change or remove such a rule: set_rule and remove_rule return HTTP status 500 (a fault in the firmware). "+
@@ -481,7 +495,7 @@ func noDestinationPortFault(id string) string {
 		id, id)
 }
 
-func describeRule(r glinet.Rule) string {
+func describeRule(r glinet.FirewallRule) string {
 	details := fmt.Sprintf("action %s, enabled %t, %s", orNone(r.Target), r.Enabled, identityOfRule(r))
 	if r.Name == "" {
 		return "(" + details + ")"
@@ -500,8 +514,8 @@ func (m firewallRuleResourceModel) identity() ruleIdentity {
 	return identityOfRule(m.rule(""))
 }
 
-func (m firewallRuleResourceModel) rule(id string) glinet.Rule {
-	return glinet.Rule{
+func (m firewallRuleResourceModel) rule(id string) glinet.FirewallRule {
+	return glinet.FirewallRule{
 		ID:       id,
 		Name:     m.Name.ValueString(),
 		Src:      m.SourceZone.ValueString(),
@@ -517,7 +531,7 @@ func (m firewallRuleResourceModel) rule(id string) glinet.Rule {
 	}
 }
 
-func ruleModel(r *glinet.Rule) *firewallRuleResourceModel {
+func ruleModel(r *glinet.FirewallRule) *firewallRuleResourceModel {
 	return &firewallRuleResourceModel{
 		SourceZone:      stringOrNull(r.Src),
 		SourceIP:        stringOrNull(r.SrcIP),

@@ -77,11 +77,9 @@ func (r *wireGuardServerRouteResource) Schema(_ context.Context, _ resource.Sche
 				},
 			},
 			"metric": schema.Int64Attribute{
-				Description: "Metric of the route, from 1 to 2147483647 (`metric` in the router API). " +
-					"The web UI accepts up to 4294967295, but the provider limits the value to 2147483647, " +
-					"because the client gives the metric as an `int`, which has 32 bits on the 386 and arm builds of the provider.",
-				Optional:   true,
-				Validators: []validator.Int64{int64validator.Between(1, math.MaxInt32)},
+				Description: "Metric of the route, from 1 to 4294967295 (`metric` in the router API).",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, math.MaxUint32)},
 			},
 			"mtu": schema.Int64Attribute{
 				Description: "MTU of the route, from 68 to 65535 (`mtu` in the router API).",
@@ -270,12 +268,12 @@ func (r *wireGuardServerRouteResource) readBack(ctx context.Context, dest string
 	diags.Append(state.Set(ctx, wireGuardServerRouteModel(route))...)
 }
 
-func (m wireGuardServerRouteResourceModel) route(id int) glinet.VPNRoute {
+func (m wireGuardServerRouteResourceModel) route(id int64) glinet.VPNRoute {
 	return glinet.VPNRoute{
 		ID:      id,
 		Dest:    m.Dest.ValueString(),
 		Gateway: m.Gateway.ValueString(),
-		Metric:  int(m.Metric.ValueInt64()),
+		Metric:  m.Metric.ValueInt64(),
 		MTU:     int(m.MTU.ValueInt64()),
 	}
 }

@@ -72,11 +72,22 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_client_allow`, `glinet_client_speed_limit`, " +
 			"`glinet_firewall_port_forward`, `glinet_firewall_rule`, `glinet_parental_control_group`, `glinet_parental_control_ruleset`, " +
 			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`, `glinet_wireguard_server_route`), " +
-			"and leaves a plain setting unchanged on the router (the other resources).",
+			"and leaves a plain setting unchanged on the router (the other resources).\n\n" +
+			"Each call to the router has a time limit of 60 seconds.\n\n" +
+			"Import and sensitive values: after `terraform import`, when the configuration sets a sensitive attribute from a variable with `sensitive = true` " +
+			"(for example `private_key` of `glinet_wireguard_client_config`), the next plan can show an update in-place with no changed attribute. " +
+			"Terraform 1.5.7 does this: the imported state does not mark the value as sensitive, but the configuration does, and Terraform sees this as a difference although the values are equal. " +
+			"It is not known whether newer Terraform versions do this. " +
+			"One `terraform apply` writes the mark into the state, and the next plan shows no changes. " +
+			"In this apply, the provider runs the update of the resource with the values of the configuration. " +
+			"Some resources send no write when the values are equal to the state, for example `glinet_wifi_interface` and `glinet_wireguard_server`. " +
+			"Other resources write all values to the router again, for example `glinet_wan` and `glinet_wireguard_client_config`; what the router does with a write of the same values is not known. " +
+			"`glinet_wireguard_server_peer` also reads `client_config` again with `generate_peer`, and it is not known whether this call makes new keys.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Description: "URL of the router, with the scheme, for example `http://192.168.8.1`. When it is not set, the provider uses the `GLINET_HOST` environment variable. Defaults to `" + defaultHost + "`.",
-				Optional:    true,
+				Description: "URL of the router, with the scheme, for example `http://192.168.8.1`. When it is not set, the provider uses the `GLINET_HOST` environment variable. Defaults to `" + defaultHost + "`. " +
+					"Each call to the router has a time limit of 60 seconds.",
+				Optional: true,
 			},
 			"username": schema.StringAttribute{
 				Description: "User name for the login to the router. When it is not set, the provider uses the `GLINET_USERNAME` environment variable. Defaults to `" + defaultUsername + "`.",

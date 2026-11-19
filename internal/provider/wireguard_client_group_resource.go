@@ -89,7 +89,7 @@ func (r *wireGuardClientGroupResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	plan.ID = types.Int64Value(int64(id))
+	plan.ID = types.Int64Value(id)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
 }
@@ -101,7 +101,7 @@ func (r *wireGuardClientGroupResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	group, err := findWireGuardGroup(ctx, r.client, int(state.ID.ValueInt64()))
+	group, err := findWireGuardGroup(ctx, r.client, state.ID.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Client Groups", err.Error())
 		return
@@ -110,7 +110,7 @@ func (r *wireGuardClientGroupResource) Read(ctx context.Context, req resource.Re
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if group.Type != glinet.WireGuardGroupCustom {
+	if group.Type != glinet.WireGuardClientGroupCustom {
 		resp.Diagnostics.AddError("Not a Custom WireGuard Client Group", notCustomGroup(group))
 		return
 	}
@@ -128,7 +128,7 @@ func (r *wireGuardClientGroupResource) Update(ctx context.Context, req resource.
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	id := int(plan.ID.ValueInt64())
+	id := plan.ID.ValueInt64()
 	if err := r.client.WireGuardClient.RenameGroup(ctx, id, plan.Name.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to Update WireGuard Client Group", err.Error())
 		return
@@ -148,7 +148,7 @@ func (r *wireGuardClientGroupResource) Delete(ctx context.Context, req resource.
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	id := int(state.ID.ValueInt64())
+	id := state.ID.ValueInt64()
 	group, err := findWireGuardGroup(ctx, r.client, id)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Client Groups", err.Error())
@@ -186,10 +186,10 @@ func (r *wireGuardClientGroupResource) ImportState(ctx context.Context, req reso
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), int64(id))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
-func (r *wireGuardClientGroupResource) readBack(ctx context.Context, id int, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *wireGuardClientGroupResource) readBack(ctx context.Context, id int64, state *tfsdk.State, diags *diag.Diagnostics) {
 	group, err := findWireGuardGroup(ctx, r.client, id)
 	if err != nil {
 		diags.AddError("Unable to Read WireGuard Client Groups", err.Error())
@@ -204,27 +204,27 @@ func (r *wireGuardClientGroupResource) readBack(ctx context.Context, id int, sta
 }
 
 // findWireGuardGroup returns the group with the ID id, or nil when the router has no such group.
-func findWireGuardGroup(ctx context.Context, client *glinet.Client, id int) (*glinet.WireGuardGroup, error) {
+func findWireGuardGroup(ctx context.Context, client *glinet.Client, id int64) (*glinet.WireGuardClientGroup, error) {
 	groups, err := client.WireGuardClient.ListGroups(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	i := slices.IndexFunc(groups, func(g glinet.WireGuardGroup) bool { return g.ID == id })
+	i := slices.IndexFunc(groups, func(g glinet.WireGuardClientGroup) bool { return g.ID == id })
 	if i < 0 {
 		return nil, nil
 	}
 	return &groups[i], nil
 }
 
-func notCustomGroup(group *glinet.WireGuardGroup) string {
+func notCustomGroup(group *glinet.WireGuardClientGroup) string {
 	return fmt.Sprintf("The WireGuard client group %q (ID %d) is not a group of the user (Manual in the web UI). "+
 		"The provider manages only groups of the user and their configurations.", group.Name, group.ID)
 }
 
-func wireGuardClientGroupModel(group *glinet.WireGuardGroup) *wireGuardClientGroupResourceModel {
+func wireGuardClientGroupModel(group *glinet.WireGuardClientGroup) *wireGuardClientGroupResourceModel {
 	return &wireGuardClientGroupResourceModel{
-		ID:   types.Int64Value(int64(group.ID)),
+		ID:   types.Int64Value(group.ID),
 		Name: types.StringValue(group.Name),
 	}
 }

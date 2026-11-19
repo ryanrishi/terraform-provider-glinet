@@ -266,7 +266,7 @@ func (r *wireGuardServerPeerResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	plan.ID = types.Int64Value(int64(id))
+	plan.ID = types.Int64Value(id)
 	plan.nullUnknown()
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
@@ -280,7 +280,7 @@ func (r *wireGuardServerPeerResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	peer, err := r.find(ctx, int(state.ID.ValueInt64()))
+	peer, err := r.find(ctx, state.ID.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Peers", err.Error())
 		return
@@ -333,7 +333,7 @@ func (r *wireGuardServerPeerResource) Delete(ctx context.Context, req resource.D
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	id := int(state.ID.ValueInt64())
+	id := state.ID.ValueInt64()
 	peer, err := r.find(ctx, id)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read WireGuard Server Peers", err.Error())
@@ -355,11 +355,11 @@ func (r *wireGuardServerPeerResource) ImportState(ctx context.Context, req resou
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), int64(id))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
 // find returns the peer id, or nil when the router has no such peer.
-func (r *wireGuardServerPeerResource) find(ctx context.Context, id int) (*glinet.WireGuardServerPeer, error) {
+func (r *wireGuardServerPeerResource) find(ctx context.Context, id int64) (*glinet.WireGuardServerPeer, error) {
 	peers, err := r.client.WireGuardServer.ListPeers(ctx)
 	if err != nil {
 		return nil, err
@@ -372,7 +372,7 @@ func (r *wireGuardServerPeerResource) find(ctx context.Context, id int) (*glinet
 	return &peers[i], nil
 }
 
-func (r *wireGuardServerPeerResource) readBack(ctx context.Context, id int, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *wireGuardServerPeerResource) readBack(ctx context.Context, id int64, state *tfsdk.State, diags *diag.Diagnostics) {
 	peer, err := r.find(ctx, id)
 	if err != nil {
 		diags.AddError("Unable to Read WireGuard Server Peers", err.Error())
@@ -387,7 +387,7 @@ func (r *wireGuardServerPeerResource) readBack(ctx context.Context, id int, stat
 }
 
 // readClientConfig sets client_config in state to the result of generate_peer.
-func (r *wireGuardServerPeerResource) readClientConfig(ctx context.Context, id int, state *tfsdk.State, diags *diag.Diagnostics) {
+func (r *wireGuardServerPeerResource) readClientConfig(ctx context.Context, id int64, state *tfsdk.State, diags *diag.Diagnostics) {
 	if diags.HasError() {
 		return
 	}
@@ -416,9 +416,9 @@ func (r *wireGuardServerPeerResource) readClientConfig(ctx context.Context, id i
 
 func (m wireGuardServerPeerResourceModel) peer(ctx context.Context, diags *diag.Diagnostics) glinet.WireGuardServerPeer {
 	return glinet.WireGuardServerPeer{
-		ID:                  int(m.ID.ValueInt64()),
+		ID:                  m.ID.ValueInt64(),
 		Name:                m.Name.ValueString(),
-		PresharedKeyEnable:  !m.PresharedKey.IsNull(),
+		PresharedKeyEnabled: !m.PresharedKey.IsNull(),
 		PresharedKey:        m.PresharedKey.ValueString(),
 		AllowedIPs:          joinList(ctx, m.AllowedIPs, diags),
 		DNS:                 joinList(ctx, m.DNS, diags),
@@ -452,7 +452,7 @@ func (m *wireGuardServerPeerResourceModel) nullUnknown() {
 // because the router can keep its value.
 func wireGuardServerPeerModel(ctx context.Context, peer *glinet.WireGuardServerPeer, diags *diag.Diagnostics) *wireGuardServerPeerResourceModel {
 	model := &wireGuardServerPeerResourceModel{
-		ID:                  types.Int64Value(int64(peer.ID)),
+		ID:                  types.Int64Value(peer.ID),
 		Name:                types.StringValue(peer.Name),
 		PresharedKey:        types.StringNull(),
 		AllowedIPs:          listOrNull(ctx, peer.AllowedIPs, diags),
@@ -462,7 +462,7 @@ func wireGuardServerPeerModel(ctx context.Context, peer *glinet.WireGuardServerP
 		ClientIP:            stringOrNull(peer.ClientIP),
 		ClientConfig:        types.ObjectNull(wireGuardServerPeerClientConfigTypes),
 	}
-	if peer.PresharedKeyEnable {
+	if peer.PresharedKeyEnabled {
 		model.PresharedKey = stringOrNull(peer.PresharedKey)
 	}
 	return model

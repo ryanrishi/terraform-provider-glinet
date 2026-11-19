@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
 	"slices"
 	"testing"
@@ -24,6 +25,9 @@ const (
 	dmzIP      = "192.168.8.250"
 	otherDMZIP = "192.168.8.251"
 )
+
+// noPriority is the priority that the fake router reports after a set_dmz without priority, as firmware 4.7.0 does.
+var noPriority = ptr(false)
 
 func dmzConfig(internalIP string, enabled bool) string {
 	return fmt.Sprintf(`
@@ -54,14 +58,15 @@ func expectDMZAction(action plancheck.ResourceActionType) resource.ConfigPlanChe
 	}
 }
 
-// expectRouterDMZ checks that the DMZ configuration of the router is want.
+// expectRouterDMZ checks that the DMZ of the router is enabled and has the host of want. It does not check the
+// priority, which the router can report after a write without priority (false on firmware 4.7.0).
 func expectRouterDMZ(client *glinet.Client, want glinet.DMZ) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		got, err := client.Firewall.GetDMZ(context.Background())
 		if err != nil {
 			return err
 		}
-		if *got != want {
+		if got.Enabled != want.Enabled || got.DestIP != want.DestIP {
 			return fmt.Errorf("router DMZ is %+v, want %+v", *got, want)
 		}
 		return nil
@@ -71,7 +76,7 @@ func expectRouterDMZ(client *glinet.Client, want glinet.DMZ) resource.TestCheckF
 // expectFakeDMZ checks that the DMZ configuration of srv is want.
 func expectFakeDMZ(srv *glinettest.Server, want glinettest.DMZ) resource.TestCheckFunc {
 	return func(*terraform.State) error {
-		if got := srv.Firewall.DMZ(); got != want {
+		if got := srv.Firewall.DMZ(); !reflect.DeepEqual(got, want) {
 			return fmt.Errorf("router DMZ is %+v, want %+v", got, want)
 		}
 		return nil
@@ -102,7 +107,9 @@ func dmzTestRouter(t *testing.T) (string, *glinet.Client) {
 		if err != nil {
 			t.Fatalf("read restored DMZ: %v", err)
 		}
-		if *restored != *initial {
+		// A write sends no priority when the router reported none, and the router can then report false.
+		samePriority := initial.Priority == nil || reflect.DeepEqual(restored.Priority, initial.Priority)
+		if restored.Enabled != initial.Enabled || restored.DestIP != initial.DestIP || !samePriority {
 			t.Errorf("restored DMZ is %+v, want %+v", *restored, *initial)
 		}
 	})
@@ -147,11 +154,11 @@ func TestFirewallDMZResourceUpdate(t *testing.T) {
 
 	var steps []resource.TestStep
 	for i, dmz := range []glinettest.DMZ{
-		{Enabled: true, DestIP: dmzIP},
-		{Enabled: true, DestIP: otherDMZIP},
-		{Enabled: false, DestIP: otherDMZIP},
-		{Enabled: false, DestIP: dmzIP},
-		{Enabled: true, DestIP: dmzIP},
+		{Enabled: true, DestIP: dmzIP, Priority: noPriority},
+		{Enabled: true, DestIP: otherDMZIP, Priority: noPriority},
+		{Enabled: false, DestIP: otherDMZIP, Priority: noPriority},
+		{Enabled: false, DestIP: dmzIP, Priority: noPriority},
+		{Enabled: true, DestIP: dmzIP, Priority: noPriority},
 	} {
 		step := resource.TestStep{
 			Config:            fakeRouterConfig(srv) + dmzConfig(dmz.DestIP, dmz.Enabled),
@@ -166,7 +173,7 @@ func TestFirewallDMZResourceUpdate(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
+		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 		Steps:                    steps,
 	})
 }
@@ -181,7 +188,8 @@ resource "glinet_firewall_dmz" "test" {
 `, enabled, dmzIP, higherPriority)
 }
 
-// TestFirewallDMZResourcePriority sends back the priority of the router when higher_priority is not set.
+// TestFirewallDMZResourcePriority sends back the priority of the router when higher_priority is not set,
+// and no priority when the router reports none.
 func TestFirewallDMZResourcePriority(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
@@ -191,11 +199,11 @@ func TestFirewallDMZResourcePriority(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				PreConfig: func() { srv.Firewall.SetDMZ(glinettest.DMZ{DestIP: dmzIP, Priority: true}) },
+				PreConfig: func() { srv.Firewall.SetDMZ(glinettest.DMZ{DestIP: dmzIP, Priority: ptr(true)}) },
 				Config:    fakeRouterConfig(srv) + dmzConfig(otherDMZIP, true),
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":true}`, otherDMZIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: otherDMZIP, Priority: true}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: otherDMZIP, Priority: ptr(true)}),
 				),
 			},
 			{
@@ -203,9 +211,33 @@ func TestFirewallDMZResourcePriority(t *testing.T) {
 				Config:            fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(false))},
 				Check: resource.ComposeTestCheckFunc(
-					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":false}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q}`, dmzIP)),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(false)}),
 				),
+			},
+		},
+	})
+}
+
+// TestFirewallDMZResourcePriorityFirstWrite sends no priority to a router that reports none before the first set_dmz.
+// The router then reports false, as firmware 4.7.0 does, and the apply does not fail.
+func TestFirewallDMZResourcePriorityFirstWrite(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	calls := recordCalls(t, srv, "firewall", "set_dmz")
+	config := fakeRouterConfig(srv) + dmzConfig(dmzIP, true)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            config,
+				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(false))},
+				Check:             calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q}`, dmzIP)),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 			},
 		},
 	})
@@ -218,14 +250,14 @@ func TestFirewallDMZResourceHigherPriority(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
+		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 		Steps: []resource.TestStep{
 			{
 				Config:            fakeRouterConfig(srv) + dmzPriorityConfig(true, true),
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(true))},
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":true}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: true}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(true)}),
 				),
 			},
 			{
@@ -234,17 +266,17 @@ func TestFirewallDMZResourceHigherPriority(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(false))},
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":false}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(false)}),
 				),
 			},
 			{
-				PreConfig:         func() { srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: true}) },
+				PreConfig:         func() { srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(true)}) },
 				Config:            fakeRouterConfig(srv) + dmzPriorityConfig(true, false),
 				ConfigPlanChecks:  expectDMZAction(plancheck.ResourceActionUpdate),
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(false))},
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":false}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(false)}),
 				),
 			},
 			{
@@ -271,7 +303,7 @@ func TestFirewallDMZResourceHigherPriorityDisabled(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(true))},
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":false,"dest_ip":%q}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: dmzIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: dmzIP, Priority: noPriority}),
 				),
 			},
 			{
@@ -283,7 +315,7 @@ func TestFirewallDMZResourceHigherPriorityDisabled(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{expectDMZ("higher_priority", knownvalue.Bool(true))},
 				Check: resource.ComposeTestCheckFunc(
 					calls.expect(fmt.Sprintf(`{"enabled":true,"dest_ip":%q,"priority":true}`, dmzIP)),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: true}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(true)}),
 				),
 			},
 		},
@@ -293,7 +325,7 @@ func TestFirewallDMZResourceHigherPriorityDisabled(t *testing.T) {
 func TestFirewallDMZResourceHigherPriorityImport(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: true})
+	srv.Firewall.SetDMZ(glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: ptr(true)})
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -323,7 +355,7 @@ func TestFirewallDMZResourceHigherPriorityNotApplied(t *testing.T) {
 		if err := json.Unmarshal(params, &dmz); err != nil {
 			return nil, glinettest.ErrInvalidParams
 		}
-		dmz.Priority = false
+		dmz.Priority = ptr(false)
 		srv.Firewall.SetDMZ(dmz)
 		return nil, nil
 	})
@@ -352,7 +384,7 @@ func TestFirewallDMZResourceImport(t *testing.T) {
 
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-				CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
+				CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 				Steps: []resource.TestStep{
 					{
 						Config:             config,
@@ -366,7 +398,7 @@ func TestFirewallDMZResourceImport(t *testing.T) {
 						ConfigPlanChecks: resource.ConfigPlanChecks{
 							PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 						},
-						ConfigStateChecks: expectDMZState(glinet.DMZ(existing)),
+						ConfigStateChecks: append(expectDMZState(glinet.DMZ(existing)), expectDMZ("higher_priority", knownvalue.Null())),
 					},
 				},
 			})
@@ -404,7 +436,7 @@ func TestFirewallDMZResourceImportNoHost(t *testing.T) {
 				},
 			})
 
-			if got := srv.Firewall.DMZ(); got != before {
+			if got := srv.Firewall.DMZ(); !reflect.DeepEqual(got, before) {
 				t.Errorf("router DMZ is %+v, want %+v", got, before)
 			}
 		})
@@ -433,7 +465,7 @@ func TestFirewallDMZResourceImportInvalidID(t *testing.T) {
 func TestFirewallDMZResourceDrift(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	want := glinettest.DMZ{Enabled: true, DestIP: dmzIP}
+	want := glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: noPriority}
 	config := fakeRouterConfig(srv) + dmzConfig(dmzIP, true)
 
 	tests := []struct {
@@ -460,7 +492,7 @@ func TestFirewallDMZResourceDrift(t *testing.T) {
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
+		CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 		Steps:                    steps,
 	})
 }
@@ -483,7 +515,7 @@ func TestFirewallDMZResourceInvalidConfig(t *testing.T) {
 		})
 	}
 
-	if got := srv.Firewall.DMZ(); got != (glinettest.DMZ{}) {
+	if got := srv.Firewall.DMZ(); !reflect.DeepEqual(got, glinettest.DMZ{}) {
 		t.Errorf("router DMZ is %+v, want no DMZ", got)
 	}
 }
@@ -503,7 +535,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
-			CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{}),
+			CheckDestroy:             expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 			Steps: []resource.TestStep{
 				{
 					Config:      fakeRouterConfig(srv) + dmzConfig(dmzIP, true),
@@ -531,7 +563,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 				},
 			},
 		})
-		if got := srv.Firewall.DMZ(); got != (glinettest.DMZ{}) {
+		if got := srv.Firewall.DMZ(); !reflect.DeepEqual(got, glinettest.DMZ{}) {
 			t.Errorf("router DMZ is %+v, want no DMZ", got)
 		}
 	})
@@ -573,7 +605,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 						srv.Handle("firewall", "get_dmz", func(json.RawMessage) (any, error) { return srv.Firewall.DMZ(), nil })
 					},
 					Config: fakeRouterConfig(srv),
-					Check:  expectFakeDMZ(srv, glinettest.DMZ{}),
+					Check:  expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 				},
 			},
 		})
@@ -596,7 +628,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 
 	t.Run("set on delete", func(t *testing.T) {
 		srv := glinettest.NewServer(t)
-		want := glinettest.DMZ{Enabled: true, DestIP: dmzIP}
+		want := glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: noPriority}
 
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -611,7 +643,7 @@ func TestFirewallDMZResourceRouterErrors(t *testing.T) {
 				},
 				{
 					PreConfig: func() {
-						if got := srv.Firewall.DMZ(); got != want {
+						if got := srv.Firewall.DMZ(); !reflect.DeepEqual(got, want) {
 							t.Errorf("router DMZ after the failed delete is %+v, want %+v", got, want)
 						}
 						srv.Firewall.SetDMZ(glinettest.DMZ{})
@@ -652,21 +684,21 @@ func TestFirewallDMZResourceWithPortForwards(t *testing.T) {
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		CheckDestroy: resource.ComposeAggregateTestCheckFunc(
 			expectFakeForwards(srv, existing),
-			expectFakeDMZ(srv, glinettest.DMZ{}),
+			expectFakeDMZ(srv, glinettest.DMZ{Priority: noPriority}),
 		),
 		Steps: []resource.TestStep{
 			{
 				Config: config(dmzConfig(dmzIP, true), forwards...),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					expectFakeForwardSet(srv, append([]glinet.PortForward{existing}, forwards...)...),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: true, DestIP: dmzIP, Priority: noPriority}),
 				),
 			},
 			{
 				Config: config(dmzConfig(otherDMZIP, false), changed...),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					expectFakeForwardSet(srv, append([]glinet.PortForward{existing}, changed...)...),
-					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: otherDMZIP}),
+					expectFakeDMZ(srv, glinettest.DMZ{Enabled: false, DestIP: otherDMZIP, Priority: noPriority}),
 				),
 			},
 			{

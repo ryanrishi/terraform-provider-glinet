@@ -356,7 +356,7 @@ func (r *lanResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	config, err := r.client.LAN.GetConfig(ctx, state.Name.ValueString())
+	config, err := r.client.LAN.FindConfig(ctx, state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read LAN Configuration", err.Error())
 		return
@@ -416,7 +416,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	current, err := r.client.LAN.GetConfig(ctx, iface)
+	current, err := r.client.LAN.FindConfig(ctx, iface)
 	if err != nil {
 		diags.AddError("Unable to Read LAN Configuration", err.Error())
 		return
@@ -450,8 +450,8 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 			Interface:  iface,
 			IP:         plan.IP.ValueString(),
 			Netmask:    plan.Netmask.ValueString(),
-			APIsolate:  boolInt(plan.APIsolation.ValueBool()),
-			WANIsolate: boolInt(plan.WANIsolation.ValueBool()),
+			APIsolate:  plan.APIsolation.ValueBool(),
+			WANIsolate: plan.WANIsolation.ValueBool(),
 		})
 		if err != nil {
 			diags.AddError("Unable to Set LAN Address", err.Error())
@@ -465,7 +465,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 			minutes, _ := leaseMinutes(plan.DHCPLeaseTime.ValueString())
 			settings = glinet.LANDHCP{
 				Interface: iface,
-				Enable:    1,
+				Enabled:   true,
 				Start:     plan.DHCPStart.ValueString(),
 				End:       plan.DHCPEnd.ValueString(),
 				LeaseTime: fmt.Sprintf("%dm", minutes),
@@ -493,7 +493,7 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 		return
 	}
 
-	config, err := r.client.LAN.GetConfig(ctx, iface)
+	config, err := r.client.LAN.FindConfig(ctx, iface)
 	if err != nil {
 		diags.AddError("Unable to Read LAN Configuration", err.Error())
 		return
@@ -506,20 +506,13 @@ func (r *lanResource) write(ctx context.Context, plan lanResourceModel, prior *l
 	diags.Append(state.Set(ctx, lanModel(ctx, config, plan.DHCPLeaseTime, diags))...)
 }
 
-func boolInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
-
 // wanIsolationValue returns wan_isolation of the network config: null for the lan network, and false for a
 // guest network that has no wan_isolate, as the web UI shows it.
 func wanIsolationValue(config *glinet.LANConfig) types.Bool {
 	if config.Interface != "guest" {
 		return types.BoolNull()
 	}
-	return types.BoolValue(config.WANIsolate != 0)
+	return types.BoolValue(config.WANIsolate)
 }
 
 // lanModel returns the model of the network config. It keeps the lease time prior when it is the same
@@ -530,9 +523,9 @@ func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String,
 		Name:          types.StringValue(config.Interface),
 		IP:            types.StringValue(config.IP),
 		Netmask:       types.StringValue(config.Netmask),
-		APIsolation:   types.BoolValue(config.APIsolate != 0),
+		APIsolation:   types.BoolValue(config.APIsolate),
 		WANIsolation:  wanIsolationValue(config),
-		DHCPEnabled:   types.BoolValue(config.Enable != 0),
+		DHCPEnabled:   types.BoolValue(config.DHCPEnabled),
 		DHCPStart:     types.StringNull(),
 		DHCPEnd:       types.StringNull(),
 		DHCPLeaseTime: types.StringNull(),
@@ -540,7 +533,7 @@ func lanModel(ctx context.Context, config *glinet.LANConfig, prior types.String,
 		DHCPDNS:       types.ListNull(types.StringType),
 		DHCPLPR:       types.ListNull(types.StringType),
 	}
-	if config.Enable == 0 {
+	if !config.DHCPEnabled {
 		return model
 	}
 

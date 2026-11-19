@@ -122,7 +122,7 @@ func expectPeerCalls(calls *callRecorder, want ...string) resource.TestCheckFunc
 		}
 		params := make([]string, len(want))
 		for i, w := range want {
-			params[i] = strings.ReplaceAll(w, "PEER_ID", strconv.Itoa(id))
+			params[i] = strings.ReplaceAll(w, "PEER_ID", strconv.FormatInt(id, 10))
 		}
 		return calls.expect(params...)(s)
 	}
@@ -225,7 +225,7 @@ func TestWireGuardServerPeerResourceClientConfigNotRefreshed(t *testing.T) {
 	srv, _ := wgServerTestRouter(t)
 	generates := recordCalls(t, srv, "wg-server", "generate_peer")
 	config := fakeRouterConfig(srv) + fullWGServerPeer.config()
-	var id int
+	var id int64
 	saveID := func(s *terraform.State) (err error) {
 		id, err = stateID(s, wgPeerAddress)
 		return err
@@ -379,7 +379,7 @@ func TestWireGuardServerPeerResourceDrift(t *testing.T) {
 	parallel(t)
 	srv, client := wgServerTestRouter(t)
 	config := fakeRouterConfig(srv) + fullWGServerPeer.config()
-	var id int
+	var id int64
 	saveID := func(s *terraform.State) (err error) {
 		id, err = stateID(s, wgPeerAddress)
 		return err
@@ -400,7 +400,7 @@ func TestWireGuardServerPeerResourceDrift(t *testing.T) {
 						t.Fatal(err)
 					}
 					peer := peers[0]
-					peer.Name, peer.DNS, peer.PresharedKeyEnable = "other", "10.0.0.1", false
+					peer.Name, peer.DNS, peer.PresharedKeyEnabled = "other", "10.0.0.1", false
 					if err := client.WireGuardServer.SetPeer(ctx, peer); err != nil {
 						t.Fatal(err)
 					}

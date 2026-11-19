@@ -157,8 +157,8 @@ func (d *systemStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequ
 
 	sys := status.System
 	state := systemStatusModel{
-		LANIP:           sys.LanIP,
-		LANNetmask:      sys.LanNetmask,
+		LANIP:           sys.LANIP,
+		LANNetmask:      sys.LANNetmask,
 		GuestIP:         sys.GuestIP,
 		GuestNetmask:    sys.GuestNetmask,
 		Uptime:          sys.Uptime,
@@ -171,7 +171,7 @@ func (d *systemStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequ
 		FlashApp:        sys.FlashApp,
 		CPUTemperature:  temperatureOrNull(sys.CPU.Temperature),
 		DDNSEnabled:     sys.DDNSEnabled,
-		IPv6Enabled:     sys.Ipv6Enabled,
+		IPv6Enabled:     sys.IPv6Enabled,
 		NATEnabled:      sys.NetNATEnabled,
 		Mode:            int64(sys.Mode),
 		Timestamp:       sys.Timestamp,
@@ -199,7 +199,7 @@ func (d *systemStatusDataSource) Read(ctx context.Context, _ datasource.ReadRequ
 		state.WifiInterfaces = append(state.WifiInterfaces, wifiInterfaceStatusModel{
 			Name:       w.Name,
 			Band:       w.Band,
-			SSID:       w.Ssid,
+			SSID:       w.SSID,
 			Channel:    channelOrNull(w.Channel),
 			Up:         w.Up,
 			Guest:      w.Guest,
@@ -222,9 +222,9 @@ func temperatureOrNull(celsius int) types.Int64 {
 }
 
 // idOrNull returns null for 0, which the client gives when the router leaves out the ID.
-func idOrNull(id int) types.Int64 {
+func idOrNull(id int64) types.Int64 {
 	if id == 0 {
 		return types.Int64Null()
 	}
-	return types.Int64Value(int64(id))
+	return types.Int64Value(id)
 }

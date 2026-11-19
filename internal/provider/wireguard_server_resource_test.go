@@ -285,6 +285,26 @@ func TestWireGuardServerResourceNoIPv6(t *testing.T) {
 	})
 }
 
+// TestWireGuardServerResourceNoIPv6Enable sends no ipv6_enable when the router does not return it, as firmware 4.8.3 does.
+func TestWireGuardServerResourceNoIPv6Enable(t *testing.T) {
+	parallel(t)
+	srv, _ := wgServerTestRouter(t)
+	srv.WireGuardServer.RemoveConfigKey("ipv6_enable")
+	calls := recordWGServerCalls(t, srv)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + wgServer{addressV6: ptr("fd00:db8::1/64")}.config(),
+				ConfigStateChecks: []statecheck.StateCheck{expectWGServer("address_v6", knownvalue.StringExact("fd00:db8::1/64"))},
+				Check: calls.setConfig.expect(`{"address_v4":"10.66.0.9/24","address_v6":"fd00:db8::1/64","port":51820,
+					"private_key":"` + fakeServerPrivateKey + `"}`),
+			},
+		},
+	})
+}
+
 // TestWireGuardServerResourceIPv6PrefixLengths accepts IPv6 prefix lengths other than 64, up to 126.
 func TestWireGuardServerResourceIPv6PrefixLengths(t *testing.T) {
 	parallel(t)
