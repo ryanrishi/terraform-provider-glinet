@@ -174,7 +174,7 @@ func TestAccessControlResourceEmptyAllowList(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      fakeRouterConfig(srv) + accessControlConfig("allow_list"),
-				ExpectError: regexp.MustCompile(`Allow List Is Empty`),
+				ExpectError: regexp.MustCompile(`(?s)Allow List Is Empty.*glinet_client_allow.*depends_on`),
 			},
 		},
 	})

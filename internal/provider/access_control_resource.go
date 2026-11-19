@@ -93,9 +93,8 @@ func (r *accessControlResource) Schema(_ context.Context, _ resource.SchemaReque
 					"`allow_list` (`white`) blocks each client that is not in the allow list, also the computer that runs Terraform. " +
 					"Then Terraform and the web UI can lose the access to the router. " +
 					"Before you set `allow_list`, make sure that the allow list of the router has the MAC address of each client that must keep its access. " +
-					"`glinet_client_allow` writes only in allow-list mode, so it cannot add the first entries. " +
-					"To start allow-list mode, use the access control dialog of the web UI: it sets the mode and the allow list in one step. " +
-					"Then this resource finds the router in allow-list mode and does not write. " +
+					"To start allow-list mode, first add the entries with `glinet_client_allow`, which writes to the allow list also in block-list mode, " +
+					"and make this resource depend on them, with `depends_on` or a reference. " +
 					"The web UI does not let a user save an allow list without the MAC address of the client that shows the web UI; " +
 					"the provider cannot do this check, and only refuses an empty allow list.",
 				Required: true,
@@ -165,8 +164,9 @@ func (r *accessControlResource) set(ctx context.Context, plan tfsdk.Plan, state 
 				"Allow List Is Empty",
 				"The allow list of the router is empty. In allow-list mode, the router blocks each client that is not in the allow list, "+
 					"so an empty allow list can block all clients, also the computer that runs Terraform. "+
-					"To start allow-list mode, use the access control dialog of the web UI: it sets the mode and the allow list in one step, "+
-					"with the MAC address of the client that shows the web UI. Then apply again: this resource finds the router in allow-list mode and does not write.",
+					"First add the MAC address of each client that must keep its access with glinet_client_allow, "+
+					"which writes to the allow list also in block-list mode, and make this resource depend on those resources, "+
+					"with depends_on or a reference.",
 			)
 			return
 		}

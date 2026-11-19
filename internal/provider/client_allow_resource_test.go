@@ -3,7 +3,6 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"regexp"
 	"slices"
 	"testing"
@@ -44,7 +43,8 @@ func expectAllowMAC(mac string) []statecheck.StateCheck {
 }
 
 // allowListRouter returns a fake router in allow-list mode with the allow list macs and the block list
-// unrelatedBlockMAC, and fails the test on each write in block-list mode.
+// unrelatedBlockMAC, and fails the test on each write that is not to the allow list.
+// Like the tested router, the fake router writes to the allow list also in block-list mode and keeps the mode.
 func allowListRouter(t *testing.T, macs ...string) *glinettest.Server {
 	srv := glinettest.NewServer(t)
 	srv.AccessControl.SetConfig(glinettest.AccessControlConfig{
@@ -52,16 +52,19 @@ func allowListRouter(t *testing.T, macs ...string) *glinettest.Server {
 		BlackMAC: []string{unrelatedBlockMAC},
 		WhiteMAC: macs,
 	})
-	for _, method := range []string{"set_single_mac", "set_config"} {
-		next := srv.Handler("black_white_list", method)
-		srv.Handle("black_white_list", method, func(params json.RawMessage) (any, error) {
-			if mode := srv.AccessControl.Config().Mode; mode != glinet.AccessControlAllowList {
-				t.Errorf("black_white_list.%s %s in mode %q", method, params, mode)
-				return nil, glinettest.ErrMethodNotFound
-			}
-			return next(params)
-		})
-	}
+	setSingleMAC := srv.Handler("black_white_list", "set_single_mac")
+	srv.Handle("black_white_list", "set_single_mac", func(params json.RawMessage) (any, error) {
+		var p struct{ Mode string }
+		if err := json.Unmarshal(params, &p); err != nil || p.Mode != glinet.AccessControlAllowList {
+			t.Errorf("black_white_list.set_single_mac %s, want mode %q", params, glinet.AccessControlAllowList)
+			return nil, glinettest.ErrInvalidParams
+		}
+		return setSingleMAC(params)
+	})
+	srv.Handle("black_white_list", "set_config", func(params json.RawMessage) (any, error) {
+		t.Errorf("black_white_list.set_config %s", params)
+		return nil, glinettest.ErrMethodNotFound
+	})
 	return srv
 }
 
@@ -194,64 +197,121 @@ func TestClientAllowResourceMixedCase(t *testing.T) {
 	expectAllowList(t, srv, unrelatedAllowMAC)
 }
 
-func TestClientAllowResourceBlockListModeCreate(t *testing.T) {
+// TestClientAllowResourceBlockListMode creates, replaces, refreshes and destroys entries while the router is in block-list mode.
+// The mode stays, and destroy also removes the last entry.
+func TestClientAllowResourceBlockListMode(t *testing.T) {
 	parallel(t)
-	srv := allowListRouter(t, unrelatedAllowMAC)
+	srv := allowListRouter(t)
 	setAccessMode(srv, glinet.AccessControlBlockList)
+	calls := recordCalls(t, srv, "black_white_list", "set_single_mac")
+	expectBlockListMode := func(want ...string) resource.TestCheckFunc {
+		return func(*terraform.State) error {
+			if mode := srv.AccessControl.Config().Mode; mode != glinet.AccessControlBlockList {
+				t.Errorf("mode is %q, want %q", mode, glinet.AccessControlBlockList)
+			}
+			expectAllowList(t, srv, want...)
+			return nil
+		}
+	}
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config:      fakeRouterConfig(srv) + allowConfig(allowMAC),
-				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Allow-List Mode.*"block_list",\s+not\s+"allow_list".*"allow_list"\s+first`),
+				Config:            fakeRouterConfig(srv) + allowConfig(allowMAC),
+				ConfigStateChecks: expectAllowMAC(allowMAC),
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(`{"mode":"white","operate":"add","mac":"`+allowMACUpper+`"}`),
+					expectBlockListMode(allowMACUpper),
+				),
+			},
+			{
+				Config:           fakeRouterConfig(srv) + allowConfig(allowMAC),
+				ConfigPlanChecks: expectEmptyPlan,
+			},
+			{
+				Config:            fakeRouterConfig(srv) + allowConfig(otherAllowMAC),
+				ConfigPlanChecks:  expectResourceAction(allowAddress, plancheck.ResourceActionReplace),
+				ConfigStateChecks: expectAllowMAC(otherAllowMAC),
+				Check: resource.ComposeTestCheckFunc(
+					calls.expect(
+						`{"mode":"white","operate":"del","mac":"`+allowMACUpper+`"}`,
+						`{"mode":"white","operate":"add","mac":"`+otherAllowMACUp+`"}`,
+					),
+					expectBlockListMode(otherAllowMACUp),
+				),
+			},
+			{
+				PreConfig: func() {
+					c := srv.AccessControl.Config()
+					c.WhiteMAC = nil
+					srv.AccessControl.SetConfig(c)
+				},
+				Config:           fakeRouterConfig(srv) + allowConfig(otherAllowMAC),
+				ConfigPlanChecks: expectResourceAction(allowAddress, plancheck.ResourceActionCreate),
+				Check:            expectBlockListMode(otherAllowMACUp),
 			},
 		},
 	})
 
-	want := glinettest.AccessControlConfig{Mode: glinet.AccessControlBlockList, BlackMAC: []string{unrelatedBlockMAC}, WhiteMAC: []string{unrelatedAllowMAC}}
-	if got := srv.AccessControl.Config(); !reflect.DeepEqual(got, want) {
-		t.Errorf("access control configuration is %+v, want %+v", got, want)
+	if mode := srv.AccessControl.Config().Mode; mode != glinet.AccessControlBlockList {
+		t.Errorf("mode is %q, want %q", mode, glinet.AccessControlBlockList)
 	}
+	expectAllowList(t, srv)
 }
 
-// TestClientAllowResourceBlockListModeReadAndDelete keeps the resource in the state while the router is in block-list mode,
-// and fails the destroy without a write until the router is in allow-list mode again.
-func TestClientAllowResourceBlockListModeReadAndDelete(t *testing.T) {
+// TestClientAllowResourceThenAllowListMode adds the allow-list entries in block-list mode and then starts allow-list mode
+// with glinet_access_control, as the example of glinet_client_allow does.
+func TestClientAllowResourceThenAllowListMode(t *testing.T) {
 	parallel(t)
-	srv := allowListRouter(t, unrelatedAllowMAC)
-	config := fakeRouterConfig(srv) + allowConfig(allowMAC)
+	srv := glinettest.NewServer(t)
+	srv.AccessControl.SetConfig(glinettest.AccessControlConfig{Mode: glinet.AccessControlBlockList, BlackMAC: []string{unrelatedBlockMAC}})
+	setConfigCalls := recordCalls(t, srv, "black_white_list", "set_config")
+	config := fakeRouterConfig(srv) + fmt.Sprintf(`
+resource "glinet_client_allow" "test" {
+  mac = %q
+}
+
+resource "glinet_access_control" "test" {
+  mode = "allow_list"
+
+  depends_on = [glinet_client_allow.test]
+}
+`, allowMAC)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: config,
+				Config:            config,
+				ConfigStateChecks: expectAccessControlMode("allow_list"),
+				Check: resource.ComposeTestCheckFunc(
+					setConfigCalls.expect(`{"mode":"white","mac":["`+allowMACUpper+`"]}`),
+					func(*terraform.State) error {
+						expectAllowList(t, srv, allowMACUpper)
+						return nil
+					},
+				),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: expectEmptyPlan,
+			},
+			{
+				Config:      config,
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`Last Allow-List Entry`),
 			},
 			{
 				PreConfig: func() {
 					setAccessMode(srv, glinet.AccessControlBlockList)
 				},
-				Config:            config,
-				ConfigPlanChecks:  expectEmptyPlan,
-				ConfigStateChecks: expectAllowMAC(allowMAC),
-			},
-			{
-				Config:      config,
-				Destroy:     true,
-				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Allow-List Mode.*terraform\s+state\s+rm.*Do\s+not\s+set\s+allow-list\s+mode`),
-			},
-			{
-				PreConfig: func() {
-					setAccessMode(srv, glinet.AccessControlAllowList)
-				},
-				Config:           config,
-				ConfigPlanChecks: expectEmptyPlan,
+				Config: fakeRouterConfig(srv),
 			},
 		},
 	})
 
-	expectAllowList(t, srv, unrelatedAllowMAC)
+	expectAllowList(t, srv)
 }
 
 // TestClientAllowResourceLastEntry fails the destroy of the last allow-list entry in allow-list mode without a write.

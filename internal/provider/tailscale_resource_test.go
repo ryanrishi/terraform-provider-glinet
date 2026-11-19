@@ -20,6 +20,7 @@ const (
 	tailscaleAddress = "glinet_tailscale.test"
 	exitNodeIP       = "100.64.0.1"
 	otherExitNodeIP  = "100.64.0.2"
+	ipv6ExitNodeIP   = "fd7a:115c:a1e0::1"
 )
 
 // tailscale is the configuration of a glinet_tailscale resource. Attributes with their zero value are not in the configuration.
@@ -172,6 +173,7 @@ func TestTailscaleResourceUpdate(t *testing.T) {
 		{enabled: true, lan: true, wan: true, exitNode: otherExitNodeIP},
 		{enabled: true, wan: true, exitNode: otherExitNodeIP},
 		{enabled: true, exitNode: otherExitNodeIP},
+		{enabled: true, exitNode: ipv6ExitNodeIP},
 		{enabled: true},
 		{enabled: true, lan: true, exitNode: exitNodeIP},
 		{},
@@ -235,6 +237,7 @@ func TestTailscaleResourceImport(t *testing.T) {
 		{},
 		{enabled: true, lan: true, exitNode: exitNodeIP},
 		{enabled: true, wan: true},
+		{enabled: true, exitNode: ipv6ExitNodeIP},
 	} {
 		t.Run(fmt.Sprintf("%+v", existing), func(t *testing.T) {
 			srv := glinettest.NewServer(t)
@@ -429,13 +432,13 @@ func TestTailscaleResourceInvalidConfig(t *testing.T) {
 		{`resource "glinet_tailscale" "test" {
   enabled      = true
   exit_node_ip = ""
-}`, `exit_node_ip must be an IPv4 address`},
+}`, `exit_node_ip must be an IPv4 or IPv6 address`},
 	}
-	for _, ip := range []string{" 100.64.0.1", "100.64.0.256", "100.64.0", "fd7a:115c:a1e0::1", "exit-node", "100.64.0.0/10"} {
+	for _, ip := range []string{" 100.64.0.1", "100.64.0.256", "100.64.0", "fd7a:115c:a1e0::1%tailscale0", "fd7a:115c:a1e0::/48", "exit-node", "100.64.0.0/10"} {
 		tests = append(tests, struct {
 			config string
 			error  string
-		}{tailscale{enabled: true, exitNode: ip}.config(), `exit_node_ip must be an IPv4 address`})
+		}{tailscale{enabled: true, exitNode: ip}.config(), `exit_node_ip must be an IPv4 or IPv6 address`})
 	}
 
 	for _, tt := range tests {
