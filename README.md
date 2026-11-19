@@ -53,6 +53,9 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_lan_static_lease` | [docs/resources/lan_static_lease.md](docs/resources/lan_static_lease.md) |
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
+| Resource | `glinet_parental_control` | [docs/resources/parental_control.md](docs/resources/parental_control.md) |
+| Resource | `glinet_parental_control_group` | [docs/resources/parental_control_group.md](docs/resources/parental_control_group.md) |
+| Resource | `glinet_parental_control_ruleset` | [docs/resources/parental_control_ruleset.md](docs/resources/parental_control_ruleset.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
@@ -67,6 +70,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
+| Data source | `glinet_parental_control_apps` | [docs/data-sources/parental_control_apps.md](docs/data-sources/parental_control_apps.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
 | Data source | `glinet_system_status` | [docs/data-sources/system_status.md](docs/data-sources/system_status.md) |
 | Data source | `glinet_system_timezone` | [docs/data-sources/system_timezone.md](docs/data-sources/system_timezone.md) |
