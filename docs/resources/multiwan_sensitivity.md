@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   Manages the sensitivity of the multi-WAN tracking for all interfaces (kmwan.set_sensitivity in the router API). The router has one sensitivity, so use one instance of this resource.
   ~> Warning: a write can change the uplink that the router uses, and so can cut the Internet access of the router and of its clients.
-  The sensitivity sets how fast the router finds out that an interface is offline or online again. The provider writes only when the router values differ from the configuration, so a create whose values are equal to those of the router sends no write. The format of the read was seen on a router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+  The sensitivity sets how fast the router finds out that an interface is offline or online again. The provider writes only when the router values differ from the configuration, so a create whose values are equal to those of the router sends no write. When the router result has no sensitivity, the provider uses the values that the web UI shows then: level medium and interval 5 seconds. The format of the read was seen on a router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 ---
 
 # glinet_multiwan_sensitivity (Resource)
@@ -14,7 +14,7 @@ Manages the sensitivity of the multi-WAN tracking for all interfaces (`kmwan.set
 
 ~> **Warning:** a write can change the uplink that the router uses, and so can cut the Internet access of the router and of its clients.
 
-The sensitivity sets how fast the router finds out that an interface is offline or online again. The provider writes only when the router values differ from the configuration, so a create whose values are equal to those of the router sends no write. The format of the read was seen on a router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+The sensitivity sets how fast the router finds out that an interface is offline or online again. The provider writes only when the router values differ from the configuration, so a create whose values are equal to those of the router sends no write. When the router result has no sensitivity, the provider uses the values that the web UI shows then: level `medium` and interval 5 seconds. The format of the read was seen on a router. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 
 ## Example Usage
 

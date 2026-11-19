@@ -20,6 +20,9 @@ import (
 
 const multiWANSensitivityID = "multiwan_sensitivity"
 
+// multiWANSensitivityDefault is the sensitivity that the web UI shows when the router result has no sensitivity.
+var multiWANSensitivityDefault = glinet.MultiWANSensitivity{Level: glinet.MultiWANSensitivityMedium, Interval: 5}
+
 var multiWANSensitivityLevels = []string{
 	glinet.MultiWANSensitivityLow,
 	glinet.MultiWANSensitivityMedium,
@@ -82,6 +85,7 @@ func (r *multiWANSensitivityResource) Schema(_ context.Context, _ resource.Schem
 			multiWANWarning +
 			"The sensitivity sets how fast the router finds out that an interface is offline or online again. " +
 			"The provider writes only when the router values differ from the configuration, so a create whose values are equal to those of the router sends no write. " +
+			"When the router result has no sensitivity, the provider uses the values that the web UI shows then: level `medium` and interval 5 seconds. " +
 			"The format of the read was seen on a router. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
@@ -174,9 +178,8 @@ func (r *multiWANSensitivityResource) write(ctx context.Context, plan tfsdk.Plan
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	current, err := r.client.MultiWAN.GetSensitivity(ctx)
-	if err != nil {
-		diags.AddError("Unable to Read Multi-WAN Sensitivity", err.Error())
+	current := r.routerSensitivity(ctx, diags)
+	if diags.HasError() {
 		return
 	}
 
@@ -195,9 +198,8 @@ func (r *multiWANSensitivityResource) write(ctx context.Context, plan tfsdk.Plan
 }
 
 func (r *multiWANSensitivityResource) read(ctx context.Context, state *tfsdk.State, diags *diag.Diagnostics) {
-	sensitivity, err := r.client.MultiWAN.GetSensitivity(ctx)
-	if err != nil {
-		diags.AddError("Unable to Read Multi-WAN Sensitivity", err.Error())
+	sensitivity := r.routerSensitivity(ctx, diags)
+	if diags.HasError() {
 		return
 	}
 
@@ -206,4 +208,19 @@ func (r *multiWANSensitivityResource) read(ctx context.Context, state *tfsdk.Sta
 		Level:    types.StringValue(sensitivity.Level),
 		Interval: types.Float64Value(sensitivity.Interval),
 	})...)
+}
+
+// routerSensitivity returns the sensitivity of the router. When the router result has no sensitivity, the client
+// gives the zero value, and routerSensitivity returns the values that the web UI shows then.
+func (r *multiWANSensitivityResource) routerSensitivity(ctx context.Context, diags *diag.Diagnostics) *glinet.MultiWANSensitivity {
+	sensitivity, err := r.client.MultiWAN.GetSensitivity(ctx)
+	if err != nil {
+		diags.AddError("Unable to Read Multi-WAN Sensitivity", err.Error())
+		return nil
+	}
+	if *sensitivity == (glinet.MultiWANSensitivity{}) {
+		d := multiWANSensitivityDefault
+		return &d
+	}
+	return sensitivity
 }

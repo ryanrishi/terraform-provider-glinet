@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"regexp"
 	"testing"
 
@@ -81,6 +82,64 @@ func TestMultiWANSensitivityResourceNoWrite(t *testing.T) {
 				Config:            fakeRouterConfig(srv) + multiWANSensitivityConfig("  level = \"medium\"\n"),
 				ConfigStateChecks: expectMultiWANSensitivity("medium", 5),
 				Check:             setSensitivity.expect(),
+			},
+		},
+	})
+}
+
+// withoutSensitivity makes the fake router give a get_sensitivity result without sensitivity until a write sets it.
+func withoutSensitivity(srv *glinettest.Server) {
+	srv.MultiWAN.SetSensitivity(glinettest.MultiWANSensitivity{})
+	next := srv.Handler("kmwan", "get_sensitivity")
+	srv.Handle("kmwan", "get_sensitivity", func(params json.RawMessage) (any, error) {
+		if srv.MultiWAN.Sensitivity() == (glinettest.MultiWANSensitivity{}) {
+			return map[string]any{}, nil
+		}
+		return next(params)
+	})
+}
+
+// TestMultiWANSensitivityResourceNoSensitivity reads a router result without sensitivity: the state and the import
+// get the web UI defaults, and a create with the default level sends no write.
+func TestMultiWANSensitivityResourceNoSensitivity(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	withoutSensitivity(srv)
+	setSensitivity := recordCalls(t, srv, "kmwan", "set_sensitivity")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + multiWANSensitivityConfig("  level = \"medium\"\n"),
+				ConfigStateChecks: expectMultiWANSensitivity("medium", 5),
+				Check:             setSensitivity.expect(),
+			},
+			{
+				ResourceName:      multiWANSensitivityAddress,
+				ImportState:       true,
+				ImportStateId:     "multiwan_sensitivity",
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// TestMultiWANSensitivityResourceNoSensitivityWrite writes a level without interval to a router result without
+// sensitivity: the write sends the default interval of the web UI.
+func TestMultiWANSensitivityResourceNoSensitivityWrite(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	withoutSensitivity(srv)
+	setSensitivity := recordCalls(t, srv, "kmwan", "set_sensitivity")
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + multiWANSensitivityConfig("  level = \"high\"\n"),
+				ConfigStateChecks: expectMultiWANSensitivity("high", 5),
+				Check:             setSensitivity.expect(`{"sensitivity":{"level":"high","val":5}}`),
 			},
 		},
 	})
