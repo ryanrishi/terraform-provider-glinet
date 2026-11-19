@@ -3,12 +3,12 @@
 page_title: "glinet_wireguard_server_peer Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a peer of the WireGuard server of the router: a client device that can connect (wg-server.add_peer in the router API). The router gives the peer its tunnel address and its keys. client_config gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example terraform import glinet_wireguard_server_peer.example 1234. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+  Manages a peer of the WireGuard server of the router: a client device that can connect (wg-server.add_peer in the router API). The router gives the peer its tunnel address and its keys. client_config gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with glinet_wireguard_server or in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example terraform import glinet_wireguard_server_peer.example 1234. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 ---
 
 # glinet_wireguard_server_peer (Resource)
 
-Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). The router gives the peer its tunnel address and its keys. `client_config` gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
+Manages a peer of the WireGuard server of the router: a client device that can connect (`wg-server.add_peer` in the router API). The router gives the peer its tunnel address and its keys. `client_config` gives the values of the configuration file of the client device. The resource does not initialize, start or stop the server. Create fails when the server is not initialized; initialize it with `glinet_wireguard_server` or in the web UI. Destroy removes the peer from the router. Import the peer with its ID, for example `terraform import glinet_wireguard_server_peer.example 1234`. The write of this resource was not tested on a router; the parameters come from the router's web UI.
 
 ## Example Usage
 

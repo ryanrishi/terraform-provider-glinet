@@ -194,7 +194,9 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewWifiRadioResource,
 		NewWireGuardClientGroupResource,
 		NewWireGuardClientConfigResource,
+		NewWireGuardServerResource,
 		NewWireGuardServerPeerResource,
+		NewWireGuardServerRouteResource,
 	}
 }
 
