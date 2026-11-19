@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/ryanrishi/glinet-client-go"
 )
 
@@ -33,6 +35,7 @@ var (
 	_ resource.ResourceWithConfigure        = &wanResource{}
 	_ resource.ResourceWithImportState      = &wanResource{}
 	_ resource.ResourceWithConfigValidators = &wanResource{}
+	_ resource.ResourceWithUpgradeState     = &wanResource{}
 )
 
 func NewWANResource() resource.Resource {
@@ -98,6 +101,7 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	ipv6Validator := stringCheck{description: "must be an IPv6 address", valid: validIPv6}
 
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages a wired WAN port of the router (`cable.set_config` in the router API). " +
 			"Use one instance of this resource for each wired WAN port. " +
 			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
@@ -236,6 +240,30 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			},
 		},
 	}
+}
+
+// UpgradeState fills port from the ID in a state of schema version 0, which has no port and only the first WAN
+// port. Without it, a plan without refresh replaces the resource.
+func (r *wanResource) UpgradeState(context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {StateUpgrader: upgradeWANStateV0},
+	}
+}
+
+func upgradeWANStateV0(_ context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+	var state map[string]any
+	if err := json.Unmarshal(req.RawState.JSON, &state); err != nil {
+		resp.Diagnostics.AddError("Unable to Upgrade WAN State", err.Error())
+		return
+	}
+
+	state["port"] = state["id"]
+	upgraded, err := json.Marshal(state)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Upgrade WAN State", err.Error())
+		return
+	}
+	resp.DynamicValue = &tfprotov6.DynamicValue{JSON: upgraded}
 }
 
 func (r *wanResource) ConfigValidators(context.Context) []resource.ConfigValidator {
