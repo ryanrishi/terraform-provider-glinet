@@ -5,7 +5,8 @@ subcategory: ""
 description: |-
   Manages a traffic rule of the firewall. The match attributes (source_zone, source_ip, source_mac, source_port, protocol, destination_zone, destination_ip and destination_port) identify the rule, and a match attribute with no value is part of the identity. A change to a match attribute replaces the rule. The router does not check rules and accepts duplicates, so create fails when a rule on the router has exactly the same match attributes. Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.
   The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add replace_triggered_by with the earlier rule to the lifecycle block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
-  Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again.
+  Destroy removes the rule from the router.
+  Rules with no destination port: firmware 4.7.0 cannot remove a rule with no destination port, but can change it. To delete such a rule, the provider first disables it and sets its destination port to 65535, then removes it. When the remove fails, the provider writes the original values to the rule again. Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because set_rule and remove_rule return HTTP status 500. The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. When a write to such a rule fails, the error tells how to remove the rule with SSH and uci. The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). Other firmware versions were not tested.
   The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 ---
 
@@ -15,7 +16,9 @@ Manages a traffic rule of the firewall. The match attributes (`source_zone`, `so
 
 The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.
 
-Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again.
+Destroy removes the rule from the router.
+
+Rules with no destination port: firmware 4.7.0 cannot remove a rule with no destination port, but can change it. To delete such a rule, the provider first disables it and sets its destination port to `65535`, then removes it. When the remove fails, the provider writes the original values to the rule again. Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because `set_rule` and `remove_rule` return HTTP status 500. The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. When a write to such a rule fails, the error tells how to remove the rule with SSH and `uci`. The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). Other firmware versions were not tested.
 
 The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.
 
@@ -48,6 +51,19 @@ resource "glinet_firewall_rule" "block_ssh" {
     replace_triggered_by = [glinet_firewall_rule.ssh_from_office]
   }
 }
+
+# IPv6 addresses and CIDR blocks work in source_ip and destination_ip.
+# Set destination_port: on firmware 4.8.3, Terraform cannot update or destroy a rule with no destination port.
+resource "glinet_firewall_rule" "https_ipv6" {
+  name             = "https over ipv6"
+  source_zone      = "wan"
+  source_ip        = "2001:db8:1::/48"
+  protocol         = "tcp"
+  destination_zone = "lan"
+  destination_ip   = "2001:db8::20"
+  destination_port = "443"
+  action           = "ACCEPT"
+}
 ```
 
 <!-- schema generated by tfplugindocs -->
@@ -60,14 +76,14 @@ resource "glinet_firewall_rule" "block_ssh" {
 
 ### Optional
 
-- `destination_ip` (String) IPv4 address or CIDR block that the traffic goes to (`dest_ip` in the router API). Changing it replaces the rule.
-- `destination_port` (String) Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API). Changing it replaces the rule.
+- `destination_ip` (String) IPv4 or IPv6 address, or CIDR block, that the traffic goes to (`dest_ip` in the router API). The router keeps the value as written, so write it in the same form as on the router. Changing it replaces the rule.
+- `destination_port` (String) Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API). On firmware 4.8.3, Terraform cannot update or destroy a rule with no destination port: see the description of the resource. Changing it replaces the rule.
 - `destination_zone` (String) Firewall zone that the traffic goes to, for example `lan` (`dest` in the router API). With no value, the rule matches traffic to the router itself. Changing it replaces the rule.
 - `enabled` (Boolean) Whether the rule is enabled (`enabled` in the router API). Defaults to `true`.
 - `name` (String) Name of the rule (`name` in the router API). Import finds the rule by its name.
-- `protocol` (String) Protocol: `tcp`, `udp`, `tcp udp`, `icmp` or `all` (`proto` in the router API). With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`. Changing it replaces the rule.
-- `source_ip` (String) IPv4 address or CIDR block that the traffic comes from (`src_ip` in the router API). Changing it replaces the rule.
-- `source_mac` (String) MAC address that the traffic comes from, in lower case, for example `02:00:00:00:00:01` (`src_mac` in the router API). Changing it replaces the rule.
+- `protocol` (String) Protocol, in lower case (`proto` in the router API): `tcp`, `udp`, `tcp udp`, `icmp`, `all`, or the name or number of an other protocol, for example `esp` or `icmpv6`. The router does not check the value and gives it to the OpenWrt firewall. These values were tested on a router: `tcp`, `udp`, `tcp udp`, `icmp`, `all`, `esp` and `icmpv6`. What the firewall does with a name that it does not know was not tested. With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`. Changing it replaces the rule.
+- `source_ip` (String) IPv4 or IPv6 address, or CIDR block, that the traffic comes from, for example `198.51.100.0/24` or `2001:db8::/48` (`src_ip` in the router API). The router keeps the value as written, so write it in the same form as on the router. Changing it replaces the rule.
+- `source_mac` (String) MAC address that the traffic comes from, in lower case or upper case, for example `02:00:00:00:00:01` (`src_mac` in the router API). The router keeps the MAC address in the letter case of the write, and the firewall uses it without letter case. The provider finds the rule without letter case of the MAC address. A change of the MAC address in more than its letter case replaces the rule.
 - `source_port` (String) Port that the traffic comes from, from 1 to 65535, or a range of ports such as `8000-8010` (`src_port` in the router API). Changing it replaces the rule.
 
 ## Import

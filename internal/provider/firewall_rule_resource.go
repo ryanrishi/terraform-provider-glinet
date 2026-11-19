@@ -3,12 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/netip"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -24,10 +25,14 @@ import (
 // before it removes the rule, because the router cannot remove a rule with no destination port.
 const removablePort = "65535"
 
+// protocolName is a protocol name or number in lower case, for example esp or 50, or tcp udp.
+var protocolName = regexp.MustCompile(`^([a-z0-9]+(-[a-z0-9]+)*|tcp udp)$`)
+
 var (
 	_ resource.Resource                = &firewallRuleResource{}
 	_ resource.ResourceWithConfigure   = &firewallRuleResource{}
 	_ resource.ResourceWithImportState = &firewallRuleResource{}
+	_ resource.ResourceWithModifyPlan  = &firewallRuleResource{}
 )
 
 func NewFirewallRuleResource() resource.Resource {
@@ -39,21 +44,22 @@ type firewallRuleResource struct {
 }
 
 type firewallRuleResourceModel struct {
-	SourceZone      types.String `tfsdk:"source_zone"`
-	SourceIP        types.String `tfsdk:"source_ip"`
-	SourceMAC       types.String `tfsdk:"source_mac"`
-	SourcePort      types.String `tfsdk:"source_port"`
-	Protocol        types.String `tfsdk:"protocol"`
-	DestinationZone types.String `tfsdk:"destination_zone"`
-	DestinationIP   types.String `tfsdk:"destination_ip"`
-	DestinationPort types.String `tfsdk:"destination_port"`
-	Action          types.String `tfsdk:"action"`
-	Name            types.String `tfsdk:"name"`
-	Enabled         types.Bool   `tfsdk:"enabled"`
+	SourceZone      types.String          `tfsdk:"source_zone"`
+	SourceIP        types.String          `tfsdk:"source_ip"`
+	SourceMAC       caseInsensitiveString `tfsdk:"source_mac"`
+	SourcePort      types.String          `tfsdk:"source_port"`
+	Protocol        types.String          `tfsdk:"protocol"`
+	DestinationZone types.String          `tfsdk:"destination_zone"`
+	DestinationIP   types.String          `tfsdk:"destination_ip"`
+	DestinationPort types.String          `tfsdk:"destination_port"`
+	Action          types.String          `tfsdk:"action"`
+	Name            types.String          `tfsdk:"name"`
+	Enabled         types.Bool            `tfsdk:"enabled"`
 }
 
 // ruleIdentity identifies a rule by its match fields. An empty field is a field with no value on the router.
 // The router ID is not used because it changes when an earlier rule or port forward is removed.
+// The source MAC address matches without letter case, because the firewall uses it without letter case.
 type ruleIdentity struct {
 	src, srcIP, srcMAC, srcPort, proto, dest, destIP, destPort string
 }
@@ -66,7 +72,12 @@ func identityOfRule(r glinet.Rule) ruleIdentity {
 }
 
 func (id ruleIdentity) matches(r glinet.Rule) bool {
-	return identityOfRule(r) == id
+	other := identityOfRule(r)
+	if !strings.EqualFold(other.srcMAC, id.srcMAC) {
+		return false
+	}
+	other.srcMAC = id.srcMAC
+	return other == id
 }
 
 func (id ruleIdentity) String() string {
@@ -92,14 +103,6 @@ func (id ruleIdentity) String() string {
 	return strings.Join(parts, ", ")
 }
 
-func validIPv4OrCIDR(s string) bool {
-	if validIPv4(s) {
-		return true
-	}
-	prefix, err := netip.ParsePrefix(s)
-	return err == nil && prefix.Addr().Is4()
-}
-
 func (r *firewallRuleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_firewall_rule"
 }
@@ -115,7 +118,10 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			Validators: validators,
 		}
 	}
-	ipValidator := stringCheck{description: "must be an IPv4 address or an IPv4 CIDR block such as 192.168.8.0/24", valid: validIPv4OrCIDR}
+	ipValidator := stringCheck{
+		description: "must be an IPv4 or IPv6 address, or a CIDR block such as 192.168.8.0/24 or 2001:db8::/48",
+		valid:       func(s string) bool { return validIP(s) || validPrefix(s) },
+	}
 
 	sourceZone := matchField("Firewall zone that the traffic comes from, for example `wan` (`src` in the router API).",
 		stringvalidator.LengthAtLeast(1))
@@ -132,26 +138,50 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, " +
 			"so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule " +
 			"to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.\n\n" +
-			"Destroy removes the rule from the router. The router cannot remove a rule with no destination port. To delete such a rule, the provider first disables it and sets its destination port to " +
-			"`" + removablePort + "`, then removes it. When the remove fails, the provider writes the original values to the rule again.\n\n" +
+			"Destroy removes the rule from the router.\n\n" +
+			"Rules with no destination port: firmware 4.7.0 cannot remove a rule with no destination port, but can change it. " +
+			"To delete such a rule, the provider first disables it and sets its destination port to `" + removablePort + "`, then removes it. " +
+			"When the remove fails, the provider writes the original values to the rule again. " +
+			"Firmware 4.8.3 has a fault: it cannot change or remove a rule with no destination port, because `set_rule` and `remove_rule` return HTTP status 500. " +
+			"The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. " +
+			"Thus the plan shows a warning when it creates, changes or destroys a rule with no destination port. " +
+			"When a write to such a rule fails, the error tells how to remove the rule with SSH and `uci`. " +
+			"The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). " +
+			"Other firmware versions were not tested.\n\n" +
 			"The provider runs the check and the write of one rule at a time, but a change by another client of the router between them is not detected.",
 		Attributes: map[string]schema.Attribute{
 			"source_zone": sourceZone,
-			"source_ip": matchField("IPv4 address or CIDR block that the traffic comes from (`src_ip` in the router API).",
+			"source_ip": matchField("IPv4 or IPv6 address, or CIDR block, that the traffic comes from, for example `198.51.100.0/24` or `2001:db8::/48` (`src_ip` in the router API). "+
+				"The router keeps the value as written, so write it in the same form as on the router.",
 				ipValidator),
-			"source_mac": matchField("MAC address that the traffic comes from, in lower case, for example `02:00:00:00:00:01` (`src_mac` in the router API).",
-				stringvalidator.RegexMatches(lowerCaseMAC, "must be a MAC address in lower case, for example 02:00:00:00:00:01")),
+			"source_mac": schema.StringAttribute{
+				Description: "MAC address that the traffic comes from, in lower case or upper case, for example `02:00:00:00:00:01` (`src_mac` in the router API). " +
+					"The router keeps the MAC address in the letter case of the write, and the firewall uses it without letter case. " +
+					"The provider finds the rule without letter case of the MAC address. A change of the MAC address in more than its letter case replaces the rule.",
+				Optional:   true,
+				CustomType: caseInsensitiveStringType{},
+				PlanModifiers: []planmodifier.String{
+					requiresReplaceIfNotLetterCase(),
+				},
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(macAddress, "must be a MAC address, for example 02:00:00:00:00:01"),
+				},
+			},
 			"source_port": matchField("Port that the traffic comes from, from 1 to 65535, or a range of ports such as `8000-8010` (`src_port` in the router API).",
 				portValidator),
-			"protocol": matchField("Protocol: `tcp`, `udp`, `tcp udp`, `icmp` or `all` (`proto` in the router API). "+
+			"protocol": matchField("Protocol, in lower case (`proto` in the router API): `tcp`, `udp`, `tcp udp`, `icmp`, `all`, or the name or number of an other protocol, for example `esp` or `icmpv6`. "+
+				"The router does not check the value and gives it to the OpenWrt firewall. These values were tested on a router: `tcp`, `udp`, `tcp udp`, `icmp`, `all`, `esp` and `icmpv6`. "+
+				"What the firewall does with a name that it does not know was not tested. "+
 				"With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`.",
-				stringvalidator.OneOf("tcp", "udp", "tcp udp", "icmp", "all")),
+				stringvalidator.RegexMatches(protocolName, "must be tcp udp, or one protocol name or number in lower case, for example tcp, esp or 50")),
 			"destination_zone": matchField("Firewall zone that the traffic goes to, for example `lan` (`dest` in the router API). "+
 				"With no value, the rule matches traffic to the router itself.",
 				stringvalidator.LengthAtLeast(1)),
-			"destination_ip": matchField("IPv4 address or CIDR block that the traffic goes to (`dest_ip` in the router API).",
+			"destination_ip": matchField("IPv4 or IPv6 address, or CIDR block, that the traffic goes to (`dest_ip` in the router API). "+
+				"The router keeps the value as written, so write it in the same form as on the router.",
 				ipValidator),
-			"destination_port": matchField("Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API).",
+			"destination_port": matchField("Port that the traffic goes to, from 1 to 65535, or a range of ports such as `8000-8010` (`dest_port` in the router API). "+
+				"On firmware 4.8.3, Terraform cannot update or destroy a rule with no destination port: see the description of the resource.",
 				portValidator),
 			"action": schema.StringAttribute{
 				Description: "What the firewall does with the traffic that the rule matches: `ACCEPT`, `DROP` or `REJECT` (`target` in the router API).",
@@ -174,6 +204,33 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 				Default:     booldefault.StaticBool(true),
 			},
 		},
+	}
+}
+
+// ModifyPlan warns when the plan creates, changes or destroys a rule with no destination port,
+// because firmware 4.8.3 cannot change or remove such a rule.
+func (r *firewallRuleResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.Equal(req.State.Raw) {
+		return
+	}
+
+	var planned, current types.String
+	if !req.Plan.Raw.IsNull() {
+		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("destination_port"), &planned)...)
+	}
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("destination_port"), &current)...)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if (!req.Plan.Raw.IsNull() && planned.IsNull()) || (!req.State.Raw.IsNull() && current.IsNull()) {
+		resp.Diagnostics.AddWarning("Firewall Rule with No Destination Port",
+			"Firmware 4.8.3 cannot change or remove a firewall rule with no destination port: set_rule and remove_rule return HTTP status 500. "+
+				"The router adds such a rule and the firewall uses it, but on firmware 4.8.3 Terraform cannot update or destroy it. "+
+				"Then the only way to remove the rule is SSH on the router. A rule with a destination port does not have this fault. "+
+				"On firmware 4.7.0, the provider can change and remove such a rule. Other firmware versions were not tested.")
 	}
 }
 
@@ -259,14 +316,18 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	if err := r.client.Firewall.SetRule(ctx, plan.rule(rule.ID)); err != nil {
-		resp.Diagnostics.AddError("Unable to Update Firewall Rule", err.Error())
+		detail := err.Error()
+		if rule.DestPort == "" {
+			detail = fmt.Sprintf("The write to the rule %s failed. %s Error: %s", describeRule(*rule), noDestinationPortFault(rule.ID), err)
+		}
+		resp.Diagnostics.AddError("Unable to Update Firewall Rule", detail)
 		return
 	}
 
 	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
 }
 
-// Delete removes the first rule with the identity of the state. The router cannot remove a rule with no
+// Delete removes the first rule with the identity of the state. Firmware 4.7.0 cannot remove a rule with no
 // destination port, so Delete first disables such a rule and sets its destination port to removablePort.
 // The write keeps the position of the rule, so its ID stays valid for the remove. When the remove fails,
 // Delete writes the original values again, so that the identity of the state still finds the rule.
@@ -301,9 +362,9 @@ func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	removable.Enabled = false
 	if err := r.client.Firewall.SetRule(ctx, removable); err != nil {
 		resp.Diagnostics.AddError("Unable to Delete Firewall Rule",
-			fmt.Sprintf("The router cannot remove a rule with no destination port, and the write of the destination port %s to the rule %s failed. "+
-				"The rule may be unchanged, or disabled with the destination port %s. Remove it on the router. Error: %s",
-				removablePort, describeRule(*rule), removablePort, err))
+			fmt.Sprintf("Firmware 4.7.0 cannot remove a rule with no destination port, so the provider first writes the destination port %s to the rule. "+
+				"This write to the rule %s failed. The rule may be unchanged, or disabled with the destination port %s. %s Error: %s",
+				removablePort, describeRule(*rule), removablePort, noDestinationPortFault(rule.ID), err))
 		return
 	}
 	if err := r.client.Firewall.RemoveRule(ctx, rule.ID); err != nil {
@@ -407,6 +468,16 @@ func (r *firewallRuleResource) readBack(ctx context.Context, id ruleIdentity, st
 	diags.Append(state.Set(ctx, ruleModel(rule))...)
 }
 
+// noDestinationPortFault explains the fault of firmware 4.8.3 with a rule with no destination port, and how to remove the rule with the router ID id.
+func noDestinationPortFault(id string) string {
+	return fmt.Sprintf("The rule has no destination port. Firmware 4.8.3 cannot change or remove such a rule: set_rule and remove_rule return HTTP status 500 (a fault in the firmware). "+
+		"The web UI uses the same router calls, so it probably cannot remove the rule either (not tested). "+
+		"To remove the rule, connect to the router with SSH and run: uci delete firewall.%s && uci commit firewall && /etc/init.d/firewall reload "+
+		"(%s is the router ID of the rule now; it changes when an earlier rule or port forward is removed). "+
+		"Then run Terraform again: it creates the rule again with the values of the configuration, or completes the destroy.",
+		id, id)
+}
+
 func describeRule(r glinet.Rule) string {
 	details := fmt.Sprintf("action %s, enabled %t, %s", orNone(r.Target), r.Enabled, identityOfRule(r))
 	if r.Name == "" {
@@ -447,7 +518,7 @@ func ruleModel(r *glinet.Rule) *firewallRuleResourceModel {
 	return &firewallRuleResourceModel{
 		SourceZone:      stringOrNull(r.Src),
 		SourceIP:        stringOrNull(r.SrcIP),
-		SourceMAC:       stringOrNull(r.SrcMAC),
+		SourceMAC:       caseInsensitiveString{StringValue: stringOrNull(r.SrcMAC)},
 		SourcePort:      stringOrNull(r.SrcPort),
 		Protocol:        stringOrNull(r.Proto),
 		DestinationZone: stringOrNull(r.Dest),
