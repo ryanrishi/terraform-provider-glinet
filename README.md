@@ -44,6 +44,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
+| Resource | `glinet_fan` | [docs/resources/fan.md](docs/resources/fan.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
 | Resource | `glinet_firewall_port_forward_order` | [docs/resources/firewall_port_forward_order.md](docs/resources/firewall_port_forward_order.md) |
@@ -54,8 +55,11 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
+| Resource | `glinet_screen_schedule` | [docs/resources/screen_schedule.md](docs/resources/screen_schedule.md) |
+| Resource | `glinet_switch_button` | [docs/resources/switch_button.md](docs/resources/switch_button.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
+| Resource | `glinet_usb` | [docs/resources/usb.md](docs/resources/usb.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
 | Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
@@ -66,6 +70,7 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Data source | `glinet_arp_entries` | [docs/data-sources/arp_entries.md](docs/data-sources/arp_entries.md) |
 | Data source | `glinet_clients` | [docs/data-sources/clients.md](docs/data-sources/clients.md) |
 | Data source | `glinet_dns_secure_servers` | [docs/data-sources/dns_secure_servers.md](docs/data-sources/dns_secure_servers.md) |
+| Data source | `glinet_fan_status` | [docs/data-sources/fan_status.md](docs/data-sources/fan_status.md) |
 | Data source | `glinet_firewall_zones` | [docs/data-sources/firewall_zones.md](docs/data-sources/firewall_zones.md) |
 | Data source | `glinet_system_info` | [docs/data-sources/system_info.md](docs/data-sources/system_info.md) |
 | Data source | `glinet_system_status` | [docs/data-sources/system_status.md](docs/data-sources/system_status.md) |
