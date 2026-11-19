@@ -57,7 +57,8 @@ ENHANCEMENTS:
 * `glinet_wireguard_server_route`: `metric` accepts values from 1 to 4294967295, as the web UI does. Before, the limit was 2147483647.
 * `glinet_firewall_rule`: The error of a failed write to a rule with no destination port tells how to remove the rule with SSH and `uci` only for the fault of firmware 4.8.3 (HTTP status 500 from `set_rule` or `remove_rule`), not for other errors.
 * `glinet_local_access`: When a write that moves the address of the API fails with an HTTP status, the error no longer says that the router did not answer.
-* The client is `glinet-client-go` v1.0.0.
+* The client is `glinet-client-go` v1.1.0.
+* The login of the provider stops when Terraform cancels the operation. Before, only the time limit of the HTTP client stopped it.
 
 NOTES:
 

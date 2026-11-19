@@ -14,10 +14,14 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
@@ -255,6 +259,44 @@ func TestProviderWrongPassword(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestProviderLoginStopsWithContext(t *testing.T) {
+	parallel(t)
+
+	stop := make(chan struct{})
+	router := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-stop }))
+	t.Cleanup(router.Close)
+	t.Cleanup(func() { close(stop) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	p := New("test")()
+	var schemaResp provider.SchemaResponse
+	p.Schema(ctx, provider.SchemaRequest{}, &schemaResp)
+	config := tfsdk.Config{
+		Schema: schemaResp.Schema,
+		Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), map[string]tftypes.Value{
+			"host":     tftypes.NewValue(tftypes.String, router.URL),
+			"username": tftypes.NewValue(tftypes.String, nil),
+			"password": tftypes.NewValue(tftypes.String, "password"),
+		}),
+	}
+
+	start := time.Now()
+	var resp provider.ConfigureResponse
+	p.Configure(ctx, provider.ConfigureRequest{Config: config}, &resp)
+
+	if !resp.Diagnostics.HasError() {
+		t.Error("expected an error diagnostic")
+	}
+	if resp.ResourceData != nil || resp.DataSourceData != nil {
+		t.Error("Configure gave a client after a login that did not complete")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("Configure took %v", elapsed)
+	}
 }
 
 func TestProviderMissingPassword(t *testing.T) {

@@ -134,7 +134,7 @@ func (p *GLiNetProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	ctx = tflog.SetField(ctx, "glinet_username", username)
 	tflog.Debug(ctx, "Creating GL.iNet client")
 
-	client, err := glinet.NewClientWithHost(host, username, []byte(password))
+	client, err := glinet.NewClientWithHost(host, username, []byte(password), glinet.WithLoginContext(ctx))
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create GL.iNet API Client",
