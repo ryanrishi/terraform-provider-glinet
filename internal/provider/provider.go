@@ -50,13 +50,15 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 		Description: "Manages GL.iNet routers that run v4 firmware. " +
 			"The provider is tested on a GL-AXT1800 with firmware 4.7.0 and 4.8.3. Other models and firmware versions can have different API methods.\n\n" +
 			"~> **Warning:** some resources can cut the access to the router: " +
+			"[`glinet_access_control`](" + registryDocs + "resources/access_control), " +
+			"[`glinet_client_allow`](" + registryDocs + "resources/client_allow), " +
 			"[`glinet_wan`](" + registryDocs + "resources/wan), " +
 			"[`glinet_lan`](" + registryDocs + "resources/lan) and " +
 			"[`glinet_wifi_interface`](" + registryDocs + "resources/wifi_interface). " +
 			"Read the warnings on their pages before you apply them.\n\n" +
 			"Destroy of a resource disables a feature that exposes the router or acts on its own " +
 			"(`glinet_firewall_dmz`, `glinet_ddns`, `glinet_tailscale`, `glinet_zerotier`, `glinet_reboot_schedule`), " +
-			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_firewall_port_forward`, `glinet_firewall_rule`, " +
+			"removes a list item (`glinet_lan_static_lease`, `glinet_client_block`, `glinet_client_allow`, `glinet_firewall_port_forward`, `glinet_firewall_rule`, " +
 			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`), " +
 			"and leaves a plain setting unchanged on the router (the other resources).",
 		Attributes: map[string]schema.Attribute{
@@ -159,7 +161,9 @@ func (p *GLiNetProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewLEDScheduleResource,
 		NewRebootScheduleResource,
 		NewDNSResource,
+		NewAccessControlResource,
 		NewAdGuardHomeResource,
+		NewClientAllowResource,
 		NewClientBlockResource,
 		NewDDNSResource,
 		NewTailscaleResource,
