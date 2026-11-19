@@ -49,3 +49,11 @@ func stringOrNull(s string) types.String {
 	}
 	return types.StringValue(s)
 }
+
+// codeName returns the name of a router code, or null for a code that is not an index of names.
+func codeName(names []string, code int) types.String {
+	if code < 0 || code >= len(names) {
+		return types.StringNull()
+	}
+	return types.StringValue(names[code])
+}
