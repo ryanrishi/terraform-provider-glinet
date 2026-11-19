@@ -75,8 +75,8 @@ func blockTestRouter(t *testing.T) (string, *glinet.Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if initial.Mode != blockListMode {
-		t.Fatalf("the access control mode of the router is %q; the test runs only in mode %q", initial.Mode, blockListMode)
+	if initial.Mode != glinet.AccessControlBlockList {
+		t.Fatalf("the access control mode of the router is %q; the test runs only in mode %q", initial.Mode, glinet.AccessControlBlockList)
 	}
 	if entries := matchingMACs(initial.BlackMAC, blockMAC); len(entries) > 0 {
 		t.Fatalf("the block list of the router has the test MAC address %v", entries)
@@ -133,7 +133,7 @@ func failWritesOutsideBlockMode(t *testing.T, srv *glinettest.Server) {
 	for _, method := range []string{"set_single_mac", "set_config"} {
 		next := srv.Handler("black_white_list", method)
 		srv.Handle("black_white_list", method, func(params json.RawMessage) (any, error) {
-			if mode := srv.AccessControl.Config().Mode; mode != blockListMode {
+			if mode := srv.AccessControl.Config().Mode; mode != glinet.AccessControlBlockList {
 				t.Errorf("black_white_list.%s %s in mode %q", method, params, mode)
 				return nil, glinettest.ErrMethodNotFound
 			}
@@ -173,7 +173,7 @@ func TestClientBlockResource(t *testing.T) {
 func TestClientBlockResourceReplace(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	setBlockList(srv, blockListMode, unrelatedBlockMAC)
+	setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -202,7 +202,7 @@ func TestClientBlockResourceImport(t *testing.T) {
 		for _, id := range []string{blockMAC, blockMACUpper} {
 			t.Run(entry+" as "+id, func(t *testing.T) {
 				srv := glinettest.NewServer(t)
-				setBlockList(srv, blockListMode, unrelatedBlockMAC, entry)
+				setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC, entry)
 				config := fakeRouterConfig(srv) + blockConfig(blockMAC)
 
 				resource.UnitTest(t, resource.TestCase{
@@ -283,7 +283,7 @@ func TestClientBlockResourceDrift(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					setBlockList(srv, blockListMode, unrelatedBlockMAC)
+					setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC)
 				},
 				Config:           config,
 				ConfigPlanChecks: expectResourceAction(blockAddress, plancheck.ResourceActionCreate),
@@ -309,7 +309,7 @@ func TestClientBlockResourceDeleteWhenGone(t *testing.T) {
 	srv.Handle("black_white_list", "get_config", func(params json.RawMessage) (any, error) {
 		res, err := getConfig(params)
 		if removeAfterRead.Swap(false) {
-			setBlockList(srv, blockListMode, unrelatedBlockMAC)
+			setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC)
 			removeAfterReadDone.Store(true)
 		}
 		return res, err
@@ -353,7 +353,7 @@ func TestClientBlockResourceAlreadyExists(t *testing.T) {
 	for _, entry := range []string{blockMAC, blockMACUpper} {
 		t.Run(entry, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
-			setBlockList(srv, blockListMode, entry)
+			setBlockList(srv, glinet.AccessControlBlockList, entry)
 
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: testProtoV6ProviderFactories,
@@ -375,7 +375,7 @@ func TestClientBlockResourceAlreadyExists(t *testing.T) {
 func TestClientBlockResourceMixedCase(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	setBlockList(srv, blockListMode, blockMAC, unrelatedBlockMAC, blockMACUpper)
+	setBlockList(srv, glinet.AccessControlBlockList, blockMAC, unrelatedBlockMAC, blockMACUpper)
 	config := fakeRouterConfig(srv) + blockConfig(blockMAC)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -434,7 +434,7 @@ func TestClientBlockResourceAllowListModeCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      fakeRouterConfig(srv) + blockConfig(blockMAC),
-				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Block-List Mode.*"white"`),
+				ExpectError: regexp.MustCompile(`(?s)Router Is Not in Block-List Mode.*"allow_list"`),
 			},
 		},
 	})
@@ -473,7 +473,7 @@ func TestClientBlockResourceAllowListModeReadAndDelete(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					setBlockList(srv, blockListMode, blockMACUpper)
+					setBlockList(srv, glinet.AccessControlBlockList, blockMACUpper)
 				},
 				Config:           config,
 				ConfigPlanChecks: expectEmptyPlan,
@@ -584,7 +584,7 @@ func TestClientBlockResourceParallel(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
 	slowBlockListReads(srv)
-	setBlockList(srv, blockListMode, unrelatedBlockMAC)
+	setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC)
 
 	blocks := func(n int) string {
 		config := fakeRouterConfig(srv)
@@ -734,7 +734,7 @@ func countBlockListWrites(srv *glinettest.Server) *atomic.Int32 {
 func TestClientBlockResourceLetterCase(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
-	setBlockList(srv, blockListMode, unrelatedBlockMAC)
+	setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC)
 	writes := countBlockListWrites(srv)
 
 	resource.UnitTest(t, resource.TestCase{
@@ -750,7 +750,7 @@ func TestClientBlockResourceLetterCase(t *testing.T) {
 			},
 			{
 				PreConfig: func() {
-					setBlockList(srv, blockListMode, unrelatedBlockMAC, lowerCaseBlockMAC)
+					setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC, lowerCaseBlockMAC)
 				},
 				Config:            fakeRouterConfig(srv) + blockConfig(upperCaseBlockMAC),
 				ConfigPlanChecks:  expectEmptyPlan,
@@ -797,7 +797,7 @@ func TestClientBlockResourceImportLetterCase(t *testing.T) {
 	for _, id := range []string{upperCaseBlockMAC, lowerCaseBlockMAC, mixedCaseBlockMAC} {
 		t.Run(id, func(t *testing.T) {
 			srv := glinettest.NewServer(t)
-			setBlockList(srv, blockListMode, unrelatedBlockMAC, upperCaseBlockMAC)
+			setBlockList(srv, glinet.AccessControlBlockList, unrelatedBlockMAC, upperCaseBlockMAC)
 			config := fakeRouterConfig(srv) + blockConfig(upperCaseBlockMAC)
 			var writes *atomic.Int32
 
