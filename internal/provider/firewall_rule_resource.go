@@ -25,8 +25,9 @@ import (
 // before it removes the rule, because the router cannot remove a rule with no destination port.
 const removablePort = "65535"
 
-// protocolName is a protocol name or number in lower case, for example esp or 50, or tcp udp.
-var protocolName = regexp.MustCompile(`^([a-z0-9]+(-[a-z0-9]+)*|tcp udp)$`)
+// protocolName is tcp udp, or one protocol name or number in lower case with the characters of the names in
+// /etc/protocols, for example esp, ipv6-icmp, ax.25, tp++ or 50.
+var protocolName = regexp.MustCompile(`^([a-z0-9][a-z0-9.+-]*|tcp udp)$`)
 
 var (
 	_ resource.Resource                = &firewallRuleResource{}
@@ -173,7 +174,7 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 				"The router does not check the value and gives it to the OpenWrt firewall. These values were tested on a router: `tcp`, `udp`, `tcp udp`, `icmp`, `all`, `esp` and `icmpv6`. "+
 				"What the firewall does with a name that it does not know was not tested. "+
 				"With no value, OpenWrt matches `tcp udp`. Ports apply only to `tcp` and `udp`.",
-				stringvalidator.RegexMatches(protocolName, "must be tcp udp, or one protocol name or number in lower case, for example tcp, esp or 50")),
+				stringvalidator.RegexMatches(protocolName, "must be tcp udp, or one protocol name or number in lower case (letters, digits, -, . and +), for example tcp, esp, ax.25 or 50")),
 			"destination_zone": matchField("Firewall zone that the traffic goes to, for example `lan` (`dest` in the router API). "+
 				"With no value, the rule matches traffic to the router itself.",
 				stringvalidator.LengthAtLeast(1)),

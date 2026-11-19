@@ -320,6 +320,9 @@ func TestFirewallRuleResourceValues(t *testing.T) {
 		"protocol icmpv6":          with(func(r *glinet.Rule) { r.Proto = "icmpv6" }),
 		"protocol number":          with(func(r *glinet.Rule) { r.Proto = "50" }),
 		"protocol ipv6-icmp":       with(func(r *glinet.Rule) { r.Proto = "ipv6-icmp" }),
+		"protocol ax.25":           with(func(r *glinet.Rule) { r.Proto = "ax.25" }),
+		"protocol tp++":            with(func(r *glinet.Rule) { r.Proto = "tp++" }),
+		"protocol iso-tp4":         with(func(r *glinet.Rule) { r.Proto = "iso-tp4" }),
 		"source MAC upper case":    with(func(r *glinet.Rule) { r.SrcMAC = "02:00:5E:00:53:A2" }),
 	}
 
@@ -1148,7 +1151,9 @@ func TestFirewallRuleResourceInvalidConfig(t *testing.T) {
 		{"protocol upper case", with(func(r *glinet.Rule) { r.Proto = "TCP" }), `must be tcp udp, or one protocol name`},
 		{"protocol udp tcp", with(func(r *glinet.Rule) { r.Proto = "udp tcp" }), `must be tcp udp, or one protocol name`},
 		{"protocol comma", with(func(r *glinet.Rule) { r.Proto = "tcp,udp" }), `must be tcp udp, or one protocol name`},
-		{"protocol trailing dash", with(func(r *glinet.Rule) { r.Proto = "ipv6-" }), `must be tcp udp, or one protocol name`},
+		{"protocol leading dot", with(func(r *glinet.Rule) { r.Proto = ".esp" }), `must be tcp udp, or one protocol name`},
+		{"protocol space", with(func(r *glinet.Rule) { r.Proto = "tcp icmp" }), `must be tcp udp, or one protocol name`},
+		{"protocol upper case with dot", with(func(r *glinet.Rule) { r.Proto = "AX.25" }), `must be tcp udp, or one protocol name`},
 		{"source_ip out of range", with(func(r *glinet.Rule) { r.SrcIP = "203.0.113.256" }), `source_ip must be an IPv4 or IPv6 address, or a CIDR block`},
 		{"source_ip prefix too long", with(func(r *glinet.Rule) { r.SrcIP = "203.0.113.0/33" }), `source_ip must be an IPv4 or IPv6 address`},
 		{"source_ip IPv6 prefix too long", with(func(r *glinet.Rule) { r.SrcIP = "2001:db8::/129" }), `source_ip must be an IPv4 or IPv6 address`},
