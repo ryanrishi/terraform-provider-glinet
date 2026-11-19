@@ -163,9 +163,10 @@ func failFirstCall(srv *glinettest.Server, module, method string) {
 
 // Checks for the real-router tests, which cannot know the values.
 var (
-	anyString = knownvalue.StringFunc(func(string) error { return nil })
-	anyBool   = knownvalue.BoolFunc(func(bool) error { return nil })
-	anyInt64  = knownvalue.Int64Func(func(int64) error { return nil })
+	anyString  = knownvalue.StringFunc(func(string) error { return nil })
+	anyBool    = knownvalue.BoolFunc(func(bool) error { return nil })
+	anyInt64   = knownvalue.Int64Func(func(int64) error { return nil })
+	anyFloat64 = knownvalue.Float64Func(func(float64) error { return nil })
 
 	nonEmptyString = knownvalue.StringFunc(func(v string) error {
 		if v == "" {

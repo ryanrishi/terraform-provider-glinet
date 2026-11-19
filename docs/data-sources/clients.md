@@ -45,8 +45,8 @@ Read-Only:
 - `last_rx` (List of Number) Numbers that the router gives as `last_rx`. On the test router, the list had 60 items, and the last item was equal to `total_rx`. The web UI does not use it, and its meaning is not known.
 - `last_tx` (List of Number) Numbers that the router gives as `last_tx`. On the test router, the list had 60 items, and the last item was equal to `total_tx`. The web UI does not use it, and its meaning is not known.
 - `last_update_rate` (Number) Unix time in seconds that the router gives as `last_update_rate`. On the test router, all clients had the same value. The web UI does not use it, and its meaning is not known.
-- `limit_rx` (Number) Receive speed limit of the client (`limit_rx`), as the router gives it.
-- `limit_tx` (Number) Transmit speed limit of the client (`limit_tx`), as the router gives it.
+- `limit_rx` (Number) Download speed limit of the client in KiB/s (`limit_rx`). `0` is no limit. The value can have a fraction.
+- `limit_tx` (Number) Upload speed limit of the client in KiB/s (`limit_tx`). `0` is no limit. The value can have a fraction.
 - `mac` (String) MAC address of the client.
 - `name` (String) Name of the client, as the router detects it.
 - `online` (Boolean) Whether the client is online.
