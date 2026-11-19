@@ -20,7 +20,7 @@ import (
 
 const zeroTierID = "zerotier"
 
-var zeroTierNetworkID = regexp.MustCompile(`^[0-9a-f]{16}$`)
+var zeroTierNetworkID = regexp.MustCompile(`^[0-9a-fA-F]{16}$`)
 
 var (
 	_ resource.Resource                = &zeroTierResource{}
@@ -37,11 +37,11 @@ type zeroTierResource struct {
 }
 
 type zeroTierResourceModel struct {
-	ID         types.String `tfsdk:"id"`
-	Enabled    types.Bool   `tfsdk:"enabled"`
-	NetworkID  types.String `tfsdk:"network_id"`
-	LANEnabled types.Bool   `tfsdk:"lan_enabled"`
-	WANEnabled types.Bool   `tfsdk:"wan_enabled"`
+	ID         types.String          `tfsdk:"id"`
+	Enabled    types.Bool            `tfsdk:"enabled"`
+	NetworkID  caseInsensitiveString `tfsdk:"network_id"`
+	LANEnabled types.Bool            `tfsdk:"lan_enabled"`
+	WANEnabled types.Bool            `tfsdk:"wan_enabled"`
 }
 
 func (r *zeroTierResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -72,12 +72,15 @@ func (r *zeroTierResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:    true,
 			},
 			"network_id": schema.StringAttribute{
-				Description: "ID of the ZeroTier network that the router joins, 16 hexadecimal digits in lower case (`id` in the router API). " +
+				Description: "ID of the ZeroTier network that the router joins, 16 hexadecimal digits in lower case or upper case (`id` in the router API). " +
+					"The router keeps the ID in the letter case of the write. " +
+					"When the router has the ID in another letter case, the provider does not show a difference. " +
 					"It is sensitive, because the ID of a public network is all that a device needs to join it.",
-				Required:  true,
-				Sensitive: true,
+				Required:   true,
+				Sensitive:  true,
+				CustomType: caseInsensitiveStringType{},
 				Validators: []validator.String{
-					stringCheck{description: "must be 16 hexadecimal digits in lower case", valid: zeroTierNetworkID.MatchString, sensitive: true},
+					stringCheck{description: "must be 16 hexadecimal digits", valid: zeroTierNetworkID.MatchString, sensitive: true},
 				},
 			},
 			"lan_enabled": schema.BoolAttribute{
@@ -177,7 +180,7 @@ func (r *zeroTierResource) read(ctx context.Context, state *tfsdk.State, diags *
 	model := zeroTierResourceModel{
 		ID:         types.StringValue(zeroTierID),
 		Enabled:    types.BoolValue(config.Enabled),
-		NetworkID:  types.StringValue(config.ID),
+		NetworkID:  caseInsensitiveStringValue(config.ID),
 		LANEnabled: types.BoolValue(config.LANEnabled),
 		WANEnabled: types.BoolValue(config.WANEnabled),
 	}

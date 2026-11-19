@@ -408,12 +408,12 @@ func TestZeroTierResourceInvalidConfig(t *testing.T) {
   enabled = false
 }`, `The argument "network_id" is required`},
 	}
-	for _, id := range []string{"", "0123456789ABCDEF", "0123456789abcde", "0123456789abcdef0", "0123456789abcdeg", " 0123456789abcdef", "0x23456789abcdef"} {
+	for _, id := range []string{"", "0123456789abcde", "0123456789abcdef0", "0123456789abcdeg", " 0123456789abcdef", "0x23456789abcdef"} {
 		for _, enabled := range []bool{true, false} {
 			tests = append(tests, struct {
 				config string
 				error  string
-			}{zeroTier{enabled: enabled, networkID: id}.config(), `network_id must be 16 hexadecimal digits in lower case`})
+			}{zeroTier{enabled: enabled, networkID: id}.config(), `network_id must be 16 hexadecimal digits`})
 		}
 	}
 
@@ -566,4 +566,84 @@ func TestAllowZeroTierTestNetwork(t *testing.T) {
 	if err := allowZeroTierTestNetwork("system", "get_status", nil); err == nil {
 		t.Error("system.get_status is allowed")
 	}
+}
+
+const (
+	upperCaseNetworkID = "0123456789ABCDEF"
+	mixedCaseNetworkID = "0123456789AbCdEf"
+)
+
+// TestZeroTierResourceLetterCase configures the network ID in upper case and in mixed case.
+// The router keeps the ID as written, and the state keeps the configured letter case,
+// also when the router has the ID in another letter case.
+func TestZeroTierResourceLetterCase(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	upper := zeroTier{enabled: true, networkID: upperCaseNetworkID}
+	mixed := zeroTier{enabled: true, networkID: mixedCaseNetworkID, lan: true}
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectRouterZeroTier(client, zeroTier{networkID: upperCaseNetworkID, lan: true}.router()),
+		Steps: []resource.TestStep{
+			{
+				Config:            fakeRouterConfig(srv) + upper.config(),
+				ConfigStateChecks: expectZeroTierState(upper),
+				Check:             expectRouterZeroTier(client, upper.router()),
+			},
+			{
+				PreConfig:         func() { setFakeZeroTier(srv, zeroTier{enabled: true, networkID: testNetworkID}) },
+				Config:            fakeRouterConfig(srv) + upper.config(),
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: expectZeroTierState(upper),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + mixed.config(),
+				ConfigPlanChecks:  expectResourceAction(zeroTierAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectZeroTierState(mixed),
+				Check:             expectRouterZeroTier(client, mixed.router()),
+			},
+			{
+				PreConfig:         func() { setFakeZeroTier(srv, zeroTier{enabled: true, networkID: upperCaseNetworkID, lan: true}) },
+				Config:            fakeRouterConfig(srv) + mixed.config(),
+				ConfigPlanChecks:  expectEmptyPlan,
+				ConfigStateChecks: expectZeroTierState(mixed),
+			},
+		},
+	})
+}
+
+// TestZeroTierResourceImportLetterCase imports a network ID in lower case for a configuration in upper case.
+// The import sets the ID of the router, so the next apply writes the configured letter case.
+func TestZeroTierResourceImportLetterCase(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	setFakeZeroTier(srv, zeroTier{enabled: true, networkID: testNetworkID})
+	upper := zeroTier{enabled: true, networkID: upperCaseNetworkID}
+	config := fakeRouterConfig(srv) + upper.config()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             config,
+				ResourceName:       zeroTierAddress,
+				ImportState:        true,
+				ImportStateId:      "zerotier",
+				ImportStatePersist: true,
+			},
+			{
+				Config:            config,
+				ConfigPlanChecks:  expectResourceAction(zeroTierAddress, plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectZeroTierState(upper),
+				Check:             expectRouterZeroTier(client, upper.router()),
+			},
+			{
+				Config:           config,
+				ConfigPlanChecks: expectEmptyPlan,
+			},
+		},
+	})
 }

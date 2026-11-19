@@ -3,12 +3,12 @@
 page_title: "glinet_lan_static_lease Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. Destroy removes the binding from the router.
+  Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets mac in the letter case of the router. When the router has a binding for more than one letter case of the MAC address, mac must be exactly the MAC address of one of them, and update fails when mac would select another binding. Destroy removes the binding from the router.
 ---
 
 # glinet_lan_static_lease (Resource)
 
-Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. Destroy removes the binding from the router.
+Manages a DHCP static IP binding of the LAN. The router keeps one binding for each MAC address and one for each IP address, so create and update fail when another binding has the same MAC address or IP address. The router keeps the MAC address in the letter case of the write. The provider finds the binding without letter case. When the router has the MAC address in another letter case, the provider does not show a difference. Import sets `mac` in the letter case of the router. When the router has a binding for more than one letter case of the MAC address, `mac` must be exactly the MAC address of one of them, and update fails when `mac` would select another binding. Destroy removes the binding from the router.
 
 ## Example Usage
 
@@ -26,7 +26,7 @@ resource "glinet_lan_static_lease" "printer" {
 ### Required
 
 - `ip` (String) IPv4 address that the router gives to the client.
-- `mac` (String) MAC address of the client, in lower case, for example `02:00:00:00:00:01`. Changing it replaces the binding.
+- `mac` (String) MAC address of the client, in lower case or upper case, for example `02:00:00:00:00:01`. A change of only the letter case changes only the state. Another change replaces the binding.
 
 ### Optional
 
@@ -39,6 +39,6 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-# The import ID is the MAC address in lower case.
+# The import ID is the MAC address, in lower or upper case.
 terraform import glinet_lan_static_lease.printer 02:00:00:00:00:01
 ```

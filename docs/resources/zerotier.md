@@ -31,7 +31,7 @@ variable "zerotier_network_id" {
 ### Required
 
 - `enabled` (Boolean) Whether ZeroTier runs on the router (`enabled` in the router API).
-- `network_id` (String, Sensitive) ID of the ZeroTier network that the router joins, 16 hexadecimal digits in lower case (`id` in the router API). It is sensitive, because the ID of a public network is all that a device needs to join it.
+- `network_id` (String, Sensitive) ID of the ZeroTier network that the router joins, 16 hexadecimal digits in lower case or upper case (`id` in the router API). The router keeps the ID in the letter case of the write. When the router has the ID in another letter case, the provider does not show a difference. It is sensitive, because the ID of a public network is all that a device needs to join it.
 
 ### Optional
 
