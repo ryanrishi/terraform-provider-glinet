@@ -20,7 +20,7 @@ When you post a router result in an issue, replace these values first. The struc
 
 ## Run the checks
 
-You need Go (version in `.tool-versions`) and `terraform` or `tofu` on `PATH`.
+You need Go (version in `.tool-versions`), [golangci-lint](https://golangci-lint.run/) v2 for `make lint`, and [Terraform](https://developer.hashicorp.com/terraform/install) on `PATH` for `make generate` and `make test`. To run the tests with OpenTofu, see "Tests" in `README.md`.
 
 ```bash
 make fmt
@@ -29,7 +29,7 @@ make generate
 make test
 ```
 
-- `make test` runs all tests on a fake router. It does not need a router, and it does not need `TF_ACC`.
+- `make test` runs all tests on a fake router and does not need a router. Make sure that `TF_ACC` is not set: with `TF_ACC` and `GLINET_HOST` set, some tests use the real router and change its configuration.
 - `make generate` updates `docs/` from the schemas and the examples. Commit the result.
 - Do not run `make testacc` with `GLINET_HOST` set unless you know what the tests write to your router. `README.md` has the details.
 
