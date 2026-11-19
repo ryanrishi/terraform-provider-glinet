@@ -42,6 +42,8 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_adguardhome` | [docs/resources/adguardhome.md](docs/resources/adguardhome.md) |
 | Resource | `glinet_client_allow` | [docs/resources/client_allow.md](docs/resources/client_allow.md) |
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
+| Resource | `glinet_client_info` | [docs/resources/client_info.md](docs/resources/client_info.md) |
+| Resource | `glinet_client_speed_limit` | [docs/resources/client_speed_limit.md](docs/resources/client_speed_limit.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
@@ -55,12 +57,14 @@ If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USE
 | Resource | `glinet_led_schedule` | [docs/resources/led_schedule.md](docs/resources/led_schedule.md) |
 | Resource | `glinet_led` | [docs/resources/led.md](docs/resources/led.md) |
 | Resource | `glinet_network_advanced` | [docs/resources/network_advanced.md](docs/resources/network_advanced.md) |
+| Resource | `glinet_local_access` | [docs/resources/local_access.md](docs/resources/local_access.md) |
 | Resource | `glinet_reboot_schedule` | [docs/resources/reboot_schedule.md](docs/resources/reboot_schedule.md) |
 | Resource | `glinet_repeater` | [docs/resources/repeater.md](docs/resources/repeater.md) |
 | Resource | `glinet_system_timezone` | [docs/resources/system_timezone.md](docs/resources/system_timezone.md) |
 | Resource | `glinet_tailscale` | [docs/resources/tailscale.md](docs/resources/tailscale.md) |
 | Resource | `glinet_wan` | [docs/resources/wan.md](docs/resources/wan.md) |
 | Resource | `glinet_wan_port` | [docs/resources/wan_port.md](docs/resources/wan_port.md) |
+| Resource | `glinet_wan_access` | [docs/resources/wan_access.md](docs/resources/wan_access.md) |
 | Resource | `glinet_wifi_interface` | [docs/resources/wifi_interface.md](docs/resources/wifi_interface.md) |
 | Resource | `glinet_wifi_radio` | [docs/resources/wifi_radio.md](docs/resources/wifi_radio.md) |
 | Resource | `glinet_wireguard_client_config` | [docs/resources/wireguard_client_config.md](docs/resources/wireguard_client_config.md) |
