@@ -33,17 +33,20 @@ variable "glinet_password" {
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
 
 > [!WARNING]
-> Some resources can cut the access to the router: [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
+> Some resources can cut the access to the router: [`glinet_access_control`](docs/resources/access_control.md), [`glinet_client_allow`](docs/resources/client_allow.md), [`glinet_wan`](docs/resources/wan.md), [`glinet_lan`](docs/resources/lan.md), [`glinet_wifi_interface`](docs/resources/wifi_interface.md) and [`glinet_wifi_radio`](docs/resources/wifi_radio.md).
 > Read the warnings on their pages before you apply them.
 
 | Type | Name | Documentation |
 |---|---|---|
+| Resource | `glinet_access_control` | [docs/resources/access_control.md](docs/resources/access_control.md) |
 | Resource | `glinet_adguardhome` | [docs/resources/adguardhome.md](docs/resources/adguardhome.md) |
+| Resource | `glinet_client_allow` | [docs/resources/client_allow.md](docs/resources/client_allow.md) |
 | Resource | `glinet_client_block` | [docs/resources/client_block.md](docs/resources/client_block.md) |
 | Resource | `glinet_ddns` | [docs/resources/ddns.md](docs/resources/ddns.md) |
 | Resource | `glinet_dns` | [docs/resources/dns.md](docs/resources/dns.md) |
 | Resource | `glinet_firewall_dmz` | [docs/resources/firewall_dmz.md](docs/resources/firewall_dmz.md) |
 | Resource | `glinet_firewall_port_forward` | [docs/resources/firewall_port_forward.md](docs/resources/firewall_port_forward.md) |
+| Resource | `glinet_firewall_port_forward_order` | [docs/resources/firewall_port_forward_order.md](docs/resources/firewall_port_forward_order.md) |
 | Resource | `glinet_firewall_rule` | [docs/resources/firewall_rule.md](docs/resources/firewall_rule.md) |
 | Resource | `glinet_ipv6` | [docs/resources/ipv6.md](docs/resources/ipv6.md) |
 | Resource | `glinet_lan` | [docs/resources/lan.md](docs/resources/lan.md) |
