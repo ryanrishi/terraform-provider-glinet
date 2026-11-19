@@ -80,7 +80,11 @@ func (r *wifiRadioResource) Metadata(_ context.Context, req resource.MetadataReq
 func (r *wifiRadioResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages the settings of a Wi-Fi radio of the router, for example `radio0`: channel, channel width, mode, transmit power, random BSSID and, for a 6 GHz radio, the PSC option. " +
-			"Use one instance of this resource for each radio. The radio always exists on the router, so create takes over the radio. " +
+			"Use one instance of this resource for each radio. The radio always exists on the router, so create takes over the radio.\n\n" +
+			"~> **Warning:** a write, for example a change of the channel or the channel width, can restart the Wi-Fi of the radio, which disconnects its clients; it is not known whether it also restarts the other radio. " +
+			"When the uplink of the router is a Wi-Fi repeater on the same radio, a write can cut the uplink, and a change of the channel or the channel width can make the repeater lose its access point. " +
+			"A write to the LAN configuration (`glinet_lan`) restarted the Wi-Fi of a GL-AXT1800 with firmware 4.7.0 and cut its repeater uplink until a reboot; " +
+			"a Wi-Fi write can probably do the same.\n\n" +
 			"Each attribute that is not set keeps the value of the router: the provider sends back the value that it reads from the router just before the write. " +
 			"The router carries the radio settings in the write of the main interface of the radio (`wifi.set_config`), as the web UI does. " +
 			"So the provider reads the SSID, the encryption, the hidden flag and the Wi-Fi password of the main interface from the router just before the write and sends them back unchanged; " +
@@ -90,10 +94,6 @@ func (r *wifiRadioResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"A create whose values are equal to those of the router sends no write. " +
 			"The provider sends `channel` and `channel_width` only when one of them changes: the web UI does not send them while the Wi-Fi repeater uses the radio, and what the router does with them then is not known. " +
 			"The provider checks `mode`, `channel_width` and `channel` against the lists of the radio on the router before the write. The web UI also permits only the channels that fit the channel width; the provider does not check this, and what the router does with such a channel is not known. " +
-			"**Danger:** a write, for example a change of the channel or the channel width, can restart the Wi-Fi of the radio, which disconnects its clients; it is not known whether it also restarts the other radio. " +
-			"When the uplink of the router is a Wi-Fi repeater on the same radio, a write can cut the uplink, and a change of the channel or the channel width can make the repeater lose its access point. " +
-			"A write to the LAN configuration (`glinet_lan`) restarted the Wi-Fi of a GL-AXT1800 with firmware 4.7.0 and cut its repeater uplink until a reboot; " +
-			"a Wi-Fi write can probably do the same. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{

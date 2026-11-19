@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-11-19)
+
+This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.0. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
 
 BREAKING CHANGES:
 
@@ -63,7 +65,7 @@ ENHANCEMENTS:
 NOTES:
 
 * After `terraform import`, the next plan can show an update in-place with no changed attribute when the configuration sets a sensitive attribute from a variable with `sensitive = true`. Terraform 1.5.7 does this; it is not known whether newer versions do. One `terraform apply` writes the sensitive mark into the state. The provider documentation tells what this apply does on the router.
-* The client v1.0.0 refuses a 0 or 1 flag of the router with another value, for example `2` or `"1"`, in `glinet_lan` and `glinet_network_advanced`. Such a read now fails with an error.
+* From v1.0.0, the client refuses a 0 or 1 flag of the router with another value, for example `2` or `"1"`, in `glinet_lan` and `glinet_network_advanced`. Such a read now fails with an error.
 * CI runs `go vet` for the 32-bit platforms `linux/386` and `linux/arm` (`make vet32`).
 
 ## 0.2.0 (2026-11-19)

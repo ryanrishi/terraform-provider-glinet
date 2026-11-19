@@ -3,12 +3,18 @@
 page_title: "glinet_repeater Resource - terraform-provider-glinet"
 subcategory: ""
 description: |-
-  Manages the options of the repeater, the Wi-Fi uplink of the router (repeater.set_config in the router API). The router has one repeater configuration, so use one instance of this resource. The resource does not connect the repeater to a network and does not change the saved networks. When the uplink of the router is the repeater, a band lock to a band without the uplink network can cut the Internet access of the router and its clients. It is not known whether a change of switching_mode makes the repeater connect to another saved network at once. After the write, the provider reads the configuration again and stops with an error when the router did not apply it. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+  Manages the options of the repeater, the Wi-Fi uplink of the router (repeater.set_config in the router API). The router has one repeater configuration, so use one instance of this resource.
+  ~> Warning: when the uplink of the router is the repeater, a band lock to a band without the uplink network can cut the Internet access of the router and its clients. It is not known whether a change of switching_mode makes the repeater connect to another saved network at once.
+  The resource does not connect the repeater to a network and does not change the saved networks. After the write, the provider reads the configuration again and stops with an error when the router did not apply it. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 ---
 
 # glinet_repeater (Resource)
 
-Manages the options of the repeater, the Wi-Fi uplink of the router (`repeater.set_config` in the router API). The router has one repeater configuration, so use one instance of this resource. The resource does not connect the repeater to a network and does not change the saved networks. When the uplink of the router is the repeater, a band lock to a band without the uplink network can cut the Internet access of the router and its clients. It is not known whether a change of `switching_mode` makes the repeater connect to another saved network at once. After the write, the provider reads the configuration again and stops with an error when the router did not apply it. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
+Manages the options of the repeater, the Wi-Fi uplink of the router (`repeater.set_config` in the router API). The router has one repeater configuration, so use one instance of this resource.
+
+~> **Warning:** when the uplink of the router is the repeater, a band lock to a band without the uplink network can cut the Internet access of the router and its clients. It is not known whether a change of `switching_mode` makes the repeater connect to another saved network at once.
+
+The resource does not connect the repeater to a network and does not change the saved networks. After the write, the provider reads the configuration again and stops with an error when the router did not apply it. The write of this resource was not tested on a router; the parameters come from the router's web UI. Destroy removes the resource from the Terraform state and does not change the router.
 
 ## Example Usage
 
