@@ -157,4 +157,4 @@ Tests run Terraform with the provider in the test process:
   - A test keeps its state in its own `glinettest.Server` and in local variables. Package-level test variables are read-only.
 - With OpenTofu: set `TF_ACC_TERRAFORM_PATH`, `TF_ACC_PROVIDER_HOST=registry.opentofu.org`, `TF_ACC_PROVIDER_NAMESPACE=hashicorp`.
 
-CI (`.github/workflows/test.yml`): build, `make vet32` and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu, each job with a limit of 30 minutes. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags.
+CI (`.github/workflows/test.yml`): build, `make vet32` and lint; `make generate` with a no-diff check; `make test` on Terraform 1.16, 1.17 and the latest OpenTofu, each job with a limit of 30 minutes. Release (`release.yml`): GoReleaser with GPG signing on `v*` tags; the job fails when the tagged commit is not in `main`.

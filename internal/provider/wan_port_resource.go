@@ -66,7 +66,7 @@ func (r *wanPortResource) Metadata(_ context.Context, req resource.MetadataReque
 func (r *wanPortResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages the role and the MAC address of a wired WAN port of the router (`cable.set_port_config` in the router API).\n\n" +
-			"~>**Warning:** `mode = \"lan\"` removes the wired uplink of the port, and a change of the MAC address can make the upstream network give the router a new address. " +
+			"~> **Warning:** `mode = \"lan\"` removes the wired uplink of the port, and a change of the MAC address can make the upstream network give the router a new address. " +
 			"Then Terraform can lose the access to the router.\n\n" +
 			"Use one instance of this resource for each wired WAN port. The port always exists on the router, so create takes over the port. " +
 			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +

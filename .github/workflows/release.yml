@@ -21,6 +21,8 @@ jobs:
         with:
           # Allow goreleaser to access older tag information.
           fetch-depth: 0
+      - name: Check that the tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'

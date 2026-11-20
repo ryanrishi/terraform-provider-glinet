@@ -103,13 +103,13 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Version: 1,
 		Description: "Manages a wired WAN port of the router (`cable.set_config` in the router API). " +
-			"Use one instance of this resource for each wired WAN port. " +
+			"Use one instance of this resource for each wired WAN port.\n\n" +
+			"~> **Warning:** a wrong configuration cuts the wired uplink of the router. " +
+			"Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router.\n\n" +
 			"Only a router with a second wired WAN port (`software_feature.secondwan` of `system.get_info`) accepts `port = \"secondwan\"`: " +
 			"for that port, the provider reads `system.get_info` before each call and stops with an error when the router has no second wired WAN port. " +
 			"The reads of the second WAN port were not tested on a router, and what `cable.get_config` and `cable.set_config` do for the second WAN port on a router without one is not known. " +
 			"The role and the MAC address of the same port are in `glinet_wan_port`, which uses another router method; the two resources have only `port` in common. " +
-			"Each write sends the full configuration of the protocol, as the web UI does: an attribute that is not set is removed on the router. " +
-			"A wrong configuration cuts the wired uplink of the router. " +
 			untestedWriteNote + destroyNote,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
