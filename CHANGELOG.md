@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.0. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
+This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.1. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
 
 BREAKING CHANGES:
 
@@ -63,7 +63,7 @@ ENHANCEMENTS:
 * `glinet_wireguard_server_route`: `metric` accepts values from 1 to 4294967295, as the web UI does. Before, the limit was 2147483647.
 * `glinet_firewall_rule`: The error of a failed write to a rule with no destination port tells how to remove the rule with SSH and `uci` only for the fault of firmware 4.8.3 (HTTP status 500 from `set_rule` or `remove_rule`), not for other errors.
 * `glinet_local_access`: When a write that moves the address of the API fails with an HTTP status, the error no longer says that the router did not answer.
-* The client is `glinet-client-go` v1.1.0.
+* The client is `glinet-client-go` v1.1.1. From v1.1.1, the client gives an error for a router result with an error code and a message that is not text, for a response with no result and no error, and for a login with no session ID, and its default HTTP client does not follow a redirect to another host name or from HTTPS to HTTP.
 * The login of the provider stops when Terraform cancels the operation. Before, only the time limit of the HTTP client stopped it.
 
 BUG FIXES:
