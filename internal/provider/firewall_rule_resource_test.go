@@ -931,6 +931,55 @@ func TestFirewallRuleResourceEarlierDuplicate(t *testing.T) {
 	})
 }
 
+// TestFirewallRuleResourceUpdateReadBackError updates a rule that has a duplicate, and the read after the write fails.
+// The state gets the written values, so the next apply still selects the rule.
+func TestFirewallRuleResourceUpdateReadBackError(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	managed := testRule("50001", "DROP", "managed")
+	earlier := testRule("50001", "ACCEPT", "earlier")
+	updated := managed
+	updated.Target = "REJECT"
+	updated.Name = "renamed"
+	updated.Enabled = false
+
+	var failNextList atomic.Bool
+	list := srv.Handler("firewall", "get_rule_list")
+	srv.Handle("firewall", "get_rule_list", func(params json.RawMessage) (any, error) {
+		if failNextList.CompareAndSwap(true, false) {
+			return nil, &glinettest.Error{Code: -32603, Message: "Internal error"}
+		}
+		return list(params)
+	})
+	set := srv.Handler("firewall", "set_rule")
+	srv.Handle("firewall", "set_rule", func(params json.RawMessage) (any, error) {
+		res, err := set(params)
+		failNextList.Store(err == nil)
+		return res, err
+	})
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeRules(srv, earlier),
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + ruleConfig(managed),
+			},
+			{
+				PreConfig:   func() { srv.Firewall.SetRules(fakeRules(earlier, managed)) },
+				Config:      fakeRouterConfig(srv) + ruleConfig(updated),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Read Firewall Rule.*Internal error`),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + ruleConfig(updated),
+				ConfigPlanChecks:  resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigStateChecks: expectRuleState(updated),
+				Check:             expectFakeRules(srv, earlier, updated),
+			},
+		},
+	})
+}
+
 // TestFirewallRuleResourceNoDestinationPort creates, updates and destroys a rule with no destination port,
 // which the router can remove only after a destination port is written to it.
 func TestFirewallRuleResourceNoDestinationPort(t *testing.T) {

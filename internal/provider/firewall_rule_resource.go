@@ -332,6 +332,7 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	written, err := r.findByID(ctx, rule.ID, id)
 	r.setReadBack(ctx, written, err, id, &resp.State, &resp.Diagnostics)
 }
