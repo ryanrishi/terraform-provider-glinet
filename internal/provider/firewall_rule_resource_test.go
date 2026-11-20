@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -827,30 +826,109 @@ func TestFirewallRuleResourceDuplicate(t *testing.T) {
 	})
 }
 
-func TestFirewallRuleFindDuplicateWarning(t *testing.T) {
+func TestFirewallRuleFindDuplicates(t *testing.T) {
 	parallel(t)
-	srv := glinettest.NewServer(t)
 	first := testRule("50001", "ACCEPT", "first")
 	duplicate := testRule("50001", "DROP", "duplicate")
-	srv.Firewall.SetRules(fakeRules(testRule("50002", "ACCEPT", "other"), first, duplicate))
-	r := &firewallRuleResource{client: testClient(t, srv.URL, srv.Username, srv.Password)}
+	other := testRule("50002", "ACCEPT", "other")
 
-	var diags diag.Diagnostics
-	got, err := r.find(context.Background(), identityOfRule(first), &diags)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name   string
+		rules  []glinet.FirewallRule
+		want   glinet.FirewallRule
+		wantID string
+		err    string
+	}{
+		{"one match with other values", []glinet.FirewallRule{other, first}, duplicate, glinettest.RuleID(1), ""},
+		{"the only equal match", []glinet.FirewallRule{other, first, duplicate}, duplicate, glinettest.RuleID(2), ""},
+		{"no equal match", []glinet.FirewallRule{other, first, duplicate}, testRule("50001", "REJECT", "first"), "",
+			`the router has 2 rules with source zone wan, .*, at these positions in the rule list: ` +
+				`position 2: name "first", action ACCEPT, enabled true; position 3: name "duplicate", action DROP, enabled true. ` +
+				`0 of them have the name "first", the action REJECT and enabled true of the state`},
+		{"more than one equal match", []glinet.FirewallRule{first, other, first}, first, "",
+			`position 1: name "first", action ACCEPT, enabled true; position 3: name "first", action ACCEPT, enabled true. ` +
+				`2 of them have the name "first"`},
 	}
 
-	if got == nil || got.Name != "first" || got.ID != glinettest.RuleID(1) {
-		t.Errorf("find returned %v, want the rule %q with the ID %s", got, "first", glinettest.RuleID(1))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := glinettest.NewServer(t)
+			srv.Firewall.SetRules(fakeRules(tt.rules...))
+			r := &firewallRuleResource{client: testClient(t, srv.URL, srv.Username, srv.Password)}
+
+			got, err := r.find(context.Background(), identityOfRule(first), tt.want)
+			if tt.err != "" {
+				if err == nil || !regexp.MustCompile(tt.err).MatchString(err.Error()) {
+					t.Fatalf("find returned %v and the error %v, want an error that matches %q", got, err, tt.err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == nil || got.ID != tt.wantID {
+				t.Errorf("find returned %v, want the rule with the ID %s", got, tt.wantID)
+			}
+		})
 	}
-	warnings := diags.Warnings()
-	if diags.HasError() || len(warnings) != 1 {
-		t.Fatalf("diagnostics are %v, want one warning", diags)
-	}
-	if detail := warnings[0].Detail(); !strings.Contains(detail, `"first"`) || !strings.Contains(detail, `"duplicate"`) {
-		t.Errorf("warning is %q, want it to name %q and %q", detail, "first", "duplicate")
-	}
+}
+
+// TestFirewallRuleResourceEarlierDuplicate adds a rule with the same match fields before the rule of the resource.
+// Refresh, update and destroy keep the rule of the state. When two rules are equal to the state, they fail.
+func TestFirewallRuleResourceEarlierDuplicate(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	removes := recordCalls(t, srv, "firewall", "remove_rule")
+	sets := recordCalls(t, srv, "firewall", "set_rule")
+	managed := testRule("50001", "DROP", "managed")
+	earlier := testRule("50001", "ACCEPT", "earlier")
+	updated := managed
+	updated.Target = "REJECT"
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		CheckDestroy:             expectFakeRules(srv, earlier),
+		Steps: []resource.TestStep{
+			{
+				Config: fakeRouterConfig(srv) + ruleConfig(managed),
+			},
+			{
+				PreConfig:         func() { srv.Firewall.SetRules(fakeRules(earlier, managed)) },
+				Config:            fakeRouterConfig(srv) + ruleConfig(managed),
+				ConfigPlanChecks:  resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigStateChecks: expectRuleState(managed),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + ruleConfig(updated),
+				ConfigPlanChecks:  expectRuleAction(plancheck.ResourceActionUpdate),
+				ConfigStateChecks: expectRuleState(updated),
+				Check: resource.ComposeTestCheckFunc(
+					expectFakeRules(srv, earlier, updated),
+					sets.expect(`{"id":"`+glinettest.RuleID(1)+`","name":"managed","src":"wan","src_ip":"","src_mac":"","src_port":"","proto":"tcp","dest":"lan","dest_ip":"`+forwardIP+`","dest_port":"50001","target":"REJECT","enabled":true}`),
+				),
+			},
+			{
+				PreConfig:   func() { srv.Firewall.SetRules(fakeRules(earlier, updated, updated)) },
+				Config:      fakeRouterConfig(srv) + ruleConfig(updated),
+				ExpectError: regexp.MustCompile(`(?s)Unable to Read Firewall Rule.*` + wrapped(`2 of them have the name "managed", the action REJECT and enabled true of the state`)),
+			},
+			{
+				Config:      fakeRouterConfig(srv) + ruleConfig(updated),
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`Unable to Read Firewall Rule`),
+			},
+			{
+				PreConfig: func() {
+					if got := append(removes.take(), sets.take()...); len(got) != 0 {
+						t.Errorf("the router got the writes %q", got)
+					}
+					srv.Firewall.SetRules(fakeRules(earlier, updated))
+				},
+				Config:           fakeRouterConfig(srv) + ruleConfig(updated),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+			},
+		},
+	})
 }
 
 // TestFirewallRuleResourceNoDestinationPort creates, updates and destroys a rule with no destination port,

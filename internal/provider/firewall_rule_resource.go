@@ -137,7 +137,8 @@ func (r *firewallRuleResource) Schema(_ context.Context, _ resource.SchemaReques
 			"identify the rule, and a match attribute with no value is part of the identity. A change to a match attribute replaces the rule. " +
 			"The router does not check rules and accepts duplicates, so create fails when a rule on the router has exactly the same match attributes. " +
 			"Create does not detect other rules that match some of the same traffic, for example a rule with a port range that contains the port of this rule. " +
-			"When the router has more than one rule with the identity of this resource, the resource uses the first one and shows a warning.\n\n" +
+			"When the router has more than one rule with the identity of this resource, the resource uses the only one with the `name`, `action` and `enabled` of the state; " +
+			"when none or more than one of them has these values, read, update and destroy fail, and you must remove or change the duplicate rules on the router.\n\n" +
 			"The firewall applies the first rule in the list that matches the traffic. The router adds a rule at the end of the list and has no method to move a rule, " +
 			"so a replaced rule goes to the end of the list. To keep rules in a given order, add `replace_triggered_by` with the earlier rule " +
 			"to the `lifecycle` block of each later rule: Terraform then creates the later rule after the earlier rule, and replaces it when the earlier rule is replaced.\n\n" +
@@ -253,19 +254,19 @@ func (r *firewallRuleResource) Create(ctx context.Context, req resource.CreateRe
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	id := plan.identity()
-	existing, err := r.find(ctx, id, &resp.Diagnostics)
+	rules, err := r.client.Firewall.ListRules(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Firewall Rules", err.Error())
 		return
 	}
-	if existing != nil {
+	if matches := matchingRules(rules, plan.identity()); len(matches) > 0 {
+		existing := rules[matches[0]]
 		howTo := fmt.Sprintf("Import it with the ID %q, or remove it from the router.", existing.Name)
 		if existing.Name == "" {
 			howTo = "It has no name, so it cannot be imported: give it a name on the router and import it with that name, or remove it from the router."
 		}
 		resp.Diagnostics.AddError("Firewall Rule Already Exists",
-			fmt.Sprintf("The router already has the rule %s. %s", describeRule(*existing), howTo))
+			fmt.Sprintf("The router already has the rule %s. %s", describeRule(existing), howTo))
 		return
 	}
 
@@ -275,7 +276,8 @@ func (r *firewallRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
+	rule, err := r.find(ctx, plan.identity(), plan.rule(""))
+	r.setReadBack(ctx, rule, err, plan.identity(), &resp.State, &resp.Diagnostics)
 }
 
 func (r *firewallRuleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -285,7 +287,7 @@ func (r *firewallRuleResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	rule, err := r.find(ctx, state.identity(), &resp.Diagnostics)
+	rule, err := r.find(ctx, state.identity(), state.rule(""))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Firewall Rule", err.Error())
 		return
@@ -299,8 +301,9 @@ func (r *firewallRuleResource) Read(ctx context.Context, req resource.ReadReques
 }
 
 func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan firewallRuleResourceModel
+	var plan, state firewallRuleResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -309,7 +312,7 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	defer routerWrites.Unlock()
 
 	id := plan.identity()
-	rule, err := r.find(ctx, id, &resp.Diagnostics)
+	rule, err := r.find(ctx, id, state.rule(""))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Firewall Rule", err.Error())
 		return
@@ -329,10 +332,11 @@ func (r *firewallRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	r.readBack(ctx, id, &resp.State, &resp.Diagnostics)
+	written, err := r.findByID(ctx, rule.ID, id)
+	r.setReadBack(ctx, written, err, id, &resp.State, &resp.Diagnostics)
 }
 
-// Delete removes the first rule with the identity of the state. Firmware 4.7.0 cannot remove a rule with no
+// Delete removes the rule of the state (see find). Firmware 4.7.0 cannot remove a rule with no
 // destination port, so Delete first disables such a rule and sets its destination port to removablePort.
 // The write keeps the position of the rule, so its ID stays valid for the remove. When the remove fails,
 // Delete writes the original values again, so that the identity of the state still finds the rule.
@@ -346,7 +350,7 @@ func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	routerWrites.Lock()
 	defer routerWrites.Unlock()
 
-	rule, err := r.find(ctx, state.identity(), &resp.Diagnostics)
+	rule, err := r.find(ctx, state.identity(), state.rule(""))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Firewall Rule", err.Error())
 		return
@@ -437,34 +441,67 @@ func (r *firewallRuleResource) ImportState(ctx context.Context, req resource.Imp
 	resp.Diagnostics.Append(resp.State.Set(ctx, ruleModel(&rule))...)
 }
 
-// find returns the first rule with the identity id, because the firewall applies the first matching rule.
-// It adds a warning when the router has more than one.
-func (r *firewallRuleResource) find(ctx context.Context, id ruleIdentity, diags *diag.Diagnostics) (*glinet.FirewallRule, error) {
+// matchingRules returns the indexes of the rules with the identity id.
+func matchingRules(rules []glinet.FirewallRule, id ruleIdentity) []int {
+	var matches []int
+	for i, rule := range rules {
+		if id.matches(rule) {
+			matches = append(matches, i)
+		}
+	}
+	return matches
+}
+
+// find returns the rule with the identity id. When the router has more than one, it returns the only one with the
+// name, the action and the enabled value of want, and an error when not exactly one of them has these values.
+// It returns nil when no rule has the identity.
+func (r *firewallRuleResource) find(ctx context.Context, id ruleIdentity, want glinet.FirewallRule) (*glinet.FirewallRule, error) {
 	rules, err := r.client.Firewall.ListRules(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var found []glinet.FirewallRule
-	for _, rule := range rules {
-		if id.matches(rule) {
-			found = append(found, rule)
-		}
-	}
-	if len(found) == 0 {
+	matches := matchingRules(rules, id)
+	if len(matches) == 0 {
 		return nil, nil
 	}
-
-	for _, rule := range found[1:] {
-		diags.AddWarning("Duplicate Firewall Rule",
-			fmt.Sprintf("The router has more than one rule with %s. This resource uses the first one, %s. "+
-				"Remove the duplicate %s from the router.", id, describeRule(found[0]), describeRule(rule)))
+	if len(matches) == 1 {
+		return &rules[matches[0]], nil
 	}
-	return &found[0], nil
+
+	var equal []int
+	var listed []string
+	for _, i := range matches {
+		rule := rules[i]
+		if rule.Name == want.Name && rule.Target == want.Target && rule.Enabled == want.Enabled {
+			equal = append(equal, i)
+		}
+		listed = append(listed, fmt.Sprintf("position %d: name %s, action %s, enabled %t", i+1, quotedOrNone(rule.Name), orNone(rule.Target), rule.Enabled))
+	}
+	if len(equal) == 1 {
+		return &rules[equal[0]], nil
+	}
+	return nil, fmt.Errorf("the router has %d rules with %s, at these positions in the rule list: %s. "+
+		"%d of them have the name %s, the action %s and enabled %t of the state, so the provider cannot tell which rule this resource manages. "+
+		"Remove the duplicate rules on the router, or change their match fields",
+		len(matches), id, strings.Join(listed, "; "), len(equal), quotedOrNone(want.Name), orNone(want.Target), want.Enabled)
 }
 
-func (r *firewallRuleResource) readBack(ctx context.Context, id ruleIdentity, state *tfsdk.State, diags *diag.Diagnostics) {
-	rule, err := r.find(ctx, id, diags)
+// findByID returns the rule with the router ID ruleID when it has the identity id, or else nil.
+func (r *firewallRuleResource) findByID(ctx context.Context, ruleID string, id ruleIdentity) (*glinet.FirewallRule, error) {
+	rules, err := r.client.Firewall.ListRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	i := slices.IndexFunc(rules, func(rule glinet.FirewallRule) bool { return rule.ID == ruleID })
+	if i < 0 || !id.matches(rules[i]) {
+		return nil, nil
+	}
+	return &rules[i], nil
+}
+
+// setReadBack writes the rule that the read after a write found into the state.
+func (r *firewallRuleResource) setReadBack(ctx context.Context, rule *glinet.FirewallRule, err error, id ruleIdentity, state *tfsdk.State, diags *diag.Diagnostics) {
 	if err != nil {
 		diags.AddError("Unable to Read Firewall Rule", err.Error())
 		return
@@ -501,6 +538,13 @@ func describeRule(r glinet.FirewallRule) string {
 		return "(" + details + ")"
 	}
 	return fmt.Sprintf("%q (%s)", r.Name, details)
+}
+
+func quotedOrNone(s string) string {
+	if s == "" {
+		return "none"
+	}
+	return fmt.Sprintf("%q", s)
 }
 
 func orNone(s string) string {

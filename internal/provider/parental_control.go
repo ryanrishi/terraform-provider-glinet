@@ -22,7 +22,10 @@ const (
 	parentalControlAccelerationNote = "The web UI says that parental control does not work while network acceleration is on."
 	parentalControlIDNote           = "The router gives the ID. It was not verified that the ID stays the same when other items are added or removed, " +
 		"so the provider keeps the ID in the state and, when the router has no item with that ID and the name of the state, " +
-		"finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again."
+		"finds the item by its name. When no item has the name, the resource is gone from the router and Terraform plans to create it again. " +
+		"When the item with the ID of the state has another name and a different item has the name of the state, " +
+		"read, update and destroy fail, because either item can be the item of this resource: " +
+		"remove the resource from the state with `terraform state rm`, and import the right item by its name."
 )
 
 // The preset rule sets cannot be changed or removed. Their IDs are "drop" and "accept", and their names
@@ -34,12 +37,17 @@ var (
 
 // findParentalControlItem returns the index of the item with the ID id and the name name.
 // When no item has both, it returns the index of the only item with the name name.
-// It returns -1 when no item has the name, and an error when more than one item has it.
+// It returns -1 when no item has the name. It returns an error when more than one item has the name, and when
+// an item has the ID with another name while a different item has the name, because then either item can be
+// the item of the state.
 func findParentalControlItem[T any](items []T, key func(T) (id, name string), id, name, object string) (int, error) {
-	byName := -1
+	byID, byName := -1, -1
 	count := 0
 	for i, item := range items {
 		itemID, itemName := key(item)
+		if itemID == id {
+			byID = i
+		}
 		if itemName != name {
 			continue
 		}
@@ -52,6 +60,14 @@ func findParentalControlItem[T any](items []T, key func(T) (id, name string), id
 	if count > 1 {
 		return -1, fmt.Errorf("the router has %d %ss with the name %q, and none of them has the ID %q of the state. "+
 			"Give each %s a unique name in the web UI", count, object, name, id, object)
+	}
+	if byID >= 0 && byName >= 0 {
+		_, renamed := key(items[byID])
+		otherID, _ := key(items[byName])
+		return -1, fmt.Errorf("the %s of the state (ID %q, name %q) is not clear: the router has the %s %q with the ID %q of the state, "+
+			"and the %s %q with the ID %q has the name of the state. "+
+			"Remove the resource from the state with terraform state rm, then import the %s that this resource manages by its name if you want to keep managing it",
+			object, id, name, object, renamed, id, object, name, otherID, object)
 	}
 	return byName, nil
 }
