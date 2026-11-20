@@ -365,11 +365,11 @@ func checkWifiRadio(plan, compared wifiRadioResourceModel, dfsSupport bool, radi
 	if plan.Channel.Equal(compared.Channel) && plan.PSCChannelsOnly.Equal(compared.PSCChannelsOnly) {
 		return
 	}
-	number := int(plan.Channel.ValueInt64())
+	number := plan.Channel.ValueInt64()
 	if number == 0 {
 		return
 	}
-	i := slices.IndexFunc(radio.Channels, func(c glinet.WifiChannel) bool { return c.Channel == number })
+	i := slices.IndexFunc(radio.Channels, func(c glinet.WifiChannel) bool { return int64(c.Channel) == number })
 	switch {
 	case i < 0:
 		diags.AddAttributeError(path.Root("channel"), "Channel Not Supported",

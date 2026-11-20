@@ -377,7 +377,9 @@ func TestParentalControlRulesetResourceInvalidConfig(t *testing.T) {
 		`name = "a"
   block_list_url = "example.com/list.txt"`: `must be a URL`,
 		`name = "a"
-  apps = [0]`: `must be at least 1`,
+  apps = [0]`: `must be between 1 and 2147483647`,
+		`name = "a"
+  apps = [4294968297]`: `must be between 1 and 2147483647`,
 	} {
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,

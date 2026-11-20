@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (2026-11-19)
+## Unreleased
 
 This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.0. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
 
@@ -9,7 +9,9 @@ BREAKING CHANGES:
 * `glinet_local_access`: On a router that does not return `ssh_enabled` (firmware 4.7.0), `ssh_enabled` is null in the state, not `false`, and a write sends no `ssh_enabled` when it is not set. Before, the write sent `ssh_enabled` `false`. When `ssh_enabled` is set and the router does not return it, the apply fails before the write.
 * `glinet_firewall_dmz`: When the router reports no DMZ priority (before the first write), `higher_priority` is null in the state, not `false`, and a write sends no `priority` when `higher_priority` is not set. Before, the write sent `priority` `false`. The provider compares the priority after the write only when it sent a priority.
 * `glinet_wireguard_server`: The provider sends `ipv6_enable` only when the router returned it and `address_v6` is not empty. Firmware 4.8.3 does not return `ipv6_enable`, so a write no longer sends `ipv6_enable` `false` there.
-* Each call to the router has a time limit of 60 seconds. Before, a call had no time limit.
+* The provider refuses a `host` that contains `@`, for example `http://user:password@192.168.8.1`. Before, the provider accepted a user name and a password in the host URL, and wrote the URL to the log and to error messages. Set them with `username` and `password`.
+* `glinet_parental_control_ruleset`: `apps` accepts app IDs from 1 to 2147483647. Before, a larger value was accepted, and on the 32-bit platforms (`386`, `arm`) the provider sent another app ID to the router.
+* Each HTTP request to the router has a time limit of 60 seconds. Before, a request had no time limit. One call can make up to four requests when the session expired: the call, the login challenge, the login and the call again.
 
 Attribute renames. Change the names in your configuration and in each reference to them. The values do not change, except for `tx_power`.
 
@@ -61,6 +63,10 @@ ENHANCEMENTS:
 * `glinet_local_access`: When a write that moves the address of the API fails with an HTTP status, the error no longer says that the router did not answer.
 * The client is `glinet-client-go` v1.1.0.
 * The login of the provider stops when Terraform cancels the operation. Before, only the time limit of the HTTP client stopped it.
+
+BUG FIXES:
+
+* `glinet_wifi_radio`: On the 32-bit platforms (`386`, `arm`), a `channel` that does not fit in 32 bits no longer becomes another channel, for example `4294967296` became `0` (automatic). Create and update now fail before the write, because the radio does not support the channel.
 
 NOTES:
 

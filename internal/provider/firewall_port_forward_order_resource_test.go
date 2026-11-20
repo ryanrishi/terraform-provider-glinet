@@ -54,6 +54,31 @@ func expectOrderState(forwards ...glinet.PortForward) []statecheck.StateCheck {
 	}
 }
 
+// expectImportedOrder checks that the import gives all port forwards of the router in their order.
+func expectImportedOrder(forwards ...glinet.PortForward) resource.ImportStateCheckFunc {
+	return func(states []*terraform.InstanceState) error {
+		if len(states) != 1 {
+			return fmt.Errorf("import gave %d states, want 1", len(states))
+		}
+		attributes := states[0].Attributes
+		want := map[string]string{
+			"id":              "firewall_port_forward_order",
+			"port_forwards.#": fmt.Sprint(len(forwards)),
+		}
+		for i, f := range forwards {
+			want[fmt.Sprintf("port_forwards.%d.external_zone", i)] = f.Src
+			want[fmt.Sprintf("port_forwards.%d.protocol", i)] = f.Proto
+			want[fmt.Sprintf("port_forwards.%d.external_port", i)] = f.SrcDport
+		}
+		for key, value := range want {
+			if attributes[key] != value {
+				return fmt.Errorf("imported %s is %q, want %q", key, attributes[key], value)
+			}
+		}
+		return nil
+	}
+}
+
 func expectOrderAction(action plancheck.ResourceActionType) resource.ConfigPlanChecks {
 	return resource.ConfigPlanChecks{
 		PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(orderAddress, action)},
@@ -108,11 +133,10 @@ func TestFirewallPortForwardOrderResource(t *testing.T) {
 				Check:             calls.expect(),
 			},
 			{
-				ResourceName:            orderAddress,
-				ImportState:             true,
-				ImportStateId:           "firewall_port_forward_order",
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"port_forwards"},
+				ResourceName:     orderAddress,
+				ImportState:      true,
+				ImportStateId:    "firewall_port_forward_order",
+				ImportStateCheck: expectImportedOrder(orderB, orderD, orderA, orderC),
 			},
 		},
 	})
@@ -249,12 +273,13 @@ func TestFirewallPortForwardOrderResourceImport(t *testing.T) {
 				ImportState:        true,
 				ImportStateId:      "firewall_port_forward_order",
 				ImportStatePersist: true,
-				ImportStateCheck: func(states []*terraform.InstanceState) error {
-					if got := states[0].Attributes["port_forwards.#"]; got != "3" {
-						return fmt.Errorf("imported port_forwards has %s items, want 3", got)
-					}
-					return nil
-				},
+				ImportStateCheck:   expectImportedOrder(orderA, orderB, orderC),
+			},
+			{
+				Config:            fakeRouterConfig(srv) + orderConfig(orderA, orderB, orderC),
+				ConfigPlanChecks:  resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
+				ConfigStateChecks: expectOrderState(orderA, orderB, orderC),
+				Check:             calls.expect(),
 			},
 			{
 				Config:            config,

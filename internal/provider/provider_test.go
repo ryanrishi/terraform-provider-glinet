@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
@@ -296,6 +297,52 @@ func TestProviderLoginStopsWithContext(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
 		t.Errorf("Configure took %v", elapsed)
+	}
+}
+
+func TestProviderHostWithUserInfo(t *testing.T) {
+	parallel(t)
+
+	var requests atomic.Int32
+	router := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
+	t.Cleanup(router.Close)
+	address := strings.TrimPrefix(router.URL, "http://")
+
+	for _, host := range []string{"http://user:example-secret@" + address, "user:example-secret@" + address} {
+		var logs bytes.Buffer
+		ctx := tflogtest.RootLogger(context.Background(), &logs)
+		p := New("test")()
+		var schemaResp provider.SchemaResponse
+		p.Schema(ctx, provider.SchemaRequest{}, &schemaResp)
+		config := tfsdk.Config{
+			Schema: schemaResp.Schema,
+			Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), map[string]tftypes.Value{
+				"host":     tftypes.NewValue(tftypes.String, host),
+				"username": tftypes.NewValue(tftypes.String, nil),
+				"password": tftypes.NewValue(tftypes.String, "password"),
+			}),
+		}
+
+		var resp provider.ConfigureResponse
+		p.Configure(ctx, provider.ConfigureRequest{Config: config}, &resp)
+
+		if len(resp.Diagnostics) != 1 || resp.Diagnostics[0].Summary() != "Invalid GL.iNet Host" {
+			t.Errorf("%s: got the diagnostics %v", host, resp.Diagnostics)
+		}
+		for _, d := range resp.Diagnostics {
+			if strings.Contains(d.Summary()+d.Detail(), "example-secret") {
+				t.Errorf("%s: the diagnostic shows the password: %s", host, d.Detail())
+			}
+		}
+		if strings.Contains(logs.String(), "example-secret") {
+			t.Errorf("%s: the log shows the password: %s", host, logs.String())
+		}
+		if resp.ResourceData != nil || resp.DataSourceData != nil {
+			t.Errorf("%s: Configure gave a client", host)
+		}
+	}
+	if n := requests.Load(); n != 0 {
+		t.Errorf("the router got %d requests", n)
 	}
 }
 
