@@ -201,7 +201,7 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			},
 			"username": schema.StringAttribute{
 				Description: "PPPoE user name, at most 256 characters (`username` in the router API). Can be set only when `protocol` is `pppoe`. " +
-					"When it is not set, the provider sends an empty user name, as the web UI does.",
+					"When it is not set, the provider sends an empty user name, as the web UI does. It is not known what the router does with an empty PPPoE account on a PPPoE connection that works.",
 				Optional: true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 256),
@@ -209,7 +209,7 @@ func (r *wanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			},
 			"password": schema.StringAttribute{
 				Description: "PPPoE password (`password` in the router API). Can be set only when `protocol` is `pppoe`. " +
-					"When it is not set, the provider sends an empty password, as the web UI does.",
+					"When it is not set, the provider sends an empty password, as the web UI does. It is not known what the router does with an empty PPPoE account on a PPPoE connection that works.",
 				Optional:  true,
 				Sensitive: true,
 				Validators: []validator.String{

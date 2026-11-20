@@ -49,11 +49,11 @@ resource "glinet_wan" "second" {
 - `ipv4` (Attributes) Static IPv4 configuration (`ipv4` in the router API). Required when `protocol` is `static`, and can be set only then. (see [below for nested schema](#nestedatt--ipv4))
 - `ipv6` (Attributes) Static IPv6 configuration (`ipv6` in the router API). Can be set only when `protocol` is `static`. The web UI sends it only while IPv6 is enabled on the router (see `glinet_ipv6`). (see [below for nested schema](#nestedatt--ipv6))
 - `mtu` (Number) MTU of the WAN port, 576 to 9200 (`mtu` in the router API). When it is not set, the provider does not send it. The web UI warns that IPv6 needs at least 1280.
-- `password` (String, Sensitive) PPPoE password (`password` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty password, as the web UI does.
+- `password` (String, Sensitive) PPPoE password (`password` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty password, as the web UI does. It is not known what the router does with an empty PPPoE account on a PPPoE connection that works.
 - `port` (String) The wired WAN port: `wan` for the first port or `secondwan` for the second port (`secondwan` in the router API). Default `wan`. Changing it replaces the resource.
 - `ttl` (Number) IPv4 TTL that the router sets on the packets that it sends to the WAN, 1 to 255 (`ttl` in the router API). When it is not set, the provider does not send it.
 - `ttl_ipv6` (Number) IPv6 hop limit that the router sets on the packets that it sends to the WAN, 1 to 255 (`ttl_ipv6` in the router API). When it is not set, the provider does not send it.
-- `username` (String) PPPoE user name, at most 256 characters (`username` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty user name, as the web UI does.
+- `username` (String) PPPoE user name, at most 256 characters (`username` in the router API). Can be set only when `protocol` is `pppoe`. When it is not set, the provider sends an empty user name, as the web UI does. It is not known what the router does with an empty PPPoE account on a PPPoE connection that works.
 - `vlan_id` (Number) VLAN ID of the WAN port, 1 to 4094 (`vlanid` in the router API). When it is not set, the provider does not send it.
 
 ### Read-Only

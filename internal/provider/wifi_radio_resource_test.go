@@ -328,6 +328,7 @@ func TestWifiRadioResourceInvalidValues(t *testing.T) {
 			setWifi(t, srv, "radio1", map[string]any{"htmode": "40", "htmodes": map[string]any{"11g/n/ax": 40, "11n/ax": 20, "auto": true}}, "", nil)
 		}},
 		{"channel", "radio0", "  channel = 1\n", `(?s)Channel Not Supported.*` + wrapped(`The Wi-Fi radio radio0 does not support the channel 1. It supports 0 (automatic) and: 36, 40,`), nil},
+		{"channel over 32 bits", "radio0", "  channel = 4294967296\n", `(?s)Channel Not Supported.*` + wrapped(`The Wi-Fi radio radio0 does not support the channel 4294967296.`), nil},
 		{"DFS channel", "radio0", "  channel = 52\n", `(?s)Channel Not Supported.*` + wrapped(`The channel 52 of the Wi-Fi radio radio0 is a DFS channel, and the router does not support DFS.`), func(t *testing.T, srv *glinettest.Server) {
 			config, _ := wifiRadios(t, srv)
 			config.DFSSupport = false

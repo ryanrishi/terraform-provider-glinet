@@ -31,7 +31,8 @@ variable "glinet_password" {
 ```
 
 If an argument is not set, the provider reads it from `GLINET_HOST`, `GLINET_USERNAME` or `GLINET_PASSWORD`.
-Each call to the router has a time limit of 60 seconds.
+Each HTTP request to the router has a time limit of 60 seconds. One call can make up to four requests when the session expired: the call, the login challenge, the login and the call again.
+The default host uses HTTP, so the connection to the router is not encrypted: a device on the network path can read the session ID and the values that the provider reads and writes, for example Wi-Fi keys.
 
 After `terraform import`, the next plan can show an update in-place with no changed attribute when the configuration sets a sensitive attribute from a variable with `sensitive = true`.
 One `terraform apply` writes the sensitive mark into the state; the next plan shows no changes. The [provider documentation](docs/index.md) tells what this apply does on the router.

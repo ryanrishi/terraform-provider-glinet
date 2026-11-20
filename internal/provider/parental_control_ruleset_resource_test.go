@@ -212,6 +212,68 @@ resource "glinet_parental_control_ruleset" "test" {
 	})
 }
 
+// TestParentalControlRulesetResourceRenamedAndNewNamesake renames the rule set of the state on the router and adds
+// another rule set with the old name. Either rule set can be the rule set of the state, so read and destroy fail and
+// remove no rule set.
+func TestParentalControlRulesetResourceRenamedAndNewNamesake(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	removes := recordCalls(t, srv, "parental-control", "remove_rule")
+	sets := recordCalls(t, srv, "parental-control", "set_rule")
+	config := fakeRouterConfig(srv) + `
+resource "glinet_parental_control_ruleset" "test" {
+  name      = "homework"
+  block_list = ["games.example.com"]
+}
+`
+	conflict := regexp.MustCompile(`(?s)Unable to Find Parental Control Rule Set.*` +
+		wrapped(`the router has the rule set "other" with the ID "cfg000001" of the state, and the rule set "homework" with the ID`))
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+			},
+			{
+				PreConfig: func() {
+					renameRouterItem(t, srv, "rules", "cfg000001", "cfg000001", "other")
+					if _, err := client.ParentalControl.AddRule(context.Background(), glinet.ParentalControlRuleSettings{Name: "homework", Manual: true, Blacklist: []string{"games.example.com"}}); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:      config,
+				ExpectError: conflict,
+			},
+			{
+				Config:      config,
+				Destroy:     true,
+				ExpectError: conflict,
+			},
+			{
+				PreConfig: func() {
+					if got := append(removes.take(), sets.take()...); len(got) != 0 {
+						t.Errorf("the router got the writes %q", got)
+					}
+					config, err := client.ParentalControl.GetConfig(context.Background())
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := client.ParentalControl.RemoveRule(context.Background(), config.Rules[3].ID); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(rulesetAddress, plancheck.ResourceActionCreate)},
+				},
+				Check: expectRouterRulesets(client, "other", "homework"),
+			},
+		},
+	})
+}
+
 func TestParentalControlRulesetResourceExists(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
@@ -377,7 +439,9 @@ func TestParentalControlRulesetResourceInvalidConfig(t *testing.T) {
 		`name = "a"
   block_list_url = "example.com/list.txt"`: `must be a URL`,
 		`name = "a"
-  apps = [0]`: `must be at least 1`,
+  apps = [0]`: `must be between 1 and 2147483647`,
+		`name = "a"
+  apps = [4294968297]`: `must be between 1 and 2147483647`,
 	} {
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: testProtoV6ProviderFactories,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"regexp"
 	"slices"
@@ -121,7 +122,7 @@ func (r *parentalControlRulesetResource) Schema(_ context.Context, _ resource.Sc
 				ElementType: types.Int64Type,
 				Optional:    true,
 				Validators: []validator.Set{
-					setvalidator.ValueInt64sAre(int64validator.AtLeast(1)),
+					setvalidator.ValueInt64sAre(int64validator.Between(1, math.MaxInt32)),
 				},
 			},
 			"block_list": schema.ListAttribute{

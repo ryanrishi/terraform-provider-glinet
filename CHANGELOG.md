@@ -1,15 +1,19 @@
 # Changelog
 
-## 1.0.0 (2026-11-19)
+## Unreleased
 
-This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.0. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
+This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.1. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
 
 BREAKING CHANGES:
 
 * `glinet_local_access`: On a router that does not return `ssh_enabled` (firmware 4.7.0), `ssh_enabled` is null in the state, not `false`, and a write sends no `ssh_enabled` when it is not set. Before, the write sent `ssh_enabled` `false`. When `ssh_enabled` is set and the router does not return it, the apply fails before the write.
 * `glinet_firewall_dmz`: When the router reports no DMZ priority (before the first write), `higher_priority` is null in the state, not `false`, and a write sends no `priority` when `higher_priority` is not set. Before, the write sent `priority` `false`. The provider compares the priority after the write only when it sent a priority.
 * `glinet_wireguard_server`: The provider sends `ipv6_enable` only when the router returned it and `address_v6` is not empty. Firmware 4.8.3 does not return `ipv6_enable`, so a write no longer sends `ipv6_enable` `false` there.
-* Each call to the router has a time limit of 60 seconds. Before, a call had no time limit.
+* The provider refuses a `host` that contains `@`, for example `http://user:password@192.168.8.1`. Before, the provider accepted a user name and a password in the host URL, and wrote the URL to the log and to error messages. Set them with `username` and `password`.
+* `glinet_parental_control_ruleset`: `apps` accepts app IDs from 1 to 2147483647. Before, a larger value was accepted, and on the 32-bit platforms (`386`, `arm`) the provider sent another app ID to the router.
+* `glinet_firewall_rule`: When the router has more than one rule with the match fields of the resource, read, update and destroy use the only one with the `name`, `action` and `enabled` of the state. When none or more than one of them has these values, they fail with an error that lists the rules. Before, the resource used the first rule and showed a warning, so a rule with the same match fields that was added before the rule of the resource became the rule of the resource. When the read after an update fails, the state keeps the written values, so that the next apply still finds the rule.
+* `glinet_parental_control_group` and `glinet_parental_control_ruleset`: When the item with the ID of the state has another name and a different item has the name of the state, read, update and destroy fail. Before, the resource used the item with the name, so destroy could remove the other item. Remove the resource from the state with `terraform state rm` and import the right item by its name.
+* Each HTTP request to the router has a time limit of 60 seconds. Before, a request had no time limit. One call can make up to four requests when the session expired: the call, the login challenge, the login and the call again.
 
 Attribute renames. Change the names in your configuration and in each reference to them. The values do not change, except for `tx_power`.
 
@@ -59,11 +63,16 @@ ENHANCEMENTS:
 * `glinet_wireguard_server_route`: `metric` accepts values from 1 to 4294967295, as the web UI does. Before, the limit was 2147483647.
 * `glinet_firewall_rule`: The error of a failed write to a rule with no destination port tells how to remove the rule with SSH and `uci` only for the fault of firmware 4.8.3 (HTTP status 500 from `set_rule` or `remove_rule`), not for other errors.
 * `glinet_local_access`: When a write that moves the address of the API fails with an HTTP status, the error no longer says that the router did not answer.
-* The client is `glinet-client-go` v1.1.0.
+* The client is `glinet-client-go` v1.1.1. From v1.1.1, the client gives an error for a router result with an error code and a message that is not text, for a response with no result and no error, and for a login with no session ID, and its default HTTP client does not follow a redirect to another host name or from HTTPS to HTTP.
 * The login of the provider stops when Terraform cancels the operation. Before, only the time limit of the HTTP client stopped it.
+
+BUG FIXES:
+
+* `glinet_wifi_radio`: On the 32-bit platforms (`386`, `arm`), a `channel` that does not fit in 32 bits no longer becomes another channel, for example `4294967296` became `0` (automatic). Create and update now fail before the write, because the radio does not support the channel.
 
 NOTES:
 
+* `glinet_wan`: The descriptions of `username` and `password` say that it is not known what the router does with an empty PPPoE account on a PPPoE connection that works.
 * After `terraform import`, the next plan can show an update in-place with no changed attribute when the configuration sets a sensitive attribute from a variable with `sensitive = true`. Terraform 1.5.7 does this; it is not known whether newer versions do. One `terraform apply` writes the sensitive mark into the state. The provider documentation tells what this apply does on the router.
 * From v1.0.0, the client refuses a 0 or 1 flag of the router with another value, for example `2` or `"1"`, in `glinet_lan` and `glinet_network_advanced`. Such a read now fails with an error.
 * CI runs `go vet` for the 32-bit platforms `linux/386` and `linux/arm` (`make vet32`).

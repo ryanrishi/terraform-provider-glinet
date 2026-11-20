@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -73,7 +74,7 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"`glinet_firewall_port_forward`, `glinet_firewall_rule`, `glinet_parental_control_group`, `glinet_parental_control_ruleset`, " +
 			"`glinet_wireguard_client_group`, `glinet_wireguard_client_config`, `glinet_wireguard_server_peer`, `glinet_wireguard_server_route`), " +
 			"and leaves a plain setting unchanged on the router (the other resources).\n\n" +
-			"Each call to the router has a time limit of 60 seconds.\n\n" +
+			"Each HTTP request to the router has a time limit of 60 seconds. One call can make up to four requests when the session expired: the call, the login challenge, the login and the call again.\n\n" +
 			"Import and sensitive values: after `terraform import`, when the configuration sets a sensitive attribute from a variable with `sensitive = true` " +
 			"(for example `private_key` of `glinet_wireguard_client_config`), the next plan can show an update in-place with no changed attribute. " +
 			"Terraform 1.5.7 does this: the imported state does not mark the value as sensitive, but the configuration does, and Terraform sees this as a difference although the values are equal. " +
@@ -86,7 +87,8 @@ func (p *GLiNetProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Description: "URL of the router, with the scheme, for example `http://192.168.8.1`. When it is not set, the provider uses the `GLINET_HOST` environment variable. Defaults to `" + defaultHost + "`. " +
-					"Each call to the router has a time limit of 60 seconds.",
+					"The URL must not contain a user name or a password: use username and password. " +
+					"Each HTTP request to the router has a time limit of 60 seconds. One call can make up to four requests when the session expired: the call, the login challenge, the login and the call again.",
 				Optional: true,
 			},
 			"username": schema.StringAttribute{
@@ -119,6 +121,16 @@ func (p *GLiNetProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	host := valueOrEnv(config.Host, "GLINET_HOST", defaultHost)
 	username := valueOrEnv(config.Username, "GLINET_USERNAME", defaultUsername)
 	password := valueOrEnv(config.Password, "GLINET_PASSWORD", "")
+
+	if strings.Contains(host, "@") {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("host"),
+			"Invalid GL.iNet Host",
+			"The host must not contain \"@\". The provider does not accept a user name or a password in the host URL, "+
+				"because the provider logs the host and shows it in error messages. Set the user name and the password with username and password.",
+		)
+		return
+	}
 
 	if password == "" {
 		resp.Diagnostics.AddAttributeError(

@@ -321,6 +321,65 @@ resource "glinet_parental_control_group" "test" {
 	})
 }
 
+// TestParentalControlGroupResourceRenamedAndNewNamesake renames the group of the state on the router and adds another
+// group with the old name. Either group can be the group of the state, so read and destroy fail and remove no group.
+func TestParentalControlGroupResourceRenamedAndNewNamesake(t *testing.T) {
+	parallel(t)
+	srv := glinettest.NewServer(t)
+	client := testClient(t, srv.URL, srv.Username, srv.Password)
+	removes := recordCalls(t, srv, "parental-control", "remove_group")
+	sets := recordCalls(t, srv, "parental-control", "set_group")
+	config := fakeRouterConfig(srv) + `
+resource "glinet_parental_control_group" "test" {
+  name            = "kids"
+  default_ruleset = "accept"
+}
+`
+	conflict := regexp.MustCompile(`(?s)Unable to Find Parental Control Group.*` +
+		wrapped(`the router has the group "teens" with the ID "cfg000001" of the state, and the group "kids" with the ID`))
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+			},
+			{
+				PreConfig: func() {
+					renameRouterItem(t, srv, "groups", "cfg000001", "cfg000001", "teens")
+					if _, err := client.ParentalControl.AddGroup(context.Background(), glinet.ParentalControlGroupSettings{Name: "kids", DefaultRule: "accept"}); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:      config,
+				ExpectError: conflict,
+			},
+			{
+				Config:      config,
+				Destroy:     true,
+				ExpectError: conflict,
+			},
+			{
+				PreConfig: func() {
+					if got := append(removes.take(), sets.take()...); len(got) != 0 {
+						t.Errorf("the router got the writes %q", got)
+					}
+					config, err := client.ParentalControl.GetConfig(context.Background())
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := client.ParentalControl.RemoveGroup(context.Background(), config.Groups[1].ID); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:           config,
+				ConfigPlanChecks: expectResourceAction(groupAddress, plancheck.ResourceActionCreate),
+				Check:            expectRouterGroupNames(client, "teens", "kids"),
+			},
+		},
+	})
+}
+
 func TestParentalControlGroupResourceRemoved(t *testing.T) {
 	parallel(t)
 	srv := glinettest.NewServer(t)
