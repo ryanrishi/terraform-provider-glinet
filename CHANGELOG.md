@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-11-19)
 
 This is the first stable release. From 1.0.0, the provider uses semantic versioning: see the section "Versioning" of `README.md`. This release renames attributes to consistent names (see the list below) and uses the client `glinet-client-go` v1.1.1. Change the attribute names in your configuration. You do not have to change the state of release 0.2.0.
 
